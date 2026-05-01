@@ -1,0 +1,1 @@
+import streamlit as st\n\n# Title of the application\nst.title('My Streamlit App')\n\n# Sample Content\nst.write('This is a basic Streamlit application.')\nst.write('Here you can add more content, data visualizations, and user interactions.')
