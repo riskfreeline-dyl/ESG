@@ -1,0 +1,476 @@
+<title>RFL 그랜드 휠</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;800&family=Noto+Serif+KR:wght@500;700;900&display=swap">
+<style>
+/* Layout: a private salon on a cruise liner — onyx & emerald velvet room, a gold-leaf wheel crowned with marquee bulbs, a felt betting rail beneath. Single dark luxurious world by choice. */
+:root {
+  --onyx: #07070B;
+  --velvet: #0B2A22;
+  --velvet-deep: #061814;
+  --gold: #E9C46A;
+  --gold-hi: #FFF1C1;
+  --gold-lo: #8A6418;
+  --ruby: #9B1030;
+  --sapphire: #12337A;
+  --emerald: #0E6B4E;
+  --amethyst: #4E1C7A;
+  --ivory: #F6EEDC;
+  --muted: #BFB49A;
+  --cinzel: "Cinzel", "Times New Roman", serif;
+  --deco: "Cinzel Decorative", "Cinzel", serif;
+  --kr: "Noto Serif KR", "Apple SD Gothic Neo", "Malgun Gothic", serif;
+  --goldleaf: linear-gradient(135deg, #8A6418 0%, #F7DE94 18%, #B98A2C 34%, #FFF1C1 50%, #C99A3A 66%, #F2D383 82%, #8A6418 100%);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { overflow-x: clip; }
+body {
+  margin: 0; min-height: 100%;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 30%, rgba(233,196,106,.16), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 120%, #0E3A2E, transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 2px, transparent 2px 6px),
+    var(--onyx);
+  color: var(--ivory); font-family: var(--kr);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+button { font: inherit; color: inherit; border: 0; cursor: pointer; background: none; }
+button:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 620px; margin: 0 auto; padding-block: 14px 28px; display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+
+/* chandelier sparkle field */
+#sparkle { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.wrap > * { position: relative; z-index: 1; }
+
+/* header */
+header { text-align: center; display: grid; gap: 4px; }
+.crest { font-family: var(--cinzel); font-size: 13px; letter-spacing: .5em; color: var(--muted); }
+h1 { margin: 0; font-family: var(--deco); font-weight: 900; font-size: clamp(34px, 9.5vw, 58px); line-height: 1.05;
+  background: var(--goldleaf); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,.6)) drop-shadow(0 0 18px rgba(233,196,106,.35)); animation: leaf 6s linear infinite; text-wrap: balance; }
+h1 small { display: block; font-family: var(--kr); font-weight: 900; font-size: .42em; letter-spacing: .4em; margin-top: 4px; }
+.rule { height: 12px; display: flex; align-items: center; gap: 10px; justify-content: center; color: var(--gold); font-size: 12px; }
+.rule::before, .rule::after { content: ""; height: 1px; width: min(120px, 25vw); background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+/* bankroll */
+.bank { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.plate { border-radius: 12px; padding: 8px 10px; text-align: center; background: linear-gradient(180deg, #14110A, #0A0906); border: 1px solid rgba(233,196,106,.45); box-shadow: inset 0 1px 0 rgba(255,241,193,.15), 0 6px 16px rgba(0,0,0,.5); }
+.plate small { display: block; font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+.plate b { font-family: var(--cinzel); font-weight: 800; font-size: clamp(17px, 4.6vw, 22px); color: var(--gold-hi); }
+
+/* wheel stage */
+.stage { position: relative; width: min(100%, 560px); aspect-ratio: 1; margin: 6px auto 0; max-width: 100%; }
+.halo { position: absolute; inset: -2%; border-radius: 50%; background: radial-gradient(circle, rgba(233,196,106,.28), transparent 62%); filter: blur(6px); animation: breathe 4s ease-in-out infinite; }
+.rim { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #8A6418, #FFF1C1, #B98A2C, #F7DE94, #8A6418, #FFF1C1, #C99A3A, #F2D383, #8A6418); box-shadow: 0 0 0 3px #3A2A08, 0 18px 50px rgba(0,0,0,.8), 0 0 60px rgba(233,196,106,.25); }
+.rim::after { content: ""; position: absolute; inset: 5.2%; border-radius: 50%; background: #120E05; box-shadow: inset 0 0 0 2px #3A2A08, inset 0 0 24px rgba(0,0,0,.9); }
+#wheel { position: absolute; inset: 6.2%; width: 87.6%; height: 87.6%; border-radius: 50%; will-change: transform; }
+.bulbs { position: absolute; inset: 0; }
+.bulb { position: absolute; width: 2.4%; aspect-ratio: 1; border-radius: 50%; background: #FFF6D8; transform: translate(-50%, -50%); box-shadow: 0 0 6px 2px rgba(255,236,170,.9); opacity: .35; transition: opacity .12s; }
+.bulb.on { opacity: 1; }
+.hub { position: absolute; inset: 39%; border-radius: 50%; background: var(--goldleaf); box-shadow: 0 0 0 3px #3A2A08, 0 6px 18px rgba(0,0,0,.7), inset 0 0 12px rgba(0,0,0,.4); display: grid; place-items: center; pointer-events: none; }
+.hub svg { width: 82%; height: 82%; }
+.pointer { position: absolute; left: 50%; top: -2.5%; width: 9%; transform: translateX(-50%); transform-origin: 50% 18%; z-index: 3; filter: drop-shadow(0 4px 4px rgba(0,0,0,.7)); transition: transform .06s; }
+.pointer.kick { transform: translateX(-50%) rotate(-14deg); }
+.pointer svg { width: 100%; display: block; }
+
+/* result banner */
+.result { min-height: 64px; text-align: center; display: grid; gap: 2px; place-items: center; }
+.result .big { font-family: var(--deco); font-weight: 900; font-size: clamp(26px, 7vw, 38px); background: var(--goldleaf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.result .small { color: var(--muted); font-size: 15px; }
+.result.win .big { animation: win .9s ease-out; }
+
+/* history */
+.history { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; min-height: 30px; }
+.hchip { min-width: 34px; height: 30px; padding: 0 6px; border-radius: 15px; display: grid; place-items: center; font-family: var(--cinzel); font-weight: 800; font-size: 14px; border: 1px solid rgba(255,241,193,.5); }
+
+/* betting rail */
+.table { border-radius: 22px; padding: 14px; background:
+    radial-gradient(ellipse at 50% 0%, #136048, var(--velvet) 55%, var(--velvet-deep));
+  box-shadow: 0 0 0 2px #3A2A08, 0 0 0 6px #B98A2C, 0 0 0 8px #3A2A08, 0 16px 40px rgba(0,0,0,.7), inset 0 0 40px rgba(0,0,0,.5);
+  display: grid; gap: 12px; margin-inline: 8px; }
+.table h2 { margin: 0; text-align: center; font-family: var(--cinzel); font-size: 14px; letter-spacing: .35em; color: var(--gold); }
+.spots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.spot { position: relative; border-radius: 14px; padding: 10px 4px 8px; display: grid; gap: 2px; place-items: center; min-height: 86px;
+  border: 1.5px solid rgba(233,196,106,.65); background: rgba(0,0,0,.22); transition: transform .1s, box-shadow .2s; }
+.spot:active { transform: scale(.97); }
+.spot .face { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--cinzel); font-weight: 800; font-size: 18px; border: 2px solid var(--gold); box-shadow: inset 0 0 8px rgba(0,0,0,.5); }
+.spot .pay { font-size: 13px; color: var(--gold-hi); font-family: var(--cinzel); font-weight: 600; }
+.spot .stake { position: absolute; top: -10px; right: -6px; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 15px; display: grid; place-items: center; font-family: var(--cinzel); font-weight: 800; font-size: 12px; color: #1A1204; background: var(--goldleaf); box-shadow: 0 3px 6px rgba(0,0,0,.6); }
+.spot.hit { box-shadow: 0 0 0 3px var(--gold-hi), 0 0 30px rgba(255,241,193,.8); }
+.spot.wide { grid-column: span 2; }
+
+/* chips */
+.chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.chip { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-family: var(--cinzel); font-weight: 800; font-size: 14px; position: relative;
+  box-shadow: 0 4px 0 rgba(0,0,0,.55), 0 6px 12px rgba(0,0,0,.5); transition: transform .12s; }
+.chip::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.75); }
+.chip::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: rgba(0,0,0,.25); box-shadow: inset 0 0 0 1px rgba(255,241,193,.6); }
+.chip span { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+.chip.sel { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--gold-hi), 0 10px 18px rgba(0,0,0,.6), 0 0 20px rgba(255,241,193,.6); }
+
+.actions { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
+.btn { min-height: 56px; border-radius: 28px; font-family: var(--kr); font-weight: 700; font-size: 16px; border: 1.5px solid rgba(233,196,106,.7); background: rgba(0,0,0,.35); color: var(--ivory); }
+.btn:disabled { opacity: .4; cursor: default; }
+.spin { font-family: var(--deco); font-weight: 900; font-size: 22px; letter-spacing: .08em; color: #1A1204; background: var(--goldleaf); background-size: 200% 100%; border: 0;
+  box-shadow: 0 5px 0 #5A3F0A, 0 0 26px rgba(233,196,106,.55); animation: leaf 5s linear infinite; }
+.spin:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 #5A3F0A; }
+
+.note { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0; }
+.toggles { display: flex; justify-content: center; gap: 8px; }
+.toggles .btn { min-height: 40px; font-size: 14px; padding: 0 14px; }
+
+/* win overlay */
+.jackpot { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; pointer-events: none; }
+.jackpot div { font-family: var(--deco); font-weight: 900; font-size: clamp(40px, 13vw, 96px); text-align: center; background: var(--goldleaf); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 30px rgba(255,241,193,.8)) drop-shadow(0 4px 0 #3A2A08); animation: jack 2.6s ease-out forwards, leaf 2s linear infinite; line-height: 1.1; }
+.jackpot div small { display: block; font-family: var(--kr); font-size: .38em; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; }
+
+@keyframes leaf { to { background-position: -200% 0; } }
+@keyframes breathe { 50% { opacity: .55; transform: scale(1.03); } }
+@keyframes win { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes jack { 0% { transform: scale(.3); opacity: 0; } 18% { transform: scale(1.1); opacity: 1; } 75% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.05); opacity: 0; } }
+@media (max-width: 420px) { .spot .face { width: 34px; height: 34px; font-size: 15px; } .chip { width: 50px; height: 50px; font-size: 13px; } .actions { grid-template-columns: 1fr 1fr; } .actions .spin { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { h1, .spin, .halo, .jackpot div { animation: none !important; } }
+</style>
+
+<canvas id="sparkle" aria-hidden="true"></canvas>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <header>
+    <div class="crest">RFL CRUISE · ROYAL SALON</div>
+    <h1>Grand Wheel<small>그랜드 휠</small></h1>
+    <div class="rule">◆</div>
+  </header>
+
+  <div class="bank num">
+    <div class="plate"><small>보유 칩</small><b id="bal">0</b></div>
+    <div class="plate"><small>이번 베팅</small><b id="betTotal">0</b></div>
+    <div class="plate"><small>최근 당첨</small><b id="lastWin">—</b></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="halo"></div>
+    <div class="rim"></div>
+    <canvas id="wheel" aria-label="그랜드 휠"></canvas>
+    <div class="bulbs" id="bulbs" aria-hidden="true"></div>
+    <div class="hub" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="46" fill="#120E05" stroke="#3A2A08" stroke-width="2"/>
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#E9C46A" stroke-width="1.5"/>
+        <g stroke="#E9C46A" stroke-width="4" stroke-linecap="round">
+          <line x1="50" y1="8" x2="50" y2="22"/><line x1="50" y1="78" x2="50" y2="92"/><line x1="8" y1="50" x2="22" y2="50"/><line x1="78" y1="50" x2="92" y2="50"/>
+          <line x1="20" y1="20" x2="30" y2="30"/><line x1="70" y1="70" x2="80" y2="80"/><line x1="80" y1="20" x2="70" y2="30"/><line x1="20" y1="80" x2="30" y2="70"/>
+        </g>
+        <circle cx="50" cy="50" r="24" fill="#0B2A22" stroke="#E9C46A" stroke-width="2"/>
+        <text x="50" y="57" text-anchor="middle" font-family="Cinzel, serif" font-weight="800" font-size="19" fill="#FFF1C1">RFL</text>
+      </svg>
+    </div>
+    <div class="pointer" id="pointer" aria-hidden="true">
+      <svg viewBox="0 0 60 90">
+        <defs><linearGradient id="pg" x1="0" x2="1"><stop offset="0" stop-color="#8A6418"/><stop offset=".45" stop-color="#FFF1C1"/><stop offset="1" stop-color="#B98A2C"/></linearGradient></defs>
+        <circle cx="30" cy="16" r="14" fill="url(#pg)" stroke="#3A2A08" stroke-width="2"/>
+        <path d="M14 22 L30 86 L46 22 Z" fill="url(#pg)" stroke="#3A2A08" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="30" cy="16" r="6" fill="#9B1030" stroke="#FFF1C1" stroke-width="1.5"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="result" id="result" aria-live="polite"><div class="big" id="resBig">PLACE YOUR BETS</div><div class="small" id="resSmall">아래 칸을 눌러 칩을 올리고 스핀을 누르세요</div></div>
+  <div class="history" id="history" aria-label="최근 결과"></div>
+
+  <section class="table" aria-label="베팅 테이블">
+    <h2>MAKE YOUR WAGER</h2>
+    <div class="spots" id="spots"></div>
+    <div class="chips" id="chips" role="radiogroup" aria-label="칩 고르기"></div>
+    <div class="actions">
+      <button class="btn" id="bClear">베팅 지우기</button>
+      <button class="btn" id="bRepeat">같은 베팅</button>
+      <button class="btn spin" id="bSpin">SPIN</button>
+    </div>
+  </section>
+
+  <div class="toggles">
+    <button class="btn" id="bSound" aria-pressed="true">사운드 켬</button>
+    <button class="btn" id="bRefill" hidden>칩 다시 받기</button>
+  </div>
+  <p class="note">가상 칩으로 즐기는 무료 게임입니다. 실제 돈을 걸거나 칩을 현금·상품으로 바꿀 수 없습니다.<br>결과는 매번 기기의 보안 난수로 공정하게 정해집니다.</p>
+</div>
+
+<div class="jackpot" id="jackpot" hidden><div id="jackText"></div></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString('ko-KR');
+
+  // ---------- wheel definition: 54 segments ----------
+  const SYM = {
+    1:      { label: '1',  pay: 1,  fill: ['#1B1B22', '#2C2C38'], ink: '#FFF1C1', name: '1배' },
+    2:      { label: '2',  pay: 2,  fill: ['#12337A', '#1F4FB0'], ink: '#FFF1C1', name: '2배' },
+    5:      { label: '5',  pay: 5,  fill: ['#0E6B4E', '#15936B'], ink: '#FFF1C1', name: '5배' },
+    10:     { label: '10', pay: 10, fill: ['#4E1C7A', '#7330AD'], ink: '#FFF1C1', name: '10배' },
+    20:     { label: '20', pay: 20, fill: ['#9B1030', '#D01E48'], ink: '#FFF1C1', name: '20배' },
+    anchor: { label: '⚓', pay: 40, fill: ['#0A0A0A', '#2A2A2A'], ink: '#E9C46A', name: '앵커 40배' },
+    crown:  { label: '♛', pay: 40, fill: ['#8A6418', '#F2D383'], ink: '#2A1C04', name: '크라운 40배' },
+  };
+  const N = 54, SEG = 360 / N;
+  const LAYOUT = new Array(N).fill(null);
+  LAYOUT[0] = 'crown'; LAYOUT[27] = 'anchor';
+  [13, 40].forEach(i => LAYOUT[i] = 20);
+  [7, 20, 34, 47].forEach(i => LAYOUT[i] = 10);
+  [4, 10, 17, 24, 31, 37, 44].forEach(i => LAYOUT[i] = 5);
+  { const free = []; LAYOUT.forEach((v, i) => { if (v === null) free.push(i); });
+    free.forEach((pos, k) => { LAYOUT[pos] = Math.floor((k + 1) * 15 / free.length) > Math.floor(k * 15 / free.length) ? 2 : 1; }); }
+  const ORDER = [1, 2, 5, 10, 20, 'anchor', 'crown'];
+
+  // ---------- state ----------
+  const CHIPS = [
+    { v: 1000,   label: '1K',   bg: 'radial-gradient(circle at 35% 30%, #F6EEDC, #C9BFA5)', ink: '#1A1204' },
+    { v: 5000,   label: '5K',   bg: 'radial-gradient(circle at 35% 30%, #E0405E, #7A0C24)', ink: '#FFF1C1' },
+    { v: 25000,  label: '25K',  bg: 'radial-gradient(circle at 35% 30%, #22A37A, #0A4A36)', ink: '#FFF1C1' },
+    { v: 100000, label: '100K', bg: 'radial-gradient(circle at 35% 30%, #3A3A44, #08080C)', ink: '#E9C46A' },
+    { v: 500000, label: '500K', bg: 'radial-gradient(circle at 35% 30%, #9C5BD6, #3C1460)', ink: '#FFF1C1' },
+  ];
+  const START = 1000000;
+  const load = () => { try { return JSON.parse(localStorage.getItem('rfl-grand-wheel') || '{}'); } catch (e) { return {}; } };
+  const save = () => { try { localStorage.setItem('rfl-grand-wheel', JSON.stringify({ bal: S.bal, hist: S.hist })); } catch (e) {} };
+  const saved = load();
+  const S = { bal: saved.bal ?? START, bets: {}, lastBets: null, chip: 1, spinning: false, rot: 0, hist: saved.hist || [] };
+
+  // ---------- audio ----------
+  let A = null, sound = true;
+  const ac = () => { if (!A) { try { A = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (A && A.state === 'suspended') A.resume(); return A; };
+  function tone(f, d, type = 'sine', v = .1, when = 0) {
+    if (!sound || !A) return; const t = A.currentTime + when, o = A.createOscillator(), g = A.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g).connect(A.destination); o.start(t); o.stop(t + d + .02);
+  }
+  const sfx = {
+    tick: () => { tone(2400, .03, 'square', .035); tone(1200, .04, 'triangle', .04); },
+    chip: () => { tone(3200, .04, 'triangle', .06); tone(4100, .05, 'triangle', .05, .025); },
+    spin: () => [196, 247, 294, 392].forEach((f, i) => tone(f, .5, 'triangle', .05, i * .05)),
+    win: big => { const s = big ? [523, 659, 784, 1047, 1319, 1568, 2093] : [659, 784, 1047, 1319]; s.forEach((f, i) => { tone(f, .5, 'triangle', .07, i * .09); tone(f * 2, .3, 'sine', .03, i * .09); }); },
+    lose: () => [392, 349, 294].forEach((f, i) => tone(f, .35, 'sine', .05, i * .14)),
+  };
+
+  // ---------- draw wheel (static, rotated with CSS) ----------
+  const wc = $('wheel');
+  function drawWheel() {
+    const size = Math.round(wc.clientWidth * Math.min(2, window.devicePixelRatio || 1));
+    if (!size) return;
+    wc.width = wc.height = size;
+    const g = wc.getContext('2d'), R = size / 2;
+    g.translate(R, R);
+    for (let i = 0; i < N; i++) {
+      const sym = SYM[LAYOUT[i]];
+      const a0 = (i * SEG - 90) * Math.PI / 180, a1 = ((i + 1) * SEG - 90) * Math.PI / 180;
+      const grd = g.createRadialGradient(0, 0, R * .3, 0, 0, R);
+      grd.addColorStop(0, sym.fill[0]); grd.addColorStop(.75, sym.fill[1]); grd.addColorStop(1, sym.fill[0]);
+      g.fillStyle = grd; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R, a0, a1); g.closePath(); g.fill();
+      // gold divider
+      g.strokeStyle = 'rgba(233,196,106,.9)'; g.lineWidth = size * .0035;
+      g.beginPath(); g.moveTo(Math.cos(a0) * R * .38, Math.sin(a0) * R * .38); g.lineTo(Math.cos(a0) * R, Math.sin(a0) * R); g.stroke();
+      // peg
+      const pr = R * .965;
+      g.fillStyle = '#FFF1C1'; g.beginPath(); g.arc(Math.cos(a0) * pr, Math.sin(a0) * pr, size * .006, 0, 7); g.fill();
+      // label (reads outward)
+      const mid = (i + .5) * SEG * Math.PI / 180;
+      g.save(); g.rotate(mid);
+      g.fillStyle = sym.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const isIcon = LAYOUT[i] === 'anchor' || LAYOUT[i] === 'crown';
+      g.font = `800 ${size * (isIcon ? .05 : .036)}px Cinzel, serif`;
+      g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = size * .006;
+      g.fillText(sym.label, 0, -R * .83);
+      g.font = `600 ${size * .018}px Cinzel, serif`; g.globalAlpha = .75; g.fillText(isIcon ? '40×' : sym.pay + '×', 0, -R * .7);
+      g.restore();
+    }
+    // inner gold rings
+    [[.38, .012], [.995, .008]].forEach(([r, w]) => { g.strokeStyle = '#E9C46A'; g.lineWidth = size * w; g.beginPath(); g.arc(0, 0, R * r, 0, 7); g.stroke(); });
+    // glossy sheen
+    const sh = g.createLinearGradient(-R, -R, R, R); sh.addColorStop(0, 'rgba(255,255,255,.12)'); sh.addColorStop(.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)');
+    g.fillStyle = sh; g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill();
+  }
+  function setRot() { wc.style.transform = `rotate(${S.rot}deg)`; }
+
+  // ---------- marquee bulbs ----------
+  const BULBS = 36, bulbEls = [];
+  for (let i = 0; i < BULBS; i++) {
+    const a = (i / BULBS) * Math.PI * 2 - Math.PI / 2, r = 47.4;
+    const b = document.createElement('div'); b.className = 'bulb';
+    b.style.left = (50 + Math.cos(a) * r) + '%'; b.style.top = (50 + Math.sin(a) * r) + '%';
+    $('bulbs').append(b); bulbEls.push(b);
+  }
+  let bulbMode = 'chase', bulbT = 0;
+  setInterval(() => {
+    bulbT++;
+    bulbEls.forEach((b, i) => {
+      let on;
+      if (bulbMode === 'chase') on = (i + bulbT) % 4 === 0;
+      else if (bulbMode === 'fast') on = (i + bulbT) % 3 !== 0;
+      else on = bulbT % 2 === 0; // flash
+      b.classList.toggle('on', on);
+    });
+  }, 110);
+
+  // ---------- betting UI ----------
+  const spotEls = {};
+  function buildSpots() {
+    const box = $('spots'); box.innerHTML = '';
+    ORDER.forEach(k => {
+      const sym = SYM[k], b = document.createElement('button');
+      b.className = 'spot' + (k === 'anchor' || k === 'crown' ? '' : '');
+      b.innerHTML = `<div class="face" style="background:linear-gradient(160deg, ${sym.fill[1]}, ${sym.fill[0]});color:${sym.ink}">${sym.label}</div><div class="pay">${sym.pay} : 1</div><div class="stake num" hidden></div>`;
+      b.setAttribute('aria-label', sym.name + ' 칸에 베팅');
+      b.addEventListener('click', () => placeBet(k));
+      b.addEventListener('contextmenu', e => { e.preventDefault(); removeBet(k); });
+      box.append(b); spotEls[k] = b;
+    });
+    // 8th cell: odds legend to keep the grid full
+    const info = document.createElement('div'); info.className = 'spot'; info.style.borderStyle = 'dashed';
+    info.innerHTML = '<div class="pay" style="font-size:12px;line-height:1.5;text-align:center;color:var(--muted)">칸을 길게 누르면<br>칩 한 개 빼기</div>';
+    box.append(info);
+  }
+  function buildChips() {
+    const box = $('chips'); box.innerHTML = '';
+    CHIPS.forEach((c, i) => {
+      const b = document.createElement('button'); b.className = 'chip' + (i === S.chip ? ' sel' : '');
+      b.style.background = c.bg; b.style.color = c.ink; b.innerHTML = `<span>${c.label}</span>`;
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', i === S.chip); b.setAttribute('aria-label', fmt(c.v) + ' 칩');
+      b.addEventListener('click', () => { S.chip = i; sfx.chip(); buildChips(); });
+      box.append(b);
+    });
+  }
+  const betSum = () => Object.values(S.bets).reduce((a, b) => a + b, 0);
+  function placeBet(k) {
+    if (S.spinning) return; ac();
+    const v = CHIPS[S.chip].v;
+    if (betSum() + v > S.bal) { flashMsg('칩이 부족해요', '더 작은 칩을 고르거나 베팅을 줄여 주세요'); return; }
+    S.bets[k] = (S.bets[k] || 0) + v; sfx.chip(); render();
+  }
+  function removeBet(k) {
+    if (S.spinning || !S.bets[k]) return;
+    S.bets[k] = Math.max(0, S.bets[k] - CHIPS[S.chip].v); if (!S.bets[k]) delete S.bets[k]; sfx.chip(); render();
+  }
+  // long-press to remove
+  let lpTimer = null;
+  document.addEventListener('pointerdown', e => { const sp = e.target.closest('.spot'); if (!sp) return; const k = Object.keys(spotEls).find(x => spotEls[x] === sp); if (!k) return; lpTimer = setTimeout(() => { lpTimer = 'fired'; removeBet(k); }, 550); });
+  document.addEventListener('pointerup', () => { if (lpTimer && lpTimer !== 'fired') clearTimeout(lpTimer); setTimeout(() => lpTimer = null, 0); });
+  document.addEventListener('click', e => { if (lpTimer === 'fired' && e.target.closest('.spot')) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+  function render() {
+    $('bal').textContent = fmt(S.bal - betSum());
+    $('betTotal').textContent = fmt(betSum());
+    ORDER.forEach(k => { const st = spotEls[k].querySelector('.stake'); const v = S.bets[k] || 0; st.hidden = !v; st.textContent = v >= 1000 ? (v / 1000).toLocaleString('ko-KR') + 'K' : v; });
+    $('bSpin').disabled = S.spinning || betSum() <= 0;
+    $('bClear').disabled = S.spinning || betSum() <= 0;
+    $('bRepeat').disabled = S.spinning || !S.lastBets;
+    $('bRefill').hidden = !(S.bal < CHIPS[0].v && !S.spinning);
+    const h = $('history'); h.innerHTML = '';
+    S.hist.slice(-12).forEach(k => { const sym = SYM[k], c = document.createElement('div'); c.className = 'hchip'; c.style.background = `linear-gradient(160deg, ${sym.fill[1]}, ${sym.fill[0]})`; c.style.color = sym.ink; c.textContent = sym.label; h.append(c); });
+  }
+  function flashMsg(big, small) { $('resBig').textContent = big; $('resSmall').textContent = small; $('result').classList.remove('win'); }
+
+  // ---------- spin ----------
+  function secureRand() { const a = new Uint32Array(1); (window.crypto || window.msCrypto).getRandomValues(a); return a[0] / 4294967296; }
+  const easeOut = t => 1 - Math.pow(1 - t, 4);
+  function spin() {
+    if (S.spinning || betSum() <= 0) return;
+    ac(); sfx.spin();
+    S.spinning = true; S.lastBets = { ...S.bets };
+    const stake = betSum(); S.bal -= stake;
+    ORDER.forEach(k => spotEls[k].classList.remove('hit'));
+    flashMsg('NO MORE BETS', '휠이 돌아갑니다…');
+    render(); $('bal').textContent = fmt(S.bal);
+    const target = Math.floor(secureRand() * N);
+    const want = target * SEG + SEG * (.18 + secureRand() * .64);       // where under the pointer it stops
+    const cur = ((S.rot % 360) + 360) % 360;
+    const delta = ((360 - want) - cur + 720) % 360;
+    const from = S.rot, to = S.rot + 360 * (5 + Math.floor(secureRand() * 3)) + delta;
+    const dur = 7000 + secureRand() * 1500, t0 = performance.now();
+    let lastPeg = Math.floor(from / SEG);
+    bulbMode = 'fast';
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur);
+      S.rot = from + (to - from) * easeOut(t); setRot();
+      const peg = Math.floor(S.rot / SEG);
+      if (peg !== lastPeg) { lastPeg = peg; sfx.tick(); const p = $('pointer'); p.classList.add('kick'); setTimeout(() => p.classList.remove('kick'), 50); }
+      if (t < 1) requestAnimationFrame(step); else settle(target, stake);
+    };
+    requestAnimationFrame(step);
+  }
+  function settle(target, stake) {
+    const k = LAYOUT[target], sym = SYM[k];
+    const bet = S.bets[k] || 0, win = bet ? bet * (sym.pay + 1) : 0;
+    S.bal += win; S.hist.push(k); if (S.hist.length > 30) S.hist.shift();
+    spotEls[k].classList.add('hit');
+    $('lastWin').textContent = win ? '+' + fmt(win) : '—';
+    if (win) {
+      const big = sym.pay >= 20;
+      $('resBig').textContent = '+' + fmt(win);
+      $('resSmall').textContent = sym.name + ' 당첨! 베팅 ' + fmt(bet) + ' → ' + fmt(win);
+      $('result').classList.remove('win'); void $('result').offsetWidth; $('result').classList.add('win');
+      sfx.win(big); confetti(big ? 260 : 120);
+      if (big) { $('jackText').innerHTML = (k === 'crown' ? 'ROYAL CROWN' : k === 'anchor' ? 'GRAND ANCHOR' : 'MAGNIFIQUE') + '<small>' + sym.name + ' 잭팟</small>'; $('jackpot').hidden = false; setTimeout(() => $('jackpot').hidden = true, 2700); }
+      bulbMode = 'flash'; setTimeout(() => bulbMode = 'chase', 3000);
+    } else {
+      $('resBig').textContent = sym.label === '♛' ? 'ROYAL CROWN' : sym.label === '⚓' ? 'GRAND ANCHOR' : sym.label;
+      $('resSmall').textContent = sym.name + '에 멈췄어요. 다음 스핀에 행운을!';
+      sfx.lose(); bulbMode = 'chase';
+    }
+    S.bets = {}; S.spinning = false; save(); render();
+  }
+
+  // ---------- confetti: gold leaf & jewel flakes ----------
+  const cc = $('confetti'), cg = cc.getContext('2d'); let flakes = [], cRun = false;
+  const FLAKE = ['#FFF1C1', '#E9C46A', '#F7DE94', '#B98A2C', '#D01E48', '#1F4FB0', '#15936B', '#7330AD'];
+  function confetti(n) {
+    const W = cc.width = innerWidth * (devicePixelRatio || 1), H = cc.height = innerHeight * (devicePixelRatio || 1);
+    for (let i = 0; i < n; i++) flakes.push({ x: W / 2 + (Math.random() - .5) * W * .3, y: H * .35, vx: (Math.random() - .5) * W * .012, vy: -Math.random() * H * .018 - H * .006, r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, w: 6 + Math.random() * 10, c: FLAKE[i % FLAKE.length], life: 1 });
+    if (!cRun) { cRun = true; requestAnimationFrame(cStep); }
+  }
+  function cStep() {
+    cg.clearRect(0, 0, cc.width, cc.height);
+    const H = cc.height;
+    flakes.forEach(f => { f.vy += H * .0005; f.vx *= .99; f.x += f.vx; f.y += f.vy; f.r += f.vr; if (f.y > H + 40) f.life = 0;
+      cg.save(); cg.translate(f.x, f.y); cg.rotate(f.r); cg.scale(1, Math.abs(Math.sin(f.r * 2)) + .2); cg.fillStyle = f.c; cg.fillRect(-f.w / 2, -f.w / 4, f.w, f.w / 2); cg.restore(); });
+    flakes = flakes.filter(f => f.life);
+    if (flakes.length) requestAnimationFrame(cStep); else { cRun = false; cg.clearRect(0, 0, cc.width, cc.height); }
+  }
+
+  // ---------- chandelier sparkle ----------
+  const sc = $('sparkle'), sg = sc.getContext('2d'); let spk = [];
+  function sizeSpark() { sc.width = innerWidth; sc.height = innerHeight; spk = Array.from({ length: 70 }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight * .8, p: Math.random() * 6, s: .5 + Math.random() * 1.8 })); }
+  function sparkStep(t) {
+    sg.clearRect(0, 0, sc.width, sc.height);
+    spk.forEach(s => { const a = Math.max(0, Math.sin(t / 700 + s.p)); if (a < .05) return; sg.globalAlpha = a * .8; sg.fillStyle = '#FFF1C1';
+      sg.beginPath(); sg.arc(s.x, s.y, s.s, 0, 7); sg.fill();
+      if (a > .9) { sg.globalAlpha = (a - .9) * 6; sg.fillRect(s.x - s.s * 5, s.y - .5, s.s * 10, 1); sg.fillRect(s.x - .5, s.y - s.s * 5, 1, s.s * 10); } });
+    sg.globalAlpha = 1; requestAnimationFrame(sparkStep);
+  }
+
+  // ---------- wiring ----------
+  $('bSpin').addEventListener('click', spin);
+  $('bClear').addEventListener('click', () => { if (S.spinning) return; S.bets = {}; sfx.chip(); render(); });
+  $('bRepeat').addEventListener('click', () => {
+    if (S.spinning || !S.lastBets) return; const need = Object.values(S.lastBets).reduce((a, b) => a + b, 0);
+    if (need > S.bal) { flashMsg('칩이 부족해요', '같은 베팅에 ' + fmt(need) + ' 칩이 필요해요'); return; }
+    S.bets = { ...S.lastBets }; sfx.chip(); render();
+  });
+  $('bRefill').addEventListener('click', () => { S.bal = START; save(); flashMsg('WELCOME BACK', '칩 ' + fmt(START) + '을 다시 받았어요'); render(); });
+  $('bSound').addEventListener('click', () => { sound = !sound; $('bSound').textContent = sound ? '사운드 켬' : '사운드 끔'; $('bSound').setAttribute('aria-pressed', sound); });
+  window.addEventListener('resize', () => { drawWheel(); sizeSpark(); });
+
+  buildSpots(); buildChips(); render(); setRot(); sizeSpark(); requestAnimationFrame(sparkStep);
+  drawWheel();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawWheel);
+  window.__wheel = { LAYOUT, SYM, S, spin, placeBet };
+})();
+</script>
