@@ -106,7 +106,25 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
 .preview { text-align: center; min-height: 64px; display: grid; gap: 2px; }
 .preview .combo { font-family: var(--display); font-size: 26px; color: var(--lantern); }
 .preview .math { color: var(--ivory); font-size: 18px; }
-.hint { text-align: center; color: var(--muted); font-size: 16px; }
+.hint { text-align: center; color: var(--muted); font-size: 16px; margin: 0; }
+.preview .need { font-size: 16px; color: var(--muted); }
+.preview .big { font-family: var(--display); font-size: 30px; color: var(--ivory); }
+.help-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.die.suggest { animation: suggest 1s ease-in-out infinite; }
+@keyframes suggest { 0%,100% { box-shadow: inset 0 -5px 0 #D7C6A2, 0 0 0 3px var(--jade), 0 5px 0 #15100C; } 50% { box-shadow: inset 0 -5px 0 #D7C6A2, 0 0 0 6px var(--jade), 0 0 18px var(--jade); } }
+.glow { animation: glow 1.1s ease-in-out infinite; position: relative; z-index: 2; }
+@keyframes glow { 0%,100% { box-shadow: 0 0 0 3px var(--jade), 0 0 0 rgba(70,188,147,0); } 50% { box-shadow: 0 0 0 5px var(--jade), 0 0 24px rgba(70,188,147,.8); } }
+/* coach: a paper note pinned on the stall */
+.coach { background: var(--ivory); color: var(--ink); border-radius: 6px 16px 14px 18px; padding: 14px 16px; display: grid; gap: 10px; box-shadow: 0 5px 0 #A99872; transform: rotate(-.6deg); filter: url(#rough); }
+.coach .step { font-family: var(--display); color: var(--red); font-size: 16px; letter-spacing: .05em; }
+.coach p { margin: 0; font-size: 20px; line-height: 1.5; }
+.coach .row .btn { min-height: 48px; font-size: 18px; }
+.coach .btn.ghost { background: transparent; box-shadow: none; color: #6B5A45; text-decoration: underline; flex: 0 0 auto; }
+/* backdrop: hand-drawn rooftops of the market */
+.backdrop { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; z-index: -1; pointer-events: none; opacity: .55; }
+.backdrop svg { width: 100%; height: 100%; display: block; }
+.moon { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 54px); right: 8%; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 40% 38%, #FFF4D6, #F1D99A 60%, #D9B866); box-shadow: 0 0 40px rgba(255, 228, 160, .35); z-index: -1; opacity: .8; filter: url(#rough); }
+.logo-brush { display: block; width: 100%; height: 14px; margin-top: 4px; }
 
 /* floating score */
 .float { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); font-family: var(--display); font-size: 56px; color: var(--lantern); text-shadow: 0 0 22px var(--lantern-glow), 0 4px 0 #7A4E10; pointer-events: none; animation: rise 1.3s ease-out forwards; z-index: 30; white-space: nowrap; }
@@ -160,13 +178,34 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
 }
 </style>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="3"/></filter>
+  <filter id="rough2"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="3"/><feDisplacementMap in="SourceGraphic" scale="6"/></filter>
+</svg>
+<div class="moon" aria-hidden="true"></div>
+<div class="backdrop" aria-hidden="true">
+  <svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMax slice">
+    <g filter="url(#rough2)" stroke="#0B0D1E" stroke-width="2.5" stroke-linejoin="round">
+      <path d="M-10 120 Q60 60 120 95 Q170 50 240 85 Q300 40 410 90 L410 260 L-10 260Z" fill="#1D2147"/>
+      <path d="M10 150 Q40 132 70 140 L250 140 Q280 132 310 150 L300 158 L20 158Z" fill="#2B2F5C"/>
+      <path d="M150 128 Q175 112 200 118 L330 118 Q355 112 380 128 L372 135 L158 135Z" fill="#262A55"/>
+      <rect x="30" y="158" width="260" height="102" fill="#1A1D3D"/>
+      <rect x="170" y="135" width="200" height="125" fill="#171A37"/>
+      <g fill="#3B2A22"><rect x="44" y="200" width="70" height="60"/><rect x="200" y="190" width="80" height="70"/><rect x="300" y="196" width="60" height="64"/></g>
+      <path d="M36 196 L122 196 L118 184 L40 184Z" fill="#E2553F"/><path d="M40 184 L52 196 L64 184 L76 196 L88 184 L100 196 L112 184" fill="none" stroke="#F7ECD5" stroke-width="2"/>
+      <path d="M192 186 L288 186 L284 172 L196 172Z" fill="#46BC93"/><path d="M196 172 L210 186 L224 172 L238 186 L252 172 L266 186 L280 172" fill="none" stroke="#F7ECD5" stroke-width="2"/>
+      <path d="M294 192 L366 192 L362 180 L298 180Z" fill="#F5B544"/>
+      <g fill="#F5B544" stroke="none" opacity=".9"><circle cx="62" cy="214" r="4"/><circle cx="92" cy="220" r="3"/><circle cx="226" cy="206" r="4"/><circle cx="258" cy="214" r="3"/><circle cx="328" cy="212" r="3"/></g>
+    </g>
+  </svg>
+</div>
 <div id="app">
   <div class="lanterns" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 
   <!-- TITLE -->
   <section class="screen" id="s-title">
     <div class="title-wrap">
-      <div class="logo">장터 주사위<small>밤 장 열 번</small></div>
+      <div class="logo">장터 주사위<svg class="logo-brush" viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true"><path d="M6 9 Q80 2 150 7 T294 6" stroke="#E2553F" stroke-width="6" fill="none" stroke-linecap="round" filter="url(#rough)"/></svg><small>밤 장 열 번</small></div>
       <div class="title-dice" id="titleDice"></div>
       <p class="tagline">주사위 다섯 개로 족보를 맞추고, 장터 부적으로 점수를 불려 열 번의 장날을 버텨 보세요.</p>
       <button class="btn primary" id="btnStart">장 보러 가기</button>
@@ -180,7 +219,8 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     <div class="topbar">
       <button class="icon-btn" id="btnHow">하는 방법</button>
       <button class="icon-btn" id="btnCombos">족보표</button>
-      <button class="icon-btn" id="btnSound" aria-pressed="true">소리 켬</button>
+      <button class="icon-btn" id="btnMusic" aria-pressed="true">음악 켬</button>
+      <button class="icon-btn" id="btnSound" aria-pressed="true">효과음 켬</button>
     </div>
     <div class="board">
       <div class="board-top">
@@ -197,9 +237,17 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     <div class="charms" id="charmRow"></div>
     <div class="tray">
       <div class="dice" id="dice"></div>
-      <div class="preview" aria-live="polite"><div class="combo" id="comboName">&nbsp;</div><div class="math num" id="comboMath">&nbsp;</div></div>
+      <div class="preview" aria-live="polite"><div class="combo" id="comboName">&nbsp;</div><div class="big num" id="comboBig">&nbsp;</div><div class="math num" id="comboMath">&nbsp;</div><div class="need num" id="needText">&nbsp;</div></div>
     </div>
-    <p class="hint" id="hint">남기고 싶은 주사위를 누르면 묶입니다.</p>
+    <div class="coach" id="coach" hidden>
+      <div class="step" id="coachStep"></div>
+      <p id="coachText"></p>
+      <div class="row"><button class="btn go" id="coachNext">다음</button><button class="btn ghost" id="coachSkip">안내 그만 보기</button></div>
+    </div>
+    <div class="help-row">
+      <p class="hint" id="hint">남기고 싶은 주사위를 누르면 묶입니다.</p>
+      <button class="btn small" id="btnSuggest">뭘 묶을까? 추천 받기</button>
+    </div>
     <div class="row">
       <button class="btn" id="btnReroll">다시 굴리기</button>
       <button class="btn primary" id="btnSubmit">이걸로 내기</button>
@@ -221,7 +269,10 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
       <h2 class="display" style="font-size:30px;color:var(--lantern)">부적 장터</h2>
       <div class="coins num">엽전 <b id="shopCoins">0</b>냥</div>
     </div>
-    <p class="hint" style="text-align:left;margin:0">부적은 매 판 점수를 키워 줍니다. 최대 5개까지 지닐 수 있어요.</p>
+    <div class="coach" style="transform:rotate(.4deg)">
+      <p style="font-size:18px"><b>부적</b>은 한 번 사면 계속 효과가 있어서, 판을 낼 때마다 점수를 키워 줘요. 엽전이 되는 만큼 사고 <b>[다음 장날로]</b>를 누르세요. (최대 5개)</p>
+      <p style="font-size:16px;color:#6B5A45">처음이라면 <b>국밥 한 그릇</b>처럼 "언제나" 효과가 나는 부적이 쉬워요.</p>
+    </div>
     <div class="cards" id="shopCards"></div>
     <div class="row">
       <button class="btn small" id="btnRestock">새 물건 보기 (2냥)</button>
@@ -258,7 +309,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
       <li>열 번째 장날까지 버티면 <b>장터의 큰손</b>이 됩니다.</li>
     </ol>
     <p class="hint" style="text-align:left;margin:0">점수 = (족보 기본점 + 족보에 쓰인 주사위 눈의 합) × 배수</p>
-    <button class="btn primary" data-close>알겠어요</button>
+    <div class="row"><button class="btn go" id="btnTutorial">따라 하며 배우기</button><button class="btn primary" data-close>알겠어요</button></div>
   </div>
 </div>
 <div class="modal" id="m-combos" hidden>
@@ -423,6 +474,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
 
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; });
+    document.querySelector('.moon').hidden = !(id === 's-title' || id === 's-end');
     window.scrollTo(0, 0);
   }
 
@@ -483,11 +535,124 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     if (S.busy) return;
     const ctx = scoreHand(S.dice.map(d => d.v), S, true);
     const c = COMBOS[ctx.key];
-    $('comboName').textContent = c.name;
+    $('comboName').textContent = c.name + ' · ' + c.desc;
+    $('comboBig').textContent = '지금 내면 ' + fmt(ctx.total) + '점';
     const xs = ctx.x !== 1 ? ' × ' + fmt(ctx.x) : '';
-    const lot = hasCharm('lottery') ? ' (+복권?)' : '';
-    $('comboMath').textContent = fmt(ctx.chips) + ' × ' + fmt(ctx.mult) + xs + ' = ' + fmt(ctx.total) + '점' + lot;
+    const lot = hasCharm('lottery') ? ' (+복권 운)' : '';
+    $('comboMath').textContent = '계산: ' + fmt(ctx.chips) + ' × 배수 ' + fmt(ctx.mult) + xs + lot;
+    const need = TARGETS[S.day] - S.dayScore;
+    $('needText').textContent = need > 0 ? '목표까지 ' + fmt(need) + '점 더 · 남은 판 ' + S.handsLeft + '개' : '목표 달성!';
   }
+
+  // ---------- hold suggestion ----------
+  function suggestIdx() {
+    const vals = S.dice.map(d => d.v), ev = evaluate(vals);
+    if (ev.key === 'none') return [];
+    return ev.idx;
+  }
+  function showSuggest(on) {
+    const idx = on ? suggestIdx() : [];
+    S.dice.forEach((d, i) => { const el = $('die' + i); if (el) el.classList.toggle('suggest', idx.includes(i) && !d.held); });
+    return idx;
+  }
+  function applySuggest() {
+    if (S.busy) return;
+    const idx = suggestIdx();
+    S.dice.forEach((d, i) => { d.held = idx.includes(i); });
+    sfx.hold(); renderBoard(); showSuggest(false);
+    $('hint').textContent = idx.length ? '같은 것끼리 묶었어요. 이제 [다시 굴리기]를 눌러 보세요.' : '같은 숫자가 없어요. 묶지 말고 모두 다시 굴려 보세요.';
+    tutEvent('hold');
+  }
+
+  // ---------- tutorial (follow-along) ----------
+  const tut = { on: false, step: 0 };
+  const TUT = [
+    { t: '주사위 다섯 개가 굴렀어요. <b>같은 숫자가 많을수록</b> 점수가 커져요. 아래에 "지금 내면 몇 점"인지 보여 줘요.', next: true },
+    { t: '<b>초록빛으로 반짝이는 주사위</b>를 눌러 묶어 보세요. 묶은 주사위는 다시 굴려도 그대로 남아요.', wait: 'hold', glow: 'dice', suggest: true },
+    { t: '이제 <b>[다시 굴리기]</b>를 누르세요. 묶지 않은 주사위만 다시 굴러가요.', wait: 'reroll', glow: 'btnReroll' },
+    { t: '점수가 마음에 들면 <b>[이걸로 내기]</b>! 더 좋게 만들고 싶으면 한 번 더 굴려도 돼요.', wait: 'submit', glow: 'btnSubmit' },
+    { t: '잘하셨어요! 이렇게 <b>3판 안에 목표 점수</b>를 넘기면 장날 성공이에요. 성공하면 엽전으로 부적을 살 수 있어요.', next: true, last: true },
+  ];
+  function tutStart() { tut.on = true; tut.step = 0; if (!S.busy) tutShow(); }
+  function tutEnd(save) {
+    tut.on = false; $('coach').hidden = true; clearGlow(); showSuggest(false);
+    if (save) { const r = loadRec(); r.tut = 1; saveRec(r); }
+  }
+  function clearGlow() { document.querySelectorAll('.glow').forEach(e => e.classList.remove('glow')); }
+  function tutShow() {
+    const st = TUT[tut.step]; if (!st) return tutEnd(true);
+    // skip the hold step when there is nothing worth holding
+    if (st.suggest && !suggestIdx().length) {
+      $('coachStep').textContent = '배우기 ' + (tut.step + 1) + ' / ' + TUT.length;
+      $('coachText').innerHTML = '이번엔 같은 숫자가 없네요. 이럴 땐 <b>아무것도 묶지 않고</b> 다시 굴리면 돼요.';
+      $('coach').hidden = false; $('coachNext').hidden = true; clearGlow();
+      tut.step++; setTimeout(() => { if (tut.on) { $('coachNext').hidden = false; tutShow(); } }, 2200); return;
+    }
+    $('coachStep').textContent = '배우기 ' + (tut.step + 1) + ' / ' + TUT.length;
+    $('coachText').innerHTML = st.t;
+    $('coach').hidden = false;
+    $('coachNext').hidden = !st.next;
+    $('coachNext').textContent = st.last ? '알겠어요, 혼자 해 볼게요' : '다음';
+    clearGlow();
+    if (st.glow && st.glow !== 'dice') { $(st.glow).classList.add('glow'); try { $(st.glow).scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+    showSuggest(!!st.suggest);
+    if (st.wait === 'reroll' && S.rerollsLeft <= 0) { tut.step++; return tutShow(); }
+  }
+  function tutEvent(name) {
+    if (!tut.on) return;
+    const st = TUT[tut.step];
+    if (st && st.wait === name) { tut.step++; clearGlow(); showSuggest(false); if (name === 'hold' || name === 'submit') { if (name === 'hold') tutShow(); } }
+  }
+
+  // ---------- background music: pentatonic plucks over a 12/8 drum ----------
+  let musicOn = true, musicTimer = null, nextT = 0, tick = 0, phrase = [];
+  const SCALE = [146.83, 164.81, 196.0, 220.0, 246.94, 293.66, 329.63, 392.0, 440.0]; // D E G A B (two octaves)
+  function pluck(f, t, vol = .05, dur = .9) {
+    const a = actx, o = a.createOscillator(), o2 = a.createOscillator(), g = a.createGain(), lp = a.createBiquadFilter();
+    o.type = 'triangle'; o2.type = 'sine'; o.frequency.setValueAtTime(f * 1.01, t); o.frequency.exponentialRampToValueAtTime(f, t + .05); o2.frequency.setValueAtTime(f * 2, t);
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(2400, t); lp.frequency.exponentialRampToValueAtTime(600, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(lp); o2.connect(lp); lp.connect(g).connect(a.destination);
+    o.start(t); o2.start(t); o.stop(t + dur + .05); o2.stop(t + dur + .05);
+  }
+  function drum(t, low) {
+    const a = actx, o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(low ? 110 : 320, t); o.frequency.exponentialRampToValueAtTime(low ? 55 : 180, t + .12);
+    g.gain.setValueAtTime(low ? .09 : .035, t); g.gain.exponentialRampToValueAtTime(.0001, t + (low ? .3 : .08));
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + .35);
+  }
+  function makePhrase() {
+    // 4 bars x 12 eighths; notes on a gentle walk through the scale
+    const out = []; let i = 3 + rnd(3);
+    for (let s = 0; s < 48; s++) {
+      const strong = s % 3 === 0;
+      if (strong ? Math.random() < .75 : Math.random() < .22) { i = Math.max(0, Math.min(SCALE.length - 1, i + [-2, -1, -1, 0, 1, 1, 2][rnd(7)])); out.push(i); }
+      else out.push(-1);
+    }
+    out[45] = 0; out[46] = -1; out[47] = -1; // settle home at phrase end
+    return out;
+  }
+  const EIGHTH = .21;
+  function schedule() {
+    if (!actx) return;
+    while (nextT < actx.currentTime + .35) {
+      const s = tick % 48;
+      if (s === 0 && (tick / 48) % 2 === 0) phrase = makePhrase(); // each phrase plays twice
+      const b = s % 12;
+      if (b === 0) { drum(nextT, true); pluck(SCALE[0] / 2, nextT, .03, 2.2); }
+      if (b === 6) drum(nextT, true);
+      if (b === 3 || b === 5 || b === 9 || b === 11) drum(nextT, false);
+      if (phrase[s] >= 0) pluck(SCALE[phrase[s]], nextT, .045, .8);
+      nextT += EIGHTH; tick++;
+    }
+  }
+  function musicStart() {
+    if (!musicOn || musicTimer || !ac()) return;
+    if (actx.state === 'suspended') actx.resume();
+    nextT = actx.currentTime + .1; tick = 0;
+    musicTimer = setInterval(schedule, 100);
+  }
+  function musicStop() { clearInterval(musicTimer); musicTimer = null; }
 
   // ---------- game flow ----------
   function startRun() {
@@ -495,6 +660,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     buildDice();
     showScreen('s-play');
     startDay();
+    if (!loadRec().tut) tutStart();
   }
 
   function startDay() {
@@ -521,6 +687,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
         clearInterval(iv);
         targets.forEach(i => { S.dice[i].v = 1 + rnd(6); const el = $('die' + i); el.classList.remove('rolling'); paintDie(el, S.dice[i].v); });
         S.busy = false; renderBoard();
+        if (tut.on) tutShow();
       }
     }, 60);
   }
@@ -529,12 +696,16 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     if (S.busy) return;
     S.dice[i].held = !S.dice[i].held;
     sfx.hold(); renderBoard();
+    $('die' + i).classList.remove('suggest');
+    tutEvent('hold');
   }
 
   function reroll() {
     if (S.busy || S.rerollsLeft <= 0 || S.dice.every(d => d.held)) return;
     S.rerollsLeft--;
+    showSuggest(false);
     rollDice();
+    tutEvent('reroll');
   }
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -546,6 +717,8 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
     const ctx = scoreHand(vals, S, false);
     const c = COMBOS[ctx.key];
     $('comboName').textContent = c.name + (ctx.notes.length ? ' · ' + ctx.notes.join(' ') : '');
+    $('comboBig').textContent = fmt(ctx.total) + '점 받았어요!';
+    tutEvent('submit');
     // dice hop one by one
     for (let k = 0; k < ctx.idx.length; k++) {
       const el = $('die' + ctx.idx[k]);
@@ -557,7 +730,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
       renderCharms(ctx.fired.slice(0, k + 1)); sfx.charm(k); await wait(200);
     }
     const xs = ctx.x !== 1 ? ' × ' + fmt(ctx.x) : '';
-    $('comboMath').textContent = fmt(ctx.chips) + ' × ' + fmt(ctx.mult) + xs + ' = ' + fmt(ctx.total) + '점';
+    $('comboMath').textContent = '계산: ' + fmt(ctx.chips) + ' × 배수 ' + fmt(ctx.mult) + xs;
     floatText('+' + fmt(ctx.total));
     if (ctx.total >= TARGETS[S.day] * .5) { document.body.classList.remove('shake-screen'); void document.body.offsetWidth; document.body.classList.add('shake-screen'); sfx.big(); }
     // after effects
@@ -693,14 +866,28 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
   $('comboTable').innerHTML = Object.values(COMBOS).map(c => '<tr><td>' + c.name + '</td><td>' + c.desc + '</td><td>' + c.base + ' × ' + c.mult + '</td></tr>').join('');
 
   // ---------- wiring ----------
-  $('btnStart').addEventListener('click', () => { ac(); sfx.click(); startRun(); });
+  $('btnStart').addEventListener('click', () => { ac(); sfx.click(); musicStart(); startRun(); });
   $('btnAgain').addEventListener('click', () => { sfx.click(); startRun(); });
   $('btnHome').addEventListener('click', () => { sfx.click(); renderTitle(); showScreen('s-title'); });
   $('btnHowTitle').addEventListener('click', () => { ac(); openModal('m-how'); });
   $('btnHow').addEventListener('click', () => openModal('m-how'));
   $('btnCombos').addEventListener('click', () => openModal('m-combos'));
+  $('btnMusic').addEventListener('click', () => {
+    musicOn = !musicOn; $('btnMusic').textContent = musicOn ? '음악 켬' : '음악 끔';
+    $('btnMusic').setAttribute('aria-pressed', musicOn);
+    musicOn ? musicStart() : musicStop();
+    const r = loadRec(); r.music = musicOn ? 1 : 0; saveRec(r);
+  });
+  $('btnSuggest').addEventListener('click', applySuggest);
+  $('coachNext').addEventListener('click', () => { sfx.click(); const st = TUT[tut.step]; if (st && st.last) return tutEnd(true); tut.step++; tutShow(); });
+  $('coachSkip').addEventListener('click', () => { sfx.click(); tutEnd(true); });
+  $('btnTutorial').addEventListener('click', () => {
+    $('m-how').hidden = true; ac(); musicStart();
+    if ($('s-play').hidden) startRun();
+    tutStart();
+  });
   $('btnSound').addEventListener('click', () => {
-    soundOn = !soundOn; $('btnSound').textContent = soundOn ? '소리 켬' : '소리 끔';
+    soundOn = !soundOn; $('btnSound').textContent = soundOn ? '효과음 켬' : '효과음 끔';
     $('btnSound').setAttribute('aria-pressed', soundOn); sfx.click();
   });
   $('btnReroll').addEventListener('click', reroll);
@@ -709,6 +896,7 @@ button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
   $('btnRestock').addEventListener('click', restock);
   $('btnNextDay').addEventListener('click', () => { sfx.click(); nextDay(); });
 
+  { const r = loadRec(); if (r.music === 0) { musicOn = false; $('btnMusic').textContent = '음악 끔'; $('btnMusic').setAttribute('aria-pressed', false); } }
   renderTitle();
   // test hook
   window.__jangteo = { evaluate, scoreHand, COMBOS, CHARMS, TARGETS, get state() { return S; } };
