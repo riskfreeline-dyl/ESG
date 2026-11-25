@@ -1,0 +1,716 @@
+<title>장터 주사위</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: one narrow night-market stall — lantern sign on top, dice tray in the middle, big wooden buttons at the bottom. Single dark world by choice (a night market). */
+:root {
+  --night: #15182F;
+  --stall: #22274B;
+  --stall-hi: #2E3463;
+  --lantern: #F5B544;
+  --lantern-glow: rgba(245, 181, 68, .28);
+  --red: #E2553F;
+  --jade: #46BC93;
+  --ivory: #F7ECD5;
+  --ink: #2A1F17;
+  --muted: #AEB3D6;
+  --fg: #F4EFE4;
+  --display: "Black Han Sans", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  --body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(ellipse 70% 220px at 50% -60px, var(--lantern-glow), transparent 70%),
+    var(--night);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app { max-width: 560px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding-block: 12px 20px; gap: 14px; }
+.screen { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+h1, h2, h3, .display { font-family: var(--display); font-weight: 400; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; }
+button:focus-visible { outline: 3px solid var(--lantern); outline-offset: 3px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* lantern string */
+.lanterns { display: flex; justify-content: space-between; padding: 0 8px; height: 26px; position: relative; }
+.lanterns::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: #4A4F7A; border-radius: 2px; }
+.lanterns span { width: 16px; height: 22px; border-radius: 8px 8px 6px 6px; background: var(--red); position: relative; top: 4px; box-shadow: 0 0 14px rgba(226, 85, 63, .7); animation: sway 3s ease-in-out infinite; transform-origin: 50% -4px; }
+.lanterns span:nth-child(even) { background: var(--lantern); box-shadow: 0 0 14px var(--lantern-glow); animation-delay: -1.5s; }
+
+/* buttons */
+.btn { min-height: 60px; border-radius: 14px; padding: 10px 18px; font-family: var(--display); font-size: 22px; background: var(--stall-hi); box-shadow: 0 4px 0 #171B3A; transition: transform .08s; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #171B3A; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--lantern); color: var(--ink); box-shadow: 0 4px 0 #A8741C; }
+.btn.go { background: var(--jade); color: #0D2B21; box-shadow: 0 4px 0 #23795B; }
+.btn.small { min-height: 44px; font-size: 17px; padding: 6px 14px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > .btn { flex: 1; }
+
+/* title screen */
+.title-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; text-align: center; padding-block: 20px; }
+.logo { font-family: var(--display); font-size: clamp(56px, 17vw, 96px); line-height: 1; color: var(--lantern); text-shadow: 0 0 28px var(--lantern-glow), 0 4px 0 #7A4E10; }
+.logo small { display: block; font-size: .36em; color: var(--fg); text-shadow: none; margin-top: 10px; letter-spacing: .3em; }
+.tagline { color: var(--muted); max-width: 30ch; }
+.title-dice { display: flex; gap: 10px; }
+.title-wrap .btn { width: min(320px, 100%); }
+.record { color: var(--muted); font-size: 16px; }
+
+/* top board */
+.board { background: var(--stall); border-radius: 16px; padding: 12px 14px; display: grid; gap: 8px; }
+.board-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.day { font-family: var(--display); font-size: 24px; color: var(--lantern); }
+.coins { font-family: var(--display); font-size: 20px; }
+.coins b { color: var(--lantern); font-weight: 400; }
+.goal { display: flex; justify-content: space-between; font-size: 17px; }
+.goal strong { font-family: var(--display); font-weight: 400; font-size: 22px; }
+.bar { height: 14px; background: #121530; border-radius: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--jade), var(--lantern)); border-radius: 8px; transition: width .5s ease-out; }
+.counters { display: flex; gap: 8px; }
+.counter { flex: 1; background: #1A1E3E; border-radius: 10px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+.counter b { font-family: var(--display); font-weight: 400; font-size: 22px; color: var(--fg); }
+
+/* charms */
+.charms { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.charm-slot { aspect-ratio: 1; max-width: 100%; border-radius: 12px; border: 2px dashed #3A4072; display: grid; place-items: center; font-size: 28px; position: relative; background: transparent; }
+.charm-slot.filled { border: 2px solid var(--lantern); background: #2A2148; }
+.charm-slot.fire { animation: pop .45s ease-out; box-shadow: 0 0 18px var(--lantern); }
+.charm-slot .stack { position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-family: var(--display); color: var(--lantern); }
+
+/* dice */
+.tray { background: radial-gradient(ellipse at 50% 40%, #3A2A1E, #241A13); border-radius: 20px; padding: 22px 10px 14px; box-shadow: inset 0 0 0 4px #4C3726, inset 0 6px 18px rgba(0,0,0,.5); display: grid; gap: 12px; }
+.dice { display: flex; justify-content: center; gap: clamp(6px, 2.4vw, 14px); }
+.die-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.die { width: clamp(52px, 15.5vw, 84px); aspect-ratio: 1; border-radius: 18%; background: var(--ivory); box-shadow: inset 0 -5px 0 #D7C6A2, 0 5px 0 #15100C; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: clamp(7px, 2vw, 12px); transition: transform .15s; }
+.die .pip { width: 72%; aspect-ratio: 1; border-radius: 50%; background: var(--ink); place-self: center; }
+.die.red .pip { background: var(--red); }
+.die.one .pip { width: 100%; }
+.die.held { transform: translateY(-8px); box-shadow: inset 0 -5px 0 #D7C6A2, 0 0 0 4px var(--lantern), 0 10px 14px rgba(0,0,0,.5); }
+.die.rolling { animation: shake .12s linear infinite; }
+.die.count { animation: hop .5s ease-out; }
+.hold-tag { font-size: 14px; height: 20px; color: var(--lantern); font-family: var(--display); letter-spacing: .05em; }
+.preview { text-align: center; min-height: 64px; display: grid; gap: 2px; }
+.preview .combo { font-family: var(--display); font-size: 26px; color: var(--lantern); }
+.preview .math { color: var(--ivory); font-size: 18px; }
+.hint { text-align: center; color: var(--muted); font-size: 16px; }
+
+/* floating score */
+.float { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); font-family: var(--display); font-size: 56px; color: var(--lantern); text-shadow: 0 0 22px var(--lantern-glow), 0 4px 0 #7A4E10; pointer-events: none; animation: rise 1.3s ease-out forwards; z-index: 30; white-space: nowrap; }
+.shake-screen { animation: bigshake .35s; }
+
+/* panels */
+.panel { background: var(--stall); border-radius: 16px; padding: 16px; display: grid; gap: 12px; }
+.panel h2 { font-size: 28px; color: var(--lantern); }
+.lines { display: grid; gap: 6px; }
+.line { display: flex; justify-content: space-between; gap: 10px; }
+.line b { font-family: var(--display); font-weight: 400; color: var(--lantern); }
+.line.total { border-top: 2px dashed #3A4072; padding-top: 8px; font-size: 20px; }
+
+/* shop */
+.shop-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.cards { display: grid; gap: 10px; }
+.card { background: var(--ivory); color: var(--ink); border-radius: 14px; padding: 12px 14px; display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; box-shadow: 0 4px 0 #A99872; }
+.card .icon { font-size: 36px; text-align: center; }
+.card h3 { font-size: 20px; }
+.card p { margin: 2px 0 0; font-size: 16px; line-height: 1.35; min-width: 0; }
+.card .btn { min-height: 52px; font-size: 18px; padding: 6px 12px; }
+.card.sold { opacity: .45; }
+.mine { display: grid; gap: 8px; }
+.mine-item { display: flex; align-items: center; gap: 10px; background: #1A1E3E; border-radius: 12px; padding: 8px 10px; }
+.mine-item .icon { font-size: 26px; }
+.mine-item .txt { flex: 1; min-width: 0; font-size: 15px; }
+.mine-item .txt b { font-family: var(--display); font-weight: 400; font-size: 18px; display: block; }
+.empty { color: var(--muted); font-size: 16px; }
+
+/* modal */
+.modal { position: fixed; inset: 0; background: rgba(8, 9, 22, .78); display: grid; place-items: center; z-index: 40; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal-box { background: var(--stall); border-radius: 18px; padding: 18px; width: min(520px, 100%); max-height: 100%; overflow: auto; display: grid; gap: 12px; }
+.modal-box h2 { font-size: 26px; color: var(--lantern); }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+.combo-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.combo-table td { padding: 7px 4px; border-bottom: 1px solid #343A6A; }
+.combo-table td:first-child { font-family: var(--display); font-size: 18px; color: var(--lantern); white-space: nowrap; }
+.combo-table td:last-child { text-align: right; font-family: var(--display); white-space: nowrap; }
+
+.topbar { display: flex; justify-content: space-between; gap: 8px; }
+.icon-btn { min-height: 44px; min-width: 44px; border-radius: 12px; background: var(--stall); font-size: 16px; padding: 0 12px; }
+
+@keyframes sway { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes shake { 0% { transform: translate(0,0) rotate(0); } 25% { transform: translate(-3px,-4px) rotate(-9deg); } 50% { transform: translate(3px,2px) rotate(7deg); } 75% { transform: translate(-2px,3px) rotate(-5deg); } 100% { transform: translate(0,0) rotate(0); } }
+@keyframes hop { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-16px) scale(1.12); } 100% { transform: translateY(0) scale(1); } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes rise { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); } 70% { opacity: 1; transform: translate(-50%, -70%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -110%) scale(1); } }
+@keyframes bigshake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-8px,4px); } 40% { transform: translate(7px,-5px); } 60% { transform: translate(-5px,3px); } 80% { transform: translate(4px,-2px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+
+<div id="app">
+  <div class="lanterns" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
+  <!-- TITLE -->
+  <section class="screen" id="s-title">
+    <div class="title-wrap">
+      <div class="logo">장터 주사위<small>밤 장 열 번</small></div>
+      <div class="title-dice" id="titleDice"></div>
+      <p class="tagline">주사위 다섯 개로 족보를 맞추고, 장터 부적으로 점수를 불려 열 번의 장날을 버텨 보세요.</p>
+      <button class="btn primary" id="btnStart">장 보러 가기</button>
+      <button class="btn" id="btnHowTitle">하는 방법</button>
+      <div class="record num" id="recordText"></div>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="screen" id="s-play" hidden>
+    <div class="topbar">
+      <button class="icon-btn" id="btnHow">하는 방법</button>
+      <button class="icon-btn" id="btnCombos">족보표</button>
+      <button class="icon-btn" id="btnSound" aria-pressed="true">소리 켬</button>
+    </div>
+    <div class="board">
+      <div class="board-top">
+        <div class="day num" id="dayText">첫째 장날</div>
+        <div class="coins num">엽전 <b id="coinText">0</b>냥</div>
+      </div>
+      <div class="goal num"><span>오늘 번 점수 <strong id="scoreText">0</strong></span><span>목표 <strong id="targetText">0</strong></span></div>
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="counters num">
+        <div class="counter">남은 판 <b id="handsText">3</b></div>
+        <div class="counter">다시 굴리기 <b id="rerollText">2</b></div>
+      </div>
+    </div>
+    <div class="charms" id="charmRow"></div>
+    <div class="tray">
+      <div class="dice" id="dice"></div>
+      <div class="preview" aria-live="polite"><div class="combo" id="comboName">&nbsp;</div><div class="math num" id="comboMath">&nbsp;</div></div>
+    </div>
+    <p class="hint" id="hint">남기고 싶은 주사위를 누르면 묶입니다.</p>
+    <div class="row">
+      <button class="btn" id="btnReroll">다시 굴리기</button>
+      <button class="btn primary" id="btnSubmit">이걸로 내기</button>
+    </div>
+  </section>
+
+  <!-- DAY CLEAR -->
+  <section class="screen" id="s-clear" hidden>
+    <div class="panel">
+      <h2 id="clearTitle">장사 성공!</h2>
+      <div class="lines num" id="clearLines"></div>
+      <button class="btn primary" id="btnToShop">장터 구경 가기</button>
+    </div>
+  </section>
+
+  <!-- SHOP -->
+  <section class="screen" id="s-shop" hidden>
+    <div class="shop-head">
+      <h2 class="display" style="font-size:30px;color:var(--lantern)">부적 장터</h2>
+      <div class="coins num">엽전 <b id="shopCoins">0</b>냥</div>
+    </div>
+    <p class="hint" style="text-align:left;margin:0">부적은 매 판 점수를 키워 줍니다. 최대 5개까지 지닐 수 있어요.</p>
+    <div class="cards" id="shopCards"></div>
+    <div class="row">
+      <button class="btn small" id="btnRestock">새 물건 보기 (2냥)</button>
+    </div>
+    <h3 class="display" style="font-size:22px">내 부적 <span class="num" id="mineCount"></span></h3>
+    <div class="mine" id="mineList"></div>
+    <button class="btn go" id="btnNextDay">다음 장날로</button>
+  </section>
+
+  <!-- END -->
+  <section class="screen" id="s-end" hidden>
+    <div class="title-wrap">
+      <div class="logo" id="endTitle" style="font-size:clamp(44px,13vw,72px)">장 마감</div>
+      <div class="panel" style="width:100%">
+        <div class="lines num" id="endLines"></div>
+      </div>
+      <button class="btn primary" id="btnAgain">다시 장 보러 가기</button>
+      <button class="btn" id="btnHome">처음 화면</button>
+    </div>
+  </section>
+</div>
+
+<!-- MODALS -->
+<div class="modal" id="m-how" hidden>
+  <div class="modal-box">
+    <h2>하는 방법</h2>
+    <ol class="steps">
+      <li>주사위 다섯 개가 <b>저절로 굴러갑니다.</b></li>
+      <li>남기고 싶은 주사위를 <b>누르면 묶입니다.</b> 다시 누르면 풀려요.</li>
+      <li><b>[다시 굴리기]</b>를 누르면 묶지 않은 주사위만 다시 굴러요. 한 판에 2번까지.</li>
+      <li>마음에 들면 <b>[이걸로 내기]</b>. 족보에 따라 점수를 받아요.</li>
+      <li>장날마다 <b>3판 안에 목표 점수</b>를 넘기면 성공! 엽전을 받아요.</li>
+      <li>엽전으로 <b>부적</b>을 사면 점수가 몇 배로 커집니다.</li>
+      <li>열 번째 장날까지 버티면 <b>장터의 큰손</b>이 됩니다.</li>
+    </ol>
+    <p class="hint" style="text-align:left;margin:0">점수 = (족보 기본점 + 족보에 쓰인 주사위 눈의 합) × 배수</p>
+    <button class="btn primary" data-close>알겠어요</button>
+  </div>
+</div>
+<div class="modal" id="m-combos" hidden>
+  <div class="modal-box">
+    <h2>족보표</h2>
+    <div style="overflow-x:auto"><table class="combo-table" id="comboTable"></table></div>
+    <button class="btn primary" data-close>닫기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- data ----------
+  const COMBOS = {
+    five:  { name: '오복',   base: 100, mult: 12, desc: '다섯 개가 모두 같음' },
+    four:  { name: '사총사', base: 60,  mult: 7,  desc: '네 개가 같음' },
+    full:  { name: '한집안', base: 40,  mult: 4,  desc: '셋 + 둘 (예: 3 3 3 5 5)' },
+    lstr:  { name: '큰 줄',  base: 40,  mult: 4,  desc: '다섯 개 연속 (1~5, 2~6)' },
+    sstr:  { name: '작은 줄', base: 30, mult: 3,  desc: '네 개 연속 (예: 2 3 4 5)' },
+    three: { name: '삼형제', base: 30,  mult: 3,  desc: '세 개가 같음' },
+    two:   { name: '두 쌍',  base: 20,  mult: 2,  desc: '같은 것 두 쌍' },
+    pair:  { name: '한 쌍',  base: 10,  mult: 2,  desc: '두 개가 같음' },
+    none:  { name: '낱개',   base: 5,   mult: 1,  desc: '없음 (가장 큰 눈 하나만)' },
+  };
+  const TARGETS = [250, 400, 600, 850, 1100, 1400, 1800, 2300, 2900, 3800];
+  const DAY_NAMES = ['첫째', '둘째', '셋째', '넷째', '다섯째', '여섯째', '일곱째', '여덟째', '아홉째', '열째'];
+  const MAX_CHARMS = 5;
+
+  const isSet = k => ['three', 'four', 'five', 'full'].includes(k);
+  const CHARMS = {
+    tteok:   { icon: '🍡', name: '떡집 할머니', price: 4, desc: '한 쌍·두 쌍이면 배수 +3',
+               apply: c => { if (c.key === 'pair' || c.key === 'two') c.mult += 3; } },
+    gukbap:  { icon: '🍲', name: '국밥 한 그릇', price: 4, desc: '언제나 배수 +2',
+               apply: c => { c.mult += 2; } },
+    yeot:    { icon: '✂️', name: '엿장수 가위', price: 5, desc: '족보에 쓰인 6 하나당 점수 +15',
+               apply: c => { const n = c.counted.filter(v => v === 6).length; if (n) c.chips += 15 * n; } },
+    seed:    { icon: '🌱', name: '새싹 장수', price: 4, desc: '주사위 중 1 하나당 점수 +20',
+               apply: c => { const n = c.vals.filter(v => v === 1).length; if (n) c.chips += 20 * n; } },
+    odd:     { icon: '🌕', name: '보름달 상인', price: 5, desc: '족보에 쓰인 홀수 하나당 배수 +1',
+               apply: c => { const n = c.counted.filter(v => v % 2).length; if (n) c.mult += n; } },
+    even:    { icon: '🌗', name: '반달 상인', price: 5, desc: '족보에 쓰인 짝수 하나당 배수 +1',
+               apply: c => { const n = c.counted.filter(v => !(v % 2)).length; if (n) c.mult += n; } },
+    bokjori: { icon: '🧺', name: '복조리', price: 6, desc: '삼형제·한집안·사총사·오복이면 배수 ×1.5',
+               apply: c => { if (isSet(c.key)) c.x *= 1.5; } },
+    clown:   { icon: '🤹', name: '줄타기 광대', price: 6, desc: '작은 줄·큰 줄이면 배수 ×2',
+               apply: c => { if (c.key === 'sstr' || c.key === 'lstr') c.x *= 2; } },
+    family:  { icon: '🏠', name: '대가족 사진', price: 6, desc: '한집안이면 배수 ×2.5',
+               apply: c => { if (c.key === 'full') c.x *= 2.5; } },
+    moon:    { icon: '🌙', name: '마지막 손님', price: 5, desc: '그날의 마지막 판이면 배수 ×2',
+               apply: c => { if (c.lastHand) c.x *= 2; } },
+    miser:   { icon: '👛', name: '짠돌이 주머니', price: 5, desc: '남은 다시 굴리기 1번당 배수 +3',
+               apply: c => { if (c.rerollsLeft) c.mult += 3 * c.rerollsLeft; } },
+    pepper:  { icon: '🌶️', name: '고추장 항아리', price: 5, desc: '족보에 쓰인 눈의 합이 20 이상이면 배수 ×2',
+               apply: c => { if (sum(c.counted) >= 20) c.x *= 2; } },
+    lottery: { icon: '🎟️', name: '복권 아저씨', price: 6, desc: '4번에 1번꼴로 배수 ×3',
+               apply: (c) => { if (c.preview) return; if (Math.random() < 0.25) { c.x *= 3; c.notes.push('복권 당첨!'); } } },
+    stamp:   { icon: '🔖', name: '단골 도장', price: 6, desc: '판을 낼 때마다 배수 +0.5씩 쌓임',
+               apply: (c, ch) => { if (ch.n) c.mult += 0.5 * ch.n; }, after: ch => { ch.n = (ch.n || 0) + 1; } },
+    piggy:   { icon: '🐷', name: '돼지 저금통', price: 4, desc: '장날을 넘길 때마다 엽전 +3냥', passive: true },
+    fan:     { icon: '🪭', name: '합죽선', price: 5, desc: '한 판에 다시 굴리기 +1번', passive: true },
+    basket:  { icon: '🛒', name: '장바구니', price: 7, desc: '장날마다 판 +1개', passive: true },
+  };
+
+  const sum = a => a.reduce((s, v) => s + v, 0);
+  const rnd = n => Math.floor(Math.random() * n);
+  const fmt = n => Number.isInteger(n) ? n.toLocaleString('ko-KR') : n.toFixed(1);
+  const $ = id => document.getElementById(id);
+
+  // ---------- scoring ----------
+  function evaluate(vals) {
+    const byFace = {};
+    vals.forEach((v, i) => (byFace[v] = byFace[v] || []).push(i));
+    const groups = Object.entries(byFace).map(([f, ix]) => ({ f: +f, ix }))
+      .sort((a, b) => b.ix.length - a.ix.length || b.f - a.f);
+    const all = [0, 1, 2, 3, 4];
+    const g0 = groups[0].ix.length, g1 = groups[1] ? groups[1].ix.length : 0;
+    if (g0 === 5) return { key: 'five', idx: all };
+    if (g0 === 4) return { key: 'four', idx: groups[0].ix };
+    if (g0 === 3 && g1 === 2) return { key: 'full', idx: all };
+    const faces = new Set(vals);
+    const has = run => run.every(f => faces.has(f));
+    if (has([1, 2, 3, 4, 5]) || has([2, 3, 4, 5, 6])) return { key: 'lstr', idx: all };
+    for (const run of [[3, 4, 5, 6], [2, 3, 4, 5], [1, 2, 3, 4]]) {
+      if (has(run)) return { key: 'sstr', idx: run.map(f => byFace[f][0]) };
+    }
+    if (g0 === 3) return { key: 'three', idx: groups[0].ix };
+    if (g0 === 2 && g1 === 2) return { key: 'two', idx: [...groups[0].ix, ...groups[1].ix] };
+    if (g0 === 2) return { key: 'pair', idx: groups[0].ix };
+    const mx = Math.max(...vals);
+    return { key: 'none', idx: [vals.indexOf(mx)] };
+  }
+
+  function scoreHand(vals, st, preview) {
+    const ev = evaluate(vals);
+    const c = COMBOS[ev.key];
+    const counted = ev.idx.map(i => vals[i]);
+    const ctx = {
+      key: ev.key, idx: ev.idx, vals, counted, preview,
+      chips: c.base + sum(counted), mult: c.mult, x: 1, notes: [], fired: [],
+      lastHand: st.handsLeft === 1, rerollsLeft: st.rerollsLeft,
+    };
+    st.charms.forEach((ch, i) => {
+      const def = CHARMS[ch.id];
+      if (!def.apply) return;
+      const before = ctx.chips + '|' + ctx.mult + '|' + ctx.x;
+      def.apply(ctx, ch);
+      if (before !== ctx.chips + '|' + ctx.mult + '|' + ctx.x) ctx.fired.push(i);
+    });
+    ctx.total = Math.floor(ctx.chips * ctx.mult * ctx.x);
+    return ctx;
+  }
+
+  // ---------- state ----------
+  let S = null;
+  const hasCharm = id => S.charms.some(c => c.id === id);
+  function newRun() {
+    S = { day: 0, coins: 4, charms: [], dayScore: 0, handsLeft: 3, rerollsLeft: 2,
+          dice: Array.from({ length: 5 }, () => ({ v: 1, held: false })),
+          busy: false, best: 0, totalScore: 0, shop: [] };
+  }
+
+  // ---------- records ----------
+  function loadRec() { try { return JSON.parse(localStorage.getItem('jangteo-rec') || '{}'); } catch (e) { return {}; } }
+  function saveRec(r) { try { localStorage.setItem('jangteo-rec', JSON.stringify(r)); } catch (e) {} }
+
+  // ---------- sound ----------
+  let actx = null, soundOn = true;
+  function ac() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return actx; }
+  function tone(freq, dur = .1, type = 'triangle', vol = .12, when = 0) {
+    if (!soundOn) return; const a = ac(); if (!a) return;
+    const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .02);
+  }
+  const sfx = {
+    click: () => tone(520, .06, 'square', .05),
+    roll: () => { for (let i = 0; i < 6; i++) tone(180 + Math.random() * 260, .04, 'square', .05, i * .05); },
+    hold: () => tone(760, .07, 'triangle', .09),
+    count: i => tone(440 + i * 70, .09, 'triangle', .1),
+    charm: i => tone(880 + i * 90, .12, 'sine', .12),
+    big: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .18, 'triangle', .13, i * .08)),
+    win: () => [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .22, 'triangle', .13, i * .1)),
+    lose: () => [392, 330, 262, 196].forEach((f, i) => tone(f, .28, 'sawtooth', .06, i * .16)),
+    coin: () => { tone(1320, .08, 'square', .06); tone(1760, .12, 'square', .06, .07); },
+  };
+
+  // ---------- rendering ----------
+  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  function dieHTML(v) {
+    const cells = Array.from({ length: 9 }, (_, i) => PIPS[v].includes(i) ? '<span class="pip"></span>' : '<span></span>');
+    return cells.join('');
+  }
+  function paintDie(el, v) {
+    el.innerHTML = dieHTML(v);
+    el.classList.toggle('red', v === 1 || v === 4);
+    el.classList.toggle('one', v === 1);
+    el.setAttribute('aria-label', '주사위 ' + v);
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; });
+    window.scrollTo(0, 0);
+  }
+
+  function buildDice() {
+    const box = $('dice'); box.innerHTML = '';
+    S.dice.forEach((d, i) => {
+      const w = document.createElement('div'); w.className = 'die-wrap';
+      const b = document.createElement('button'); b.className = 'die'; b.id = 'die' + i;
+      b.addEventListener('click', () => toggleHold(i));
+      const tag = document.createElement('div'); tag.className = 'hold-tag'; tag.id = 'tag' + i;
+      w.append(b, tag); box.append(w);
+      paintDie(b, d.v);
+    });
+  }
+
+  function renderBoard() {
+    $('dayText').textContent = DAY_NAMES[S.day] + ' 장날' + (S.day === 9 ? ' (큰장)' : '');
+    $('coinText').textContent = S.coins;
+    $('scoreText').textContent = fmt(S.dayScore);
+    $('targetText').textContent = fmt(TARGETS[S.day]);
+    $('barFill').style.width = Math.min(100, S.dayScore / TARGETS[S.day] * 100) + '%';
+    $('handsText').textContent = S.handsLeft;
+    $('rerollText').textContent = S.rerollsLeft;
+    S.dice.forEach((d, i) => {
+      const el = $('die' + i); if (!el) return;
+      el.classList.toggle('held', d.held);
+      el.setAttribute('aria-pressed', d.held);
+      $('tag' + i).textContent = d.held ? '묶음' : '';
+    });
+    const canReroll = !S.busy && S.rerollsLeft > 0 && S.dice.some(d => !d.held);
+    $('btnReroll').disabled = !canReroll;
+    $('btnReroll').textContent = '다시 굴리기 (' + S.rerollsLeft + ')';
+    $('btnSubmit').disabled = S.busy;
+    renderCharms();
+    renderPreview();
+  }
+
+  function renderCharms(fired = []) {
+    const row = $('charmRow'); row.innerHTML = '';
+    for (let i = 0; i < MAX_CHARMS; i++) {
+      const ch = S.charms[i];
+      const b = document.createElement('button');
+      b.className = 'charm-slot' + (ch ? ' filled' : '') + (fired.includes(i) ? ' fire' : '');
+      b.id = 'charm' + i;
+      if (ch) {
+        const def = CHARMS[ch.id];
+        b.innerHTML = def.icon + (ch.id === 'stamp' && ch.n ? '<span class="stack">+' + fmt(ch.n * .5) + '</span>' : '');
+        b.setAttribute('aria-label', def.name + ': ' + def.desc);
+        b.addEventListener('click', () => { $('hint').textContent = def.icon + ' ' + def.name + ' — ' + def.desc; });
+      } else {
+        b.setAttribute('aria-label', '빈 부적 자리'); b.tabIndex = -1;
+      }
+      row.append(b);
+    }
+  }
+
+  function renderPreview() {
+    if (S.busy) return;
+    const ctx = scoreHand(S.dice.map(d => d.v), S, true);
+    const c = COMBOS[ctx.key];
+    $('comboName').textContent = c.name;
+    const xs = ctx.x !== 1 ? ' × ' + fmt(ctx.x) : '';
+    const lot = hasCharm('lottery') ? ' (+복권?)' : '';
+    $('comboMath').textContent = fmt(ctx.chips) + ' × ' + fmt(ctx.mult) + xs + ' = ' + fmt(ctx.total) + '점' + lot;
+  }
+
+  // ---------- game flow ----------
+  function startRun() {
+    newRun();
+    buildDice();
+    showScreen('s-play');
+    startDay();
+  }
+
+  function startDay() {
+    S.dayScore = 0;
+    S.handsLeft = 3 + (hasCharm('basket') ? 1 : 0);
+    $('hint').textContent = '남기고 싶은 주사위를 누르면 묶입니다.';
+    newHand();
+  }
+
+  function newHand() {
+    S.rerollsLeft = 2 + (hasCharm('fan') ? 1 : 0);
+    S.dice.forEach(d => { d.held = false; });
+    rollDice();
+  }
+
+  function rollDice() {
+    S.busy = true; renderBoard(); sfx.roll();
+    const targets = S.dice.map((d, i) => d.held ? null : i).filter(i => i !== null);
+    targets.forEach(i => $('die' + i).classList.add('rolling'));
+    let t = 0;
+    const iv = setInterval(() => {
+      targets.forEach(i => paintDie($('die' + i), 1 + rnd(6)));
+      if (++t >= 7) {
+        clearInterval(iv);
+        targets.forEach(i => { S.dice[i].v = 1 + rnd(6); const el = $('die' + i); el.classList.remove('rolling'); paintDie(el, S.dice[i].v); });
+        S.busy = false; renderBoard();
+      }
+    }, 60);
+  }
+
+  function toggleHold(i) {
+    if (S.busy) return;
+    S.dice[i].held = !S.dice[i].held;
+    sfx.hold(); renderBoard();
+  }
+
+  function reroll() {
+    if (S.busy || S.rerollsLeft <= 0 || S.dice.every(d => d.held)) return;
+    S.rerollsLeft--;
+    rollDice();
+  }
+
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  async function submit() {
+    if (S.busy) return;
+    S.busy = true; renderBoard();
+    const vals = S.dice.map(d => d.v);
+    const ctx = scoreHand(vals, S, false);
+    const c = COMBOS[ctx.key];
+    $('comboName').textContent = c.name + (ctx.notes.length ? ' · ' + ctx.notes.join(' ') : '');
+    // dice hop one by one
+    for (let k = 0; k < ctx.idx.length; k++) {
+      const el = $('die' + ctx.idx[k]);
+      el.classList.remove('count'); void el.offsetWidth; el.classList.add('count');
+      sfx.count(k); await wait(150);
+    }
+    // charms fire
+    for (let k = 0; k < ctx.fired.length; k++) {
+      renderCharms(ctx.fired.slice(0, k + 1)); sfx.charm(k); await wait(200);
+    }
+    const xs = ctx.x !== 1 ? ' × ' + fmt(ctx.x) : '';
+    $('comboMath').textContent = fmt(ctx.chips) + ' × ' + fmt(ctx.mult) + xs + ' = ' + fmt(ctx.total) + '점';
+    floatText('+' + fmt(ctx.total));
+    if (ctx.total >= TARGETS[S.day] * .5) { document.body.classList.remove('shake-screen'); void document.body.offsetWidth; document.body.classList.add('shake-screen'); sfx.big(); }
+    // after effects
+    S.charms.forEach(ch => { const def = CHARMS[ch.id]; if (def.after) def.after(ch); });
+    S.best = Math.max(S.best, ctx.total);
+    S.totalScore += ctx.total;
+    // count up
+    const from = S.dayScore, to = S.dayScore + ctx.total, steps = 18;
+    for (let k = 1; k <= steps; k++) {
+      $('scoreText').textContent = fmt(Math.round(from + (to - from) * k / steps));
+      $('barFill').style.width = Math.min(100, (from + (to - from) * k / steps) / TARGETS[S.day] * 100) + '%';
+      await wait(30);
+    }
+    S.dayScore = to;
+    S.handsLeft--;
+    await wait(650);
+    S.busy = false;
+    if (S.dayScore >= TARGETS[S.day]) return dayClear();
+    if (S.handsLeft <= 0) return endRun(false);
+    newHand();
+  }
+
+  function floatText(txt) {
+    const f = document.createElement('div'); f.className = 'float num'; f.textContent = txt;
+    document.body.append(f); setTimeout(() => f.remove(), 1400);
+  }
+
+  function dayClear() {
+    if (S.day === 9) return endRun(true);
+    const lines = [];
+    let gain = 3; lines.push(['장사 수고비', 3]);
+    if (S.handsLeft > 0) { gain += S.handsLeft; lines.push(['남은 판 ' + S.handsLeft + '개', S.handsLeft]); }
+    const interest = Math.min(5, Math.floor(S.coins / 5));
+    if (interest) { gain += interest; lines.push(['이자 (5냥마다 1냥)', interest]); }
+    const pig = S.charms.filter(c => c.id === 'piggy').length * 3;
+    if (pig) { gain += pig; lines.push(['🐷 돼지 저금통', pig]); }
+    S.coins += gain;
+    $('clearTitle').textContent = DAY_NAMES[S.day] + ' 장날 장사 성공!';
+    $('clearLines').innerHTML =
+      '<div class="line"><span>오늘 번 점수</span><b>' + fmt(S.dayScore) + ' / ' + fmt(TARGETS[S.day]) + '</b></div>' +
+      lines.map(([k, v]) => '<div class="line"><span>' + k + '</span><b>+' + v + '냥</b></div>').join('') +
+      '<div class="line total"><span>가진 엽전</span><b>' + S.coins + '냥</b></div>';
+    sfx.coin();
+    showScreen('s-clear');
+  }
+
+  // ---------- shop ----------
+  function stockShop() {
+    const owned = new Set(S.charms.map(c => c.id));
+    const pool = Object.keys(CHARMS).filter(id => !owned.has(id));
+    S.shop = [];
+    while (S.shop.length < 3 && pool.length) S.shop.push({ id: pool.splice(rnd(pool.length), 1)[0], sold: false });
+  }
+  function openShop() { stockShop(); renderShop(); showScreen('s-shop'); }
+  function renderShop() {
+    $('shopCoins').textContent = S.coins;
+    const cards = $('shopCards'); cards.innerHTML = '';
+    S.shop.forEach((it, i) => {
+      const d = CHARMS[it.id];
+      const full = S.charms.length >= MAX_CHARMS;
+      const card = document.createElement('div'); card.className = 'card' + (it.sold ? ' sold' : '');
+      card.innerHTML = '<div class="icon">' + d.icon + '</div><div style="min-width:0"><h3 class="display">' + d.name + '</h3><p>' + d.desc + '</p></div>';
+      const b = document.createElement('button'); b.className = 'btn primary'; b.id = 'buy' + i;
+      b.textContent = it.sold ? '샀음' : d.price + '냥';
+      b.disabled = it.sold || S.coins < d.price || full;
+      if (!it.sold && full) b.textContent = '자리 없음';
+      b.addEventListener('click', () => buy(i));
+      card.append(b); cards.append(card);
+    });
+    $('btnRestock').disabled = S.coins < 2;
+    $('mineCount').textContent = '(' + S.charms.length + '/' + MAX_CHARMS + ')';
+    const mine = $('mineList'); mine.innerHTML = '';
+    if (!S.charms.length) mine.innerHTML = '<p class="empty">아직 부적이 없어요. 위에서 하나 골라 보세요.</p>';
+    S.charms.forEach((ch, i) => {
+      const d = CHARMS[ch.id];
+      const row = document.createElement('div'); row.className = 'mine-item';
+      row.innerHTML = '<div class="icon">' + d.icon + '</div><div class="txt"><b>' + d.name + '</b>' + d.desc + '</div>';
+      const b = document.createElement('button'); b.className = 'btn small'; b.textContent = '팔기 ' + Math.floor(d.price / 2) + '냥';
+      b.addEventListener('click', () => sell(i));
+      row.append(b); mine.append(row);
+    });
+  }
+  function buy(i) {
+    const it = S.shop[i], d = CHARMS[it.id];
+    if (it.sold || S.coins < d.price || S.charms.length >= MAX_CHARMS) return;
+    S.coins -= d.price; it.sold = true; S.charms.push({ id: it.id, n: 0 });
+    sfx.coin(); renderShop();
+  }
+  function sell(i) {
+    const ch = S.charms[i]; S.coins += Math.floor(CHARMS[ch.id].price / 2);
+    S.charms.splice(i, 1); sfx.click(); renderShop();
+  }
+  function restock() { if (S.coins < 2) return; S.coins -= 2; sfx.click(); stockShop(); renderShop(); }
+
+  function nextDay() {
+    S.day++;
+    showScreen('s-play');
+    startDay();
+  }
+
+  // ---------- end ----------
+  function endRun(won) {
+    const rec = loadRec();
+    const reached = S.day + 1;
+    const newBest = (rec.day || 0) < reached || (won && !rec.won);
+    rec.day = Math.max(rec.day || 0, reached);
+    rec.hand = Math.max(rec.hand || 0, S.best);
+    if (won) rec.won = (rec.won || 0) + 1;
+    saveRec(rec);
+    $('endTitle').textContent = won ? '장터의 큰손!' : '장 마감';
+    $('endLines').innerHTML =
+      '<div class="line"><span>' + (won ? '열 번의 장날을 모두 버텼어요' : '버틴 장날') + '</span><b>' + (won ? '10 / 10' : S.day + ' / 10') + '</b></div>' +
+      (won ? '' : '<div class="line"><span>마지막 장날 점수</span><b>' + fmt(S.dayScore) + ' / ' + fmt(TARGETS[S.day]) + '</b></div>') +
+      '<div class="line"><span>가장 큰 한 판</span><b>' + fmt(S.best) + '점</b></div>' +
+      '<div class="line"><span>지닌 부적</span><b>' + (S.charms.map(c => CHARMS[c.id].icon).join(' ') || '없음') + '</b></div>' +
+      (newBest ? '<div class="line total"><span>새 기록!</span><b>축하해요</b></div>' : '');
+    won ? sfx.win() : sfx.lose();
+    showScreen('s-end');
+  }
+
+  function renderTitle() {
+    const td = $('titleDice'); td.innerHTML = '';
+    [5, 1, 4, 6, 3].forEach(v => { const d = document.createElement('div'); d.className = 'die'; d.style.width = 'clamp(44px,12vw,60px)'; paintDie(d, v); td.append(d); });
+    const r = loadRec();
+    $('recordText').textContent = r.day ? '내 최고 기록: ' + r.day + '번째 장날 · 가장 큰 한 판 ' + fmt(r.hand || 0) + '점' + (r.won ? ' · 큰손 ' + r.won + '번' : '') : '';
+  }
+
+  // ---------- modals ----------
+  function openModal(id) { $(id).hidden = false; }
+  document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m || e.target.hasAttribute('data-close')) { m.hidden = true; sfx.click(); } });
+  });
+  $('comboTable').innerHTML = Object.values(COMBOS).map(c => '<tr><td>' + c.name + '</td><td>' + c.desc + '</td><td>' + c.base + ' × ' + c.mult + '</td></tr>').join('');
+
+  // ---------- wiring ----------
+  $('btnStart').addEventListener('click', () => { ac(); sfx.click(); startRun(); });
+  $('btnAgain').addEventListener('click', () => { sfx.click(); startRun(); });
+  $('btnHome').addEventListener('click', () => { sfx.click(); renderTitle(); showScreen('s-title'); });
+  $('btnHowTitle').addEventListener('click', () => { ac(); openModal('m-how'); });
+  $('btnHow').addEventListener('click', () => openModal('m-how'));
+  $('btnCombos').addEventListener('click', () => openModal('m-combos'));
+  $('btnSound').addEventListener('click', () => {
+    soundOn = !soundOn; $('btnSound').textContent = soundOn ? '소리 켬' : '소리 끔';
+    $('btnSound').setAttribute('aria-pressed', soundOn); sfx.click();
+  });
+  $('btnReroll').addEventListener('click', reroll);
+  $('btnSubmit').addEventListener('click', submit);
+  $('btnToShop').addEventListener('click', () => { sfx.click(); openShop(); });
+  $('btnRestock').addEventListener('click', restock);
+  $('btnNextDay').addEventListener('click', () => { sfx.click(); nextDay(); });
+
+  renderTitle();
+  // test hook
+  window.__jangteo = { evaluate, scoreHand, COMBOS, CHARMS, TARGETS, get state() { return S; } };
+})();
+</script>
