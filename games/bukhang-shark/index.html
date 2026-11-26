@@ -3,6 +3,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <style>
 /* Layout: full-screen 3D sea of Busan North Port with a light HUD on top; title and result cards float over the water. Single underwater world by choice. */
 :root {
@@ -86,6 +87,24 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 .stat.big b { font-size: 46px; color: var(--sun); }
 .newrec { font-family: var(--display); font-size: 26px; color: var(--sun); animation: float 1s ease-in-out infinite; }
 .loading { font-size: 20px; }
+.rankbtn { min-height: 48px; padding: 0 20px; border-radius: 24px; background: rgba(3,36,58,.6); border: 2px solid rgba(255,255,255,.35); font-size: 18px; }
+.board { width: 100%; background: rgba(3,36,58,.72); border: 2px solid rgba(255,255,255,.2); border-radius: 18px; padding: 12px; display: grid; gap: 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.tabs { display: flex; gap: 6px; justify-content: center; }
+.tab { min-height: 40px; padding: 0 16px; border-radius: 20px; background: rgba(255,255,255,.1); font-size: 17px; }
+.tab.on { background: var(--sun); color: #3A2A08; }
+.rows { display: grid; gap: 4px; max-height: 42vh; overflow-y: auto; text-align: left; }
+.rowr { display: grid; grid-template-columns: 38px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,.06); font-size: 17px; }
+.rowr.me { background: rgba(255,210,63,.28); }
+.rowr .rk { font-family: var(--display); font-size: 20px; text-align: center; color: var(--aqua); }
+.rowr:nth-child(1) .rk { color: #FFD23F; } .rowr:nth-child(2) .rk { color: #E4E9F2; } .rowr:nth-child(3) .rk { color: #E7A266; }
+.rowr .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowr .nm small { color: #B8F4FF; font-size: 13px; margin-left: 6px; }
+.rowr .sc { font-family: var(--display); font-variant-numeric: tabular-nums; }
+.submit { display: flex; gap: 8px; width: 100%; }
+.submit input { flex: 1; min-width: 0; min-height: 50px; border-radius: 14px; border: 2px solid rgba(255,255,255,.35); background: rgba(3,36,58,.7); color: #fff; font: inherit; font-size: 19px; padding: 0 12px; }
+.submit button { min-height: 50px; padding: 0 16px; border-radius: 14px; background: var(--sun); color: #3A2A08; font-family: var(--display); font-size: 19px; }
+.submit button:disabled { opacity: .5; }
+.rmsg { font-size: 16px; color: #B8F4FF; min-height: 20px; }
 .partner { display: grid; gap: 8px; justify-items: center; margin-top: 4px; }
 .partner p { margin: 0; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
 .partner p b { font-family: var(--display); font-weight: 400; color: #F2D383; letter-spacing: .02em; }
@@ -137,10 +156,11 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <div>👆 화면을 <b>손가락으로 끌면</b> 그쪽으로 헤엄쳐요</div>
       <div>🐟 <b>작은 물고기</b>를 먹으면 쑥쑥 커져요 (부산 고등어 최고!)</div>
       <div>🔴 <span class="r">빨갛게 빛나는 큰 물고기</span>는 아직 위험해요. 커지면 잡아먹어요</div>
-      <div>🛍️ <b>비닐봉지·폐그물</b>은 피하기 — 바다를 지켜요</div>
+      <div>🛍️ <b>비닐봉지·폐그물·해파리</b>는 피하기 — 바다를 지켜요</div>
       <div>✨ <b>황금 어묵</b>을 먹으면 <b>광란 모드</b>!</div>
     </div>
     <button class="go" id="bStart" disabled>잠깐만요…</button>
+    <button class="rankbtn" id="bRankTitle">🏆 전국 순위표</button>
     <div class="best" id="titleBest"></div>
     <div class="partner">
       <p><b>RFL의 Meta Cruise</b>가 함께 합니다</p>
@@ -160,7 +180,21 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <div class="stat big" style="padding:8px"><small>최고 점수</small><b id="oBest" style="font-size:30px;color:#fff">0</b></div>
     </div>
     <div class="newrec" id="oNew" hidden>🎉 새 기록! 🎉</div>
+    <div class="submit"><input id="nick" maxlength="12" placeholder="별명 (예: 부산갈매기)" autocomplete="off"><button id="bSubmit">순위 등록</button></div>
+    <div class="rmsg" id="rmsg" aria-live="polite"></div>
     <button class="go" id="bAgain">다시 헤엄치기</button>
+    <button class="rankbtn" id="bRankOver">🏆 순위표 보기</button>
+  </div>
+</div>
+
+<div class="overlay" id="oRank" hidden>
+  <div class="card">
+    <h2 class="reason" style="font-size:clamp(36px,10vw,56px)">🏆 전국 순위표</h2>
+    <div class="board">
+      <div class="tabs"><button class="tab on" id="tabToday">오늘</button><button class="tab" id="tabAll">역대 최고</button></div>
+      <div class="rows num" id="rankRows"><div class="rmsg">불러오는 중…</div></div>
+    </div>
+    <button class="go" id="bRankClose">닫기</button>
   </div>
 </div>
 
@@ -383,15 +417,21 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   aura.scale.set(.8, .7, 1.6); shark.add(aura);
 
   // fish species
+  // len = model length per unit of size; bottom = keeps near the seabed; wig = swim motion in the shader
   const SPECIES = [
-    { id: 'anchovy', name: '멸치',     size: .32, color: 0xd6ecff, n: 110, speed: 7,  pts: 10,   xp: 1,  food: 4,  shape: 'fish', metal: .7 },
-    { id: 'mackerel', name: '고등어',  size: .72, color: 0x2fb7a3, n: 46,  speed: 8,  pts: 30,   xp: 3,  food: 9,  shape: 'fish', metal: .5 },
-    { id: 'bream', name: '참돔',       size: .95, color: 0xff6f8a, n: 30,  speed: 6,  pts: 50,   xp: 5,  food: 12, shape: 'deep', metal: .2 },
-    { id: 'squid', name: '오징어',     size: 1.2, color: 0xffb08a, n: 18,  speed: 7,  pts: 80,   xp: 8,  food: 14, shape: 'squid', metal: 0 },
-    { id: 'hairtail', name: '갈치',    size: 1.65, color: 0xeaf6ff, n: 14, speed: 6,  pts: 130,  xp: 13, food: 16, shape: 'long', metal: .95 },
-    { id: 'yellowtail', name: '방어',  size: 2.2, color: 0xffd23f, n: 10,  speed: 8,  pts: 220,  xp: 22, food: 22, shape: 'fish', metal: .4 },
-    { id: 'tuna', name: '참다랑어',    size: 3.0, color: 0x3d5a9e, n: 7,   speed: 9,  pts: 380,  xp: 38, food: 30, shape: 'fish', metal: .6 },
-    { id: 'octopus', name: '대왕문어', size: 4.1, color: 0xd9415a, n: 2,   speed: 3,  pts: 1200, xp: 90, food: 50, shape: 'octo', metal: 0 },
+    { id: 'anchovy', name: '멸치',      size: .32, color: 0xd6ecff, n: 70, speed: 7,   pts: 10,   xp: 1,  food: 4,  shape: 'fish', metal: .7, len: 2.2, wig: 'fish' },
+    { id: 'mackerel', name: '고등어',   size: .7,  color: 0x2fb7a3, n: 28, speed: 8,   pts: 30,   xp: 3,  food: 9,  shape: 'fish', metal: .5, len: 2,   wig: 'fish' },
+    { id: 'jack', name: '전갱이',       size: .75, color: 0xb9c98a, n: 24, speed: 8,   pts: 35,   xp: 3,  food: 9,  shape: 'fish', metal: .5, len: 2,   wig: 'fish' },
+    { id: 'filefish', name: '쥐치',     size: .85, color: 0xc9a77a, n: 12, speed: 5,   pts: 45,   xp: 4,  food: 11, shape: 'deep', metal: .1, len: 1.8, wig: 'fish', bottom: true },
+    { id: 'rockfish', name: '볼락',     size: .95, color: 0xc0503a, n: 14, speed: 4,   pts: 55,   xp: 5,  food: 12, shape: 'deep', metal: .1, len: 1.8, wig: 'fish', bottom: true },
+    { id: 'bream', name: '참돔',        size: 1.05, color: 0xff6f8a, n: 14, speed: 6,  pts: 70,   xp: 6,  food: 13, shape: 'deep', metal: .2, len: 1.9, wig: 'fish' },
+    { id: 'puffer', name: '복어',       size: 1.15, color: 0x8a8f6a, n: 8,  speed: 3.5, pts: 90,  xp: 7,  food: 14, shape: 'deep', metal: .1, len: 1.6, wig: 'fish' },
+    { id: 'squid', name: '오징어',      size: 1.3, color: 0xffb08a, n: 12, speed: 7,   pts: 100,  xp: 9,  food: 15, shape: 'squid', metal: 0, len: 2.2, wig: 'fish' },
+    { id: 'crab', name: '꽃게',         size: 1.4, color: 0x6a5a9a, n: 10, speed: 2.5, pts: 120,  xp: 10, food: 16, shape: 'deep', metal: .1, len: 1.6, wig: 'none', bottom: true, walker: true },
+    { id: 'hairtail', name: '갈치',     size: 1.8, color: 0xeaf6ff, n: 10, speed: 6,   pts: 150,  xp: 14, food: 18, shape: 'long', metal: .95, len: 2.6, wig: 'fish' },
+    { id: 'yellowtail', name: '방어',   size: 2.3, color: 0xffd23f, n: 8,  speed: 8,   pts: 240,  xp: 22, food: 22, shape: 'fish', metal: .4, len: 2,   wig: 'fish' },
+    { id: 'tuna', name: '참다랑어',     size: 3.0, color: 0x3d5a9e, n: 6,  speed: 9,   pts: 400,  xp: 38, food: 30, shape: 'fish', metal: .6, len: 2,   wig: 'fish' },
+    { id: 'octopus', name: '대왕문어',  size: 4.1, color: 0xd9415a, n: 2,  speed: 3,   pts: 1200, xp: 90, food: 50, shape: 'octo', metal: 0,  len: 2.2, wig: 'octo' },
   ];
   const fishGeos = {
     fish: () => countershade(lathe([[0, -1], [.42, -.98], [.08, -.72], [.3, -.35], [.42, .1], [.32, .6], [.12, .92], [0, 1]], 14), 0xb9c3cf, 0xffffff),
@@ -428,6 +468,78 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     scene.add(im); meshes[sp.id] = im;
   });
   const schools = SPECIES.map(() => ({ c: new T.Vector3(rand(-50, 50), rand(8, 30), rand(-50, 50)), ph: rand(0, 6), r: rand(25, 60) }));
+
+  // ---------- photoreal models (loaded from models/*.glb; procedural shapes stay as fallback) ----------
+  const U = { time: { value: 0 } };
+  function addWiggle(mat, kind) {
+    if (kind === 'none') return mat;
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uTime = U.time;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float ph = uTime * 7.0 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.9;
+        #else
+          float ph = uTime * 7.0;
+        #endif
+        ${kind === 'fish' ? 'float tw = smoothstep(0.3, -0.5, position.z); transformed.x += sin(ph + position.z * 7.0) * 0.07 * tw;' : ''}
+        ${kind === 'octo' ? 'float rr = length(position.xz); transformed.y += sin(ph * 0.35 + rr * 10.0) * 0.05 * rr;' : ''}
+        ${kind === 'jelly' ? 'float kk = 1.0 + 0.1 * sin(ph * 0.45); transformed.xz *= mix(1.0, kk, smoothstep(-0.1, 0.25, position.y));' : ''}
+      `);
+    };
+    mat.customProgramCacheKey = () => 'wig-' + kind;
+    return mat;
+  }
+  function modelMaterial(src, metal, extra = {}) {
+    if (src.map) { src.map.encoding = T.LinearEncoding; src.map.needsUpdate = true; }
+    return new T.MeshStandardMaterial(Object.assign({ map: src.map || null, envMap: ENV, envMapIntensity: .9, color: 0xffffff, roughness: metal > .5 ? .3 : .55, metalness: Math.min(.45, metal * .55), emissive: new T.Color(0xff0030), emissiveIntensity: 0 }, extra));
+  }
+  const MODELS = {};
+  function loadModels(onProgress, onDone) {
+    if (!T.GLTFLoader) { onDone(); return; }
+    const L = new T.GLTFLoader(), ids = [...SPECIES.map(s => s.id), 'shark', 'jelly'];
+    let n = 0; const tick = () => { n++; onProgress(n, ids.length); if (n === ids.length) onDone(); };
+    ids.forEach(id => L.load('models/' + id + '.glb', g => {
+      g.scene.updateMatrixWorld(true); let mesh = null; g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+      if (mesh) { const geo = mesh.geometry.clone(); geo.applyMatrix4(mesh.matrixWorld); geo.rotateY(Math.PI); geo.computeBoundingSphere(); MODELS[id] = { geo, src: mesh.material }; }
+      tick();
+    }, undefined, () => tick()));
+  }
+  // env map so silver fish shine (applied to creature materials only, so the sand keeps its colour)
+  let ENV = null;
+  {
+    const envScene = new T.Scene(), geo = new T.SphereGeometry(10, 32, 16), col = [], p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) { const y = p.getY(i) / 10, c = new T.Color(0x0a7896).lerp(new T.Color(y > 0 ? 0xe8fbff : 0x0a2a40), Math.abs(y)); col.push(c.r, c.g, c.b); }
+    geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+    envScene.add(new T.Mesh(geo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide })));
+    const pm = new T.PMREMGenerator(R); ENV = pm.fromScene(envScene, .04).texture; pm.dispose();
+  }
+  const jellies = [];
+  const procJellyMat = new T.MeshStandardMaterial({ color: 0xd9b8ff, transparent: true, opacity: .55, emissive: 0x7a3aaa, emissiveIntensity: .5, roughness: .2 });
+  for (let i = 0; i < 9; i++) {
+    const m = new T.Mesh(new T.SphereGeometry(.8, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), procJellyMat); scene.add(m);
+    jellies.push({ m, p: new T.Vector3(), ph: rand(0, 6), size: rand(1.1, 1.6) });
+  }
+  function applyModels() {
+    SPECIES.forEach(sp => {
+      const M = MODELS[sp.id]; if (!M) return; sp.hasModel = true;
+      if (sp.shape === 'octo') {
+        const mat = addWiggle(modelMaterial(M.src, 0), 'octo');
+        octos.forEach(g => { g.children.forEach(c => c.visible = false); const m = new T.Mesh(M.geo, mat); m.scale.setScalar(sp.len / .9); m.position.y = -.2; g.add(m); g.userData.mat = mat; });
+        return;
+      }
+      const im = meshes[sp.id];
+      im.geometry = M.geo; im.material = addWiggle(modelMaterial(M.src, sp.metal), sp.wig); im.instanceColor = null;
+    });
+    if (MODELS.shark) {
+      shark.children.forEach(c => { if (c !== aura) c.visible = false; });
+      const m = new T.Mesh(MODELS.shark.geo, addWiggle(modelMaterial(MODELS.shark.src, .2, { emissive: new T.Color(0x000000) }), 'fish'));
+      m.scale.setScalar(2.8); m.position.z = .1; shark.add(m); shark.userData.model = m;
+    }
+    if (MODELS.jelly) {
+      const mat = addWiggle(modelMaterial(MODELS.jelly.src, 0, { transparent: true, opacity: .82, emissive: new T.Color(0x9a4aff), emissiveIntensity: .35, side: T.DoubleSide, depthWrite: false }), 'jelly');
+      jellies.forEach(j => { j.m.geometry = MODELS.jelly.geo; j.m.material = mat; });
+    }
+  }
 
   // hazards: plastic bags & ghost nets & golden fish cake
   const bags = [], nets = [];
@@ -520,8 +632,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function placeFish(f, farFrom) {
     const sc = schools[f.sp.si];
     for (let k = 0; k < 12; k++) {
-      if (f.sp.shape === 'octo') f.p.set(rand(-75, 75), 0, rand(-75, 75)); else f.p.set(sc.c.x + rand(-14, 14), clamp(sc.c.y + rand(-6, 6), 3, SURF - 4), sc.c.z + rand(-14, 14));
-      if (f.sp.shape === 'octo') f.p.y = seabedH(f.p.x, f.p.z) + 1.4;
+      if (f.sp.shape === 'octo' || f.sp.walker) f.p.set(rand(-75, 75), 0, rand(-75, 75)); else f.p.set(sc.c.x + rand(-14, 14), clamp(sc.c.y + rand(-6, 6), 3, SURF - 4), sc.c.z + rand(-14, 14));
+      if (f.sp.shape === 'octo' || f.sp.walker) f.p.y = seabedH(f.p.x, f.p.z) + 1.4;
+      if (f.sp.bottom && !f.sp.walker) f.p.y = Math.min(f.p.y, seabedH(f.p.x, f.p.z) + rand(2, 7));
       if (!farFrom || f.p.distanceTo(farFrom) > 38) break;
       sc.c.set(rand(-60, 60), rand(8, 30), rand(-60, 60));
     }
@@ -534,7 +647,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     Object.assign(G, { t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 2, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false, yaw: 0, pitch: 0, eaten: 0, tier: 0, shake: 0, slow: 0 });
     G.pos.set(0, 14, 0);
     fish.forEach(f => { f.alive = true; f.respawn = 0; placeFish(f, G.pos); });
-    bags.forEach(b => placeRandom(b.p, G.pos)); nets.forEach(n => placeRandom(n.p, G.pos, 6, 26));
+    bags.forEach(b => placeRandom(b.p, G.pos)); nets.forEach(n => placeRandom(n.p, G.pos, 6, 26)); jellies.forEach(j => placeRandom(j.p, G.pos, 6, 32));
     eomukState.active = false; eomukState.timer = 10;
   }
 
@@ -595,7 +708,36 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     const info = { hunger: ['앗, 배가 고파요', '먹이를 계속 먹어야 기운이 나요'], hurt: ['으앙, 당했어요!', G.lastHurt || '빨갛게 빛나는 큰 물고기를 조심하세요'] }[kind];
     $('oReason').textContent = info[0]; $('oWhy').textContent = info[1];
     $('oScore').textContent = fmt(G.score); $('oTier').textContent = TIERS[G.tier].name; $('oEaten').textContent = G.eaten; $('oBest').textContent = fmt(r.best || 0); $('oNew').hidden = !nb;
+    $('rmsg').textContent = ''; $('bSubmit').disabled = !(G.score > 0); $('nick').value = (load().nick || '');
     setTimeout(() => { $('oOver').hidden = false; }, 900);
+  }
+
+  // ---------- leaderboard ----------
+  const API = '/api/scores';
+  let board = null, boardTab = 'today', myKey = null;
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function renderBoard() {
+    const rows = $('rankRows'); $('tabToday').classList.toggle('on', boardTab === 'today'); $('tabAll').classList.toggle('on', boardTab === 'all');
+    if (!board) { rows.innerHTML = '<div class="rmsg">불러오는 중…</div>'; return; }
+    if (board.error) { rows.innerHTML = '<div class="rmsg">' + esc(board.error) + '</div>'; return; }
+    const list = boardTab === 'today' ? board.today : board.all;
+    if (!list.length) { rows.innerHTML = '<div class="rmsg">아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!</div>'; return; }
+    rows.innerHTML = list.map((r, i) => `<div class="rowr${myKey && r.name === myKey.name && r.score === myKey.score ? ' me' : ''}"><span class="rk">${i + 1}</span><span class="nm">${esc(r.name)}<small>${esc(r.tier)}</small></span><span class="sc">${fmt(r.score)}</span></div>`).join('');
+  }
+  async function openBoard() {
+    $('oRank').hidden = false; board = null; renderBoard();
+    try { const res = await fetch(API, { cache: 'no-store' }); if (!res.ok) throw 0; board = await res.json(); }
+    catch (e) { board = { error: '순위표는 공개 사이트(bukhang-shark.netlify.app)에서 볼 수 있어요.' }; }
+    renderBoard();
+  }
+  async function submitScore() {
+    const name = $('nick').value.trim() || '익명 상어'; const r = load(); r.nick = name; save(r);
+    $('bSubmit').disabled = true; $('rmsg').textContent = '등록하는 중…';
+    try {
+      const res = await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, score: Math.floor(G.score), tier: TIERS[G.tier].name }) });
+      const j = await res.json(); if (!res.ok) throw new Error(j.error || '');
+      myKey = { name, score: Math.floor(G.score) }; $('rmsg').textContent = '등록 완료! 역대 ' + j.rank + '위예요 🎉'; boardTab = 'today'; openBoard();
+    } catch (e) { $('rmsg').textContent = '지금은 등록할 수 없어요. 공개 사이트에서 다시 해 주세요.'; $('bSubmit').disabled = false; }
   }
 
   // ---------- update ----------
@@ -632,6 +774,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     tailPivot.rotation.y = wag; front.rotation.y = -wag * .18; caudal.rotation.y = wag * .5;
     pecL.rotation.x = Math.sin(G.t * 2) * .1; pecR.rotation.x = -Math.sin(G.t * 2) * .1;
     G.mouthOpen = Math.max(0, G.mouthOpen - dt * 4); mouth.scale.set(1 + G.mouthOpen * .6, 1 + G.mouthOpen * 1.6, 1);
+    if (shark.userData.model) shark.userData.model.scale.set(2.8 * (1 + G.mouthOpen * .08), 2.8 * (1 + G.mouthOpen * .08), 2.8);
     shark.visible = !(G.inv > 0 && playing && Math.floor(G.t * 12) % 2 === 0);
     aura.material.opacity = G.frenzy > 0 ? .1 + .05 * Math.sin(G.t * 14) : 0;
     if (G.frenzy > 0) aura.material.color.setHSL((G.t * .6) % 1, 1, .6);
@@ -656,7 +799,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const edibleLimit = G.frenzy > 0 ? G.size * 2.2 : G.size * .95;
       const edible = sp.size < edibleLimit, danger = sp.size > G.size * 1.3 && G.frenzy <= 0;
       const toShark = tmp.copy(G.pos).sub(f.p), dist = toShark.length();
-      if (sp.shape === 'octo') {
+      if (sp.shape === 'octo' || sp.walker) {
         // lurk near the seabed, slowly creep toward the shark when it is the bigger one
         const want = danger && dist < 26 && playing ? toShark.clone().setY(0).setLength(sp.speed * 1.3) : new T.Vector3(Math.sin(G.t * .2 + f.ph), 0, Math.cos(G.t * .17 + f.ph)).multiplyScalar(sp.speed * .6);
         if (edible && dist < 20) want.copy(toShark).setY(0).setLength(-sp.speed * 1.6);
@@ -674,8 +817,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       }
       f.p.addScaledVector(f.v, dt);
       f.p.x = clamp(f.p.x, -98, 98); f.p.z = clamp(f.p.z, -98, 98);
-      const fl = seabedH(f.p.x, f.p.z) + (sp.shape === 'octo' ? 1.4 : 1); f.p.y = clamp(f.p.y, fl, SURF - 2);
+      const fl = seabedH(f.p.x, f.p.z) + (sp.shape === 'octo' ? 1.4 : sp.walker ? .2 + sp.size * .25 : 1); f.p.y = clamp(f.p.y, fl, sp.bottom && !sp.walker ? fl + 9 : SURF - 2);
       if (sp.shape === 'octo') f.p.y = lerp(f.p.y, fl + .6 + Math.sin(G.t + f.ph) * .4, Math.min(1, dt * 2));
+      if (sp.walker) f.p.y = fl;
 
       if (!playing) continue;
       // eat
@@ -708,6 +852,19 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
         }
       }
     }
+    // --- jellyfish: drift and pulse; they sting unless you are in frenzy
+    jellies.forEach(j => {
+      j.ph += dt; j.p.y += Math.sin(j.ph * .8) * dt * .9; j.p.x += Math.sin(j.ph * .13) * dt * .6;
+      j.m.position.copy(j.p); j.m.scale.setScalar(j.size * (MODELS.jelly ? 1.8 : 1)); j.m.rotation.y = j.ph * .2;
+      if (!playing) return;
+      if (j.p.distanceTo(G.pos) < .9 * G.size + j.size * .8) {
+        if (G.frenzy > 0) { G.score += 60; S.chomp(G.combo); sparkle(j.p, 20, [0xc86bff, 0xffffff], 7); popAt(j.p, '해파리 냠! +60', '#E0B8FF', 28); placeRandom(j.p, G.pos, 6, 32); }
+        else if (G.inv <= 0) {
+          G.hearts--; G.inv = 1.6; G.shake = .5; S.hurt(); flash('rgba(200,110,255,.5)'); G.lastHurt = '해파리에 쏘였어요. 반짝이는 해파리를 조심하세요!';
+          popAt(G.pos, '앗 따가워! 해파리!', '#E0B8FF', 30); placeRandom(j.p, G.pos, 6, 32); if (G.hearts <= 0) { gameOver('hurt'); return; }
+        }
+      }
+    });
     // --- hazards
     bags.forEach(b => {
       b.ph += dt; b.p.x += Math.sin(b.ph * .3) * dt * .8; b.p.y += Math.sin(b.ph * .7) * dt * .5; b.p.z += Math.cos(b.ph * .25) * dt * .8;
@@ -744,19 +901,19 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const sp = f.sp;
       if (sp.shape === 'octo') {
         const g = f.octo; g.visible = f.alive; if (!f.alive) continue;
-        g.position.copy(f.p); g.scale.setScalar(sp.size * .9); g.rotation.y = Math.atan2(f.v.x, f.v.z);
+        g.position.copy(f.p); g.scale.setScalar(sp.size * .9); g.rotation.y = Math.atan2(f.v.x, f.v.z) + (sp.hasModel ? Math.sin(G.t * .4 + f.ph) * .4 : 0);
         g.userData.arms.forEach((a, k) => { a.rotation.x = .25 + Math.sin(G.t * 2 + k) * .25; });
         const danger = sp.size > G.size * 1.3 && G.frenzy <= 0;
-        g.userData.mat.emissive.setRGB(danger ? .35 + .25 * Math.sin(G.t * 6) : 0, 0, 0);
+        g.userData.mat.emissive.setRGB(1, 0, .2); g.userData.mat.emissiveIntensity = danger ? .35 + .25 * Math.sin(G.t * 6) : 0;
         continue;
       }
       const im = meshes[sp.id];
       if (!f.alive) { SC.set(0, 0, 0); M4.compose(f.p, Q.identity(), SC); im.setMatrixAt(f.i, M4); continue; }
       f.ph += dt * (6 + f.v.length());
       tmp.copy(f.v); if (tmp.lengthSq() < 1e-4) tmp.set(0, 0, 1);
-      tmp.applyAxisAngle(UP, Math.sin(f.ph) * .18);
+      tmp.applyAxisAngle(UP, Math.sin(f.ph) * (sp.hasModel ? .06 : .18));
       M4.lookAt(tmp, ZERO, UP); Q.setFromRotationMatrix(M4);
-      const s = sp.size; SC.set(s * (sp.shape === 'long' ? .5 : .55), s * (sp.shape === 'deep' ? .9 : .6), s * (sp.shape === 'long' ? 1.6 : 1));
+      const s = sp.size; if (sp.hasModel) SC.setScalar(s * sp.len); else SC.set(s * (sp.shape === 'long' ? .5 : .55), s * (sp.shape === 'deep' ? .9 : .6), s * (sp.shape === 'long' ? 1.6 : 1));
       M4.compose(f.p, Q, SC); im.setMatrixAt(f.i, M4);
     }
     SPECIES.forEach(sp => {
@@ -811,7 +968,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function frame(now) {
     const dt = Math.min(.05, (now - last) / 1000); last = now;
     if (!paused) {
-      update(dt); syncMeshes(dt); updateCamera(dt);
+      U.time.value = G.t; update(dt); syncMeshes(dt); updateCamera(dt);
       hudT -= dt; if (hudT <= 0 && G.state === 'play') { hud(); hudT = .1; }
       R.render(scene, cam);
     }
@@ -821,13 +978,20 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
   // ---------- UI wiring ----------
   $('bStart').addEventListener('click', start);
+  $('bRankTitle').addEventListener('click', openBoard); $('bRankOver').addEventListener('click', openBoard);
+  $('bRankClose').addEventListener('click', () => { $('oRank').hidden = true; });
+  $('tabToday').addEventListener('click', () => { boardTab = 'today'; renderBoard(); });
+  $('tabAll').addEventListener('click', () => { boardTab = 'all'; renderBoard(); });
+  $('bSubmit').addEventListener('click', submitScore);
+  $('nick').addEventListener('keydown', e => { if (e.key === 'Enter') submitScore(); e.stopPropagation(); });
   $('bAgain').addEventListener('click', start);
   $('tMusic').addEventListener('click', () => { musicOn = !musicOn; $('tMusic').textContent = musicOn ? '음악 켬' : '음악 끔'; $('tMusic').setAttribute('aria-pressed', musicOn); musicOn ? musicStart() : musicStop(); const r = load(); r.music = musicOn ? 1 : 0; save(r); });
   $('tSfx').addEventListener('click', () => { sfxOn = !sfxOn; $('tSfx').textContent = sfxOn ? '효과음 켬' : '효과음 끔'; $('tSfx').setAttribute('aria-pressed', sfxOn); if (ambient) ambient.gain.value = sfxOn ? .25 : 0; });
   { const r = load(); if (r.music === 0) { musicOn = false; $('tMusic').textContent = '음악 끔'; $('tMusic').setAttribute('aria-pressed', false); } $('titleBest').textContent = r.best ? '내 최고 점수 ' + fmt(r.best) : ''; }
 
   resetGame();
-  $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!';
+  loadModels((n, total) => { $('bStart').textContent = '실사 바다 생물 부르는 중… ' + n + '/' + total; },
+    () => { applyModels(); $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!'; });
   requestAnimationFrame(frame);
   window.__shark = { G, fish, start, SPECIES, eomukState };
 })();

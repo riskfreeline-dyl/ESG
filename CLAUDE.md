@@ -16,4 +16,4 @@
 | 1 | 장터 주사위 | 보류 (v0.2 — 의뢰인 평가: "재미 하나도 없음") | `games/jangteo-dice/` |
 | 2 | 불장 라이더 | v0.1 — 의뢰인 평가: "별로" (이유 확인 필요) | `games/bull-rider/` |
 | 3 | RFL 그랜드 휠 | v0.1 — 의뢰인 평가: 좋음. rfl-cruise에 넣기 보류 (의뢰인이 Netlify 토큰 제공 거절 → 다시 묻지 말 것; 전체 덮어쓰기 금지) | `games/rfl-grand-wheel/` |
-| 4 | 북항이의 대모험 | v0.2 공개 — https://bukhang-shark.netlify.app (Netlify 사이트 `bukhang-shark`, 무료) | `games/bukhang-shark/` |
+| 4 | 북항이의 대모험 | v0.3 공개 — https://bukhang-shark.netlify.app · 실사 3D 15종(higgs: 사진 gpt_image_2_6 → 3D Tripo) + 전국 순위표(Netlify Blobs 함수 `/api/scores`). 수정 후 `python3 build.py` → `site/` 폴더를 Netlify에 배포 | `games/bukhang-shark/` |
