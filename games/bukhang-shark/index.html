@@ -596,8 +596,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     if (keys.ArrowLeft || keys.KeyA) tx = -1; if (keys.ArrowRight || keys.KeyD) tx = 1; if (keys.ArrowUp || keys.KeyW) ty = -1; if (keys.ArrowDown || keys.KeyS) ty = 1;
     if (keys.Space && playing) G.boosting = true; else if (!boostBtn.classList.contains('on')) G.boosting = false;
     if (!playing) { tx = Math.sin(G.t * .35) * .5; ty = Math.sin(G.t * .5) * .3; }
-    G.yaw -= tx * 1.9 * dt;
-    G.pitch = lerp(G.pitch, clamp(-ty * .75, -.75, .75), Math.min(1, dt * 3));
+    G.yaw -= tx * 1.4 * dt;
+    G.pitch = lerp(G.pitch, clamp(-ty * .6, -.6, .6), Math.min(1, dt * 2));
     // soft walls: turn back toward the harbor center
     const out = Math.max(Math.abs(G.pos.x), Math.abs(G.pos.z)) - BOUND;
     if (out > 0) { const want = Math.atan2(-G.pos.x, -G.pos.z); let d = want - G.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); G.yaw += d * Math.min(1, dt * (1 + out * .3)); }
@@ -606,7 +606,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     fwd.set(Math.sin(G.yaw) * Math.cos(G.pitch), Math.sin(G.pitch), Math.cos(G.yaw) * Math.cos(G.pitch));
     const canBoost = G.boosting && G.stamina > .02 && playing;
     G.stamina = clamp(G.stamina + (canBoost ? -.45 : .18) * dt, 0, 1);
-    const speed = (7.5 + G.size * 1.6) * (canBoost ? 1.9 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
+    const speed = (6.3 + G.size * 1.35) * (canBoost ? 1.65 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
     G.pos.addScaledVector(fwd, speed * dt);
     G.pos.y = clamp(G.pos.y, floor, SURF - 2);
     // containers: slide over them
@@ -615,7 +615,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
     // --- shark pose
     G.shownSize = lerp(G.shownSize, G.size, Math.min(1, dt * 2));
-    shark.position.copy(G.pos); shark.rotation.set(-G.pitch, G.yaw, -tx * .35, 'YXZ'); shark.scale.setScalar(G.shownSize * 1.25);
+    shark.position.copy(G.pos); shark.rotation.set(-G.pitch, G.yaw, -tx * .2, 'YXZ'); shark.scale.setScalar(G.shownSize * 1.25);
     const wag = Math.sin(G.t * (6 + speed * .5)) * (canBoost ? .5 : .32);
     tailPivot.rotation.y = wag; front.rotation.y = -wag * .18; caudal.rotation.y = wag * .5;
     pecL.rotation.x = Math.sin(G.t * 2) * .1; pecR.rotation.x = -Math.sin(G.t * 2) * .1;
@@ -628,7 +628,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       G.inv = Math.max(0, G.inv - dt); G.slow = Math.max(0, G.slow - dt); G.bumpCd = Math.max(0, G.bumpCd - dt);
       G.comboT -= dt; if (G.comboT <= 0) G.combo = 0;
       if (G.frenzy > 0) { G.frenzy -= dt; if (Math.random() < .6) sparkle(tmp.copy(G.pos).addScaledVector(fwd, -1.5 * G.size), 1, [0xff5e7e, 0xffd23f, 0x3fe08c, 0x39e1ff, 0xc86bff], 2); if (G.frenzy <= 0) popAt(G.pos, '광란 끝!', '#ffffff', 26); }
-      else G.hunger -= dt * (2.6 + G.size * .55);
+      else G.hunger -= dt * (2.2 + G.size * .45);
       if (G.hunger <= 0) { G.hunger = 0; gameOver('hunger'); }
     }
     mouthP.copy(G.pos).addScaledVector(fwd, 1.7 * G.shownSize);
@@ -775,19 +775,19 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   }
 
   // ---------- camera ----------
-  const camTarget = new T.Vector3(), camLook = new T.Vector3();
+  const camTarget = new T.Vector3(), camLook = new T.Vector3(), lookGoal = new T.Vector3();
   function updateCamera(dt) {
     const s = G.shownSize, playing = G.state !== 'title';
     if (!playing) {
-      const a = G.t * .15; camTarget.set(G.pos.x + Math.sin(a) * 11, G.pos.y + 3, G.pos.z + Math.cos(a) * 11);
+      const a = G.t * .09; camTarget.set(G.pos.x + Math.sin(a) * 11, G.pos.y + 3, G.pos.z + Math.cos(a) * 11);
     } else {
       const fx = Math.sin(G.yaw), fz = Math.cos(G.yaw);
       camTarget.set(G.pos.x - fx * (6 + s * 4.2), G.pos.y + 1.8 + s * 1.6 - G.pitch * 2, G.pos.z - fz * (6 + s * 4.2));
       camTarget.y = Math.max(camTarget.y, seabedH(camTarget.x, camTarget.z) + 1.5); camTarget.y = Math.min(camTarget.y, SURF - 1);
     }
-    cam.position.lerp(camTarget, Math.min(1, dt * 3.2));
-    camLook.copy(G.pos).addScaledVector(fwd, 3 + s * 2);
-    if (G.shake > 0) { G.shake = Math.max(0, G.shake - dt); camLook.x += rand(-1, 1) * G.shake * .6; camLook.y += rand(-1, 1) * G.shake * .6; }
+    cam.position.lerp(camTarget, Math.min(1, dt * 2.2));
+    lookGoal.copy(G.pos).addScaledVector(fwd, 3 + s * 2); camLook.lerp(lookGoal, Math.min(1, dt * 3.5));
+    if (G.shake > 0) { G.shake = Math.max(0, G.shake - dt); camLook.x += rand(-1, 1) * G.shake * .3; camLook.y += rand(-1, 1) * G.shake * .3; }
     cam.lookAt(camLook);
     // fog thins a bit as you grow, frenzy tints the water
     scene.fog.density = lerp(scene.fog.density, G.frenzy > 0 ? .012 : .0175 - (s - 1) * .0012, Math.min(1, dt));
