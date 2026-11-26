@@ -13,11 +13,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from rfl_oms import OMS, AlertLevel, MarketSim, OrderType, RiskLimits, Side, TimeInForce
+from views.algo_view import algo_view
+from views.basket_view import basket_view
+from views.common import NUM, fmt_price, krw
 
 st.set_page_config(page_title="RFL OMS", page_icon="📈", layout="wide")
 
 LEVEL_ICON = {AlertLevel.INFO: "🔵", AlertLevel.WARNING: "🟠", AlertLevel.CRITICAL: "🔴"}
-NUM = st.column_config.NumberColumn(format="localized")
 
 
 def get_oms() -> OMS:
@@ -25,18 +27,6 @@ def get_oms() -> OMS:
         st.session_state.oms = OMS(market=MarketSim(seed=None))
         st.session_state.last_auto_step = time.time()
     return st.session_state.oms
-
-
-def krw(v: float) -> str:
-    """헤더 지표용 축약 표기: 1억 이상은 '억' 단위."""
-    return f"{v / 1e8:,.4f}억" if abs(v) >= 1e8 else f"{v:,.0f}"
-
-
-def fmt_price(oms: OMS, symbol: str, price: float | None) -> str:
-    if price is None:
-        return "시장가"
-    d = oms.instruments[symbol].price_decimals
-    return f"{price:,.{d}f}"
 
 
 # ============================== 사이드바 ==============================
@@ -60,9 +50,10 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
     )
     if kill != oms.kill_switch:
         oms.set_kill_switch(kill)
-    if st.sidebar.button("미체결 전체 취소", width="stretch"):
+    if st.sidebar.button("미체결·알고 전체 취소", width="stretch"):
+        a = oms.algos.cancel_all("전체 취소")
         n = oms.cancel_all()
-        st.sidebar.success(f"{n}건 취소")
+        st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소")
 
     st.sidebar.subheader("리스크 한도")
     lim = oms.limits
@@ -120,7 +111,11 @@ def header_metrics(oms: OMS) -> None:
     cols[2].metric("실현 손익", krw(oms.realized_pnl()))
     cols[3].metric("증거금(체결 기준)", krw(oms.margin_used()))
     cols[4].metric("총 노출(미체결 포함)", krw(exp.gross))
-    cols[5].metric("미체결 주문", f"{len(oms.open_orders())}건")
+    n_algos = sum(1 for a in oms.algos.algos.values() if a.status.is_active)
+    cols[5].metric("미체결 · 실행중 알고", f"{len(oms.open_orders())} · {n_algos}")
+    n_alerts = sum(1 for a in oms.alerts if a.level is not AlertLevel.INFO)
+    if n_alerts:
+        st.caption(f"경고·위험 알림 {n_alerts}건 — 알림 탭에서 확인하세요")
     if oms.kill_switch:
         st.error("킬 스위치가 켜져 있습니다. 신규 주문이 차단됩니다.", icon="⛔")
 
@@ -279,10 +274,14 @@ def orders_frame(oms: OMS, orders) -> pd.DataFrame:
 
 
 def blotter(oms: OMS) -> None:
-    status_filter = st.segmented_control(
+    c1, c2 = st.columns([3, 1])
+    status_filter = c1.segmented_control(
         "보기", ["전체", "미체결", "체결", "취소/거부"], default="전체", key="blotter_filter"
     )
+    hide_children = c2.checkbox("알고 자식주문 숨기기", value=True, help="TWAP/VWAP/POV가 낸 분할 주문을 목록에서 감춥니다")
     orders = list(oms.orders.values())
+    if hide_children:
+        orders = [o for o in orders if o.strategy_tag not in oms.algos.algos]
     if status_filter == "미체결":
         orders = [o for o in orders if o.status.is_open]
     elif status_filter == "체결":
@@ -514,19 +513,33 @@ def main_view(auto: bool, interval: float) -> None:
     header_metrics(oms)
     market_watch(oms)
 
-    n_alerts = sum(1 for a in oms.alerts if a.level is not AlertLevel.INFO)
-    tabs = st.tabs(["주문 입력", "주문 블로터", "포지션·손익", "리스크", f"알림 ({n_alerts})", "감사 로그"])
+    tabs = st.tabs(
+        [
+            "주문 입력",
+            "바스켓",
+            "알고리즘",
+            "주문 블로터",
+            "포지션·손익",
+            "리스크",
+            "알림",
+            "감사 로그",
+        ]
+    )
     with tabs[0]:
         order_entry(oms)
     with tabs[1]:
-        blotter(oms)
+        basket_view(oms)
     with tabs[2]:
-        positions_view(oms)
+        algo_view(oms)
     with tabs[3]:
-        risk_view(oms)
+        blotter(oms)
     with tabs[4]:
-        alerts_view(oms)
+        positions_view(oms)
     with tabs[5]:
+        risk_view(oms)
+    with tabs[6]:
+        alerts_view(oms)
+    with tabs[7]:
         audit_view(oms)
 
 

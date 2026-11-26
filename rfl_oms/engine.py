@@ -9,6 +9,8 @@ from __future__ import annotations
 import copy
 from datetime import datetime
 
+from .algo import AlgoEngine
+from .basket import BasketManager
 from .market import MarketSim
 from .models import (
     Alert,
@@ -46,6 +48,10 @@ class OMS:
         self._seq = 0
         self._rule_seq = 0
         self._alert_state: dict[str, AlertLevel] = {}
+        self.algos = AlgoEngine(self)
+        self.baskets = BasketManager(self)
+        # 시장이 한 틱 진행된 뒤, 미체결 주문 매칭 다음에 호출되는 처리기
+        self.tick_hooks = [self.algos.on_tick, self.baskets.on_tick]
 
     # ================= 조회·지표 =================
     @property
@@ -72,9 +78,14 @@ class OMS:
         return self.limits.capital + self.daily_pnl()
 
     def exposure(self, extra: Order | None = None, exclude_id: str | None = None) -> Exposure:
-        """현재 포지션 + 미체결 주문(+ 신규 주문)이 모두 체결될 때의 최악 노출."""
+        """현재 포지션 + 미체결 주문 + 알고 잔량(+ 신규 주문)이 모두 체결될 때의 최악 노출."""
         buys = {s: 0 for s in self.instruments}
         sells = {s: 0 for s in self.instruments}
+        algo_buys, algo_sells = self.algos.reserved()
+        for s, q in algo_buys.items():
+            buys[s] += q
+        for s, q in algo_sells.items():
+            sells[s] += q
         candidates = [o for o in self.open_orders() if o.order_id != exclude_id]
         if extra is not None:
             candidates.append(extra)
@@ -291,8 +302,11 @@ class OMS:
             return
         self.kill_switch = on
         if on:
+            a = self.algos.cancel_all("킬 스위치")
             n = self.cancel_all("킬 스위치")
-            self._alert(AlertLevel.CRITICAL, "킬 스위치", f"거래 중지: 신규 주문 차단, 미체결 {n}건 취소")
+            self._alert(
+                AlertLevel.CRITICAL, "킬 스위치", f"거래 중지: 신규 주문 차단, 미체결 {n}건·알고 {a}건 취소"
+            )
         else:
             self._alert(AlertLevel.INFO, "킬 스위치", "거래 재개")
 
@@ -326,6 +340,8 @@ class OMS:
             self.market.step()
             for order in self.open_orders():
                 self._match(order)
+            for hook in self.tick_hooks:
+                hook()
             self._check_price_rules()
             self._evaluate_alerts()
 

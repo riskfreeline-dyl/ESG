@@ -16,9 +16,23 @@ DEFAULT_INSTRUMENTS: tuple[Instrument, ...] = (
     Instrument("USDF", "미국달러 선물", "통화선물", 0.1, 10_000, 0.05, "KRX-SIM", 1_380.0, 0.0004, 400),
     Instrument("KTBF", "3년 국채선물", "금리선물", 0.01, 1_000_000, 0.02, "KRX-SIM", 105.50, 0.0002, 300),
     Instrument("GOLD", "KRX 금 (1g)", "금 현물", 10, 1, 1.0, "KRX-SIM", 150_000, 0.0008, 2_000),
+    # 바스켓 구성용 주식 (가격은 시뮬레이션 시작값일 뿐 실제 시세가 아님)
+    Instrument("005380", "현대차", "주식", 500, 1, 1.0, "KRX-SIM", 240_000, 0.0018, 800),
+    Instrument("000270", "기아", "주식", 100, 1, 1.0, "KRX-SIM", 98_000, 0.0018, 1_200),
+    Instrument("035420", "NAVER", "주식", 100, 1, 1.0, "KRX-SIM", 190_000, 0.0020, 700),
+    Instrument("105560", "KB금융", "주식", 100, 1, 1.0, "KRX-SIM", 82_000, 0.0014, 1_200),
+    Instrument("005490", "POSCO홀딩스", "주식", 500, 1, 1.0, "KRX-SIM", 380_000, 0.0018, 400),
+    Instrument("068270", "셀트리온", "주식", 100, 1, 1.0, "KRX-SIM", 175_000, 0.0020, 600),
 )
 
 BOOK_LEVELS = 5
+SESSION_TICKS = 120  # 시뮬레이션 1거래일 = 120틱
+
+
+def volume_profile(tick: int) -> float:
+    """장중 거래량 U자형 패턴 (장 시작·마감에 많고 점심에 적음). 평균 약 1."""
+    x = (tick % SESSION_TICKS) / (SESSION_TICKS - 1)
+    return 0.5 + 2.0 * (x - 0.5) ** 2 * 3
 
 
 @dataclass
@@ -52,6 +66,8 @@ class MarketSim:
         self._prev_close = dict(self._price)
         self._book: dict[str, dict[Side, list[list[float]]]] = {}
         self.history: dict[str, list[tuple[int, float]]] = {s: [] for s in self.instruments}
+        self.volume: dict[str, int] = {s: 0 for s in self.instruments}  # 직전 틱 시장 거래량
+        self.volume_history: dict[str, list[tuple[int, int]]] = {s: [] for s in self.instruments}
         for s in self.instruments:
             self._rebuild_book(s)
             self._record(s)
@@ -78,6 +94,10 @@ class MarketSim:
             new_price = inst.round_to_tick(self._price[s] * math.exp(shock))
             self._price[s] = max(new_price, inst.tick_size)
             self._rebuild_book(s)
+            vol = inst.base_liquidity * volume_profile(self.tick_no) * self.rng.lognormal(0.0, 0.3)
+            self.volume[s] = max(int(vol), 1)
+            self.volume_history[s].append((self.tick_no, self.volume[s]))
+            del self.volume_history[s][:-500]
             self._record(s)
 
     def _record(self, symbol: str, keep: int = 500) -> None:
