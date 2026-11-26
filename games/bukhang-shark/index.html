@@ -977,8 +977,15 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   }
 
   // ---------- cheering crowd at the 북항 친수공원 (waterfront park) ----------
-  const CHEER_IMGS = ['tex/crowd1.jpg', 'tex/crowd2.jpg']; let cheerCd = 0, cheerTimer = 0;
+  // six waterfront crowds; in the player's evening/night the night shots come up most
+  const CHEER_DAY = ['tex/crowd1.jpg', 'tex/crowd5.jpg', 'tex/crowd6.jpg'], CHEER_NIGHT = ['tex/crowd2.jpg', 'tex/crowd3.jpg', 'tex/crowd4.jpg'];
+  const CHEER_IMGS = [...CHEER_DAY, ...CHEER_NIGHT]; let cheerCd = 0, cheerTimer = 0, cheerLast = '';
   CHEER_IMGS.forEach(u => { const i = new Image(); i.src = u; });
+  function pickCheerImg() {
+    const h = new Date().getHours(), night = h >= 18 || h < 5;
+    const pool = Math.random() < .75 ? (night ? CHEER_NIGHT : CHEER_DAY) : CHEER_IMGS;
+    const opts = pool.filter(u => u !== cheerLast); cheerLast = opts[Math.floor(Math.random() * opts.length)]; return cheerLast;
+  }
   function playClip(u, gain, delay = 0) {
     if (!sfxOn || !A || !vbuf[u]) return;
     const src = A.createBufferSource(), g = A.createGain(); g.gain.value = gain; src.buffer = vbuf[u]; src.connect(g).connect(A.destination); src.start(A.currentTime + delay);
@@ -986,7 +993,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function cheer(text, full) {
     if (G.state !== 'play') return;
     if (!full && G.t < cheerCd) return; cheerCd = G.t + 25;
-    const el = $('cheer'); $('cheerImg').src = CHEER_IMGS[Math.floor(Math.random() * CHEER_IMGS.length)]; $('cheerTxt').textContent = text;
+    const el = $('cheer'); $('cheerImg').src = pickCheerImg(); $('cheerTxt').textContent = text;
     el.className = 'cheer ' + (full ? 'full' : 'mini'); el.hidden = false; void el.offsetWidth; el.classList.add('show');
     playClip('voice/cheer.mp3', .55); if (voiceOn) playClip('voice/chant.mp3', .8, .25);
     clearTimeout(cheerTimer); cheerTimer = setTimeout(() => { el.hidden = true; el.classList.remove('show'); }, full ? 2650 : 2850);
