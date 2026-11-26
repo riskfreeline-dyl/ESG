@@ -384,6 +384,12 @@ h1 small { display: block; font-family: var(--kr); font-weight: 900; font-size: 
   function spin() {
     if (S.spinning || betSum() <= 0) return;
     ac(); sfx.spin();
+    // on phones the SPIN button sits below the wheel: bring the wheel (and the result line under it) into view
+    { const st = $('stage').getBoundingClientRect(), res = $('result').getBoundingClientRect();
+      if (st.top < 0 || res.bottom > innerHeight) {
+        const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: Math.max(0, window.scrollY + st.top - 8), behavior: smooth ? 'smooth' : 'auto' });
+      } }
     S.spinning = true; S.lastBets = { ...S.bets };
     const stake = betSum(); S.bal -= stake;
     ORDER.forEach(k => spotEls[k].classList.remove('hit'));
