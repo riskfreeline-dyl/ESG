@@ -20,3 +20,8 @@
 23 coral af6da434-d685-4b40-aa17-e4a736f60bcc
 24 kelp 6fe00017-6fe5-4713-af4a-63bd69166793
 25 sand 2e606153-16a3-49f2-b5db-9b0edcc924d5
+# v0.5 shark evolution (tier1..4)
+31 shark_t1 e55e821c-02f4-4ebd-832e-7090ae1f3c09
+32 shark_t2 fb8dfcf5-8aca-42df-8ac1-95f2975c2b76
+33 shark_t3 f6aff293-3d2d-4067-9826-ff2a90d10960
+34 shark_t4 5bd13df6-2774-4771-b662-05038cec6ce1

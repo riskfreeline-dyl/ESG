@@ -573,7 +573,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   const MODELS = {};
   function loadModels(onProgress, onDone) {
     if (!T.GLTFLoader) { onDone(); return; }
-    const L = new T.GLTFLoader(), ids = [...SPECIES.map(s => s.id), 'shark', 'jelly', 'orca', 'rockA', 'rockB', 'coral'];
+    const L = new T.GLTFLoader(), ids = [...SPECIES.map(s => s.id), 'shark', 'shark_t1', 'shark_t2', 'shark_t3', 'shark_t4', 'jelly', 'orca', 'rockA', 'rockB', 'coral'];
     let n = 0; const tick = () => { n++; onProgress(n, ids.length); if (n === ids.length) onDone(); };
     ids.forEach(id => L.load('models/' + id + '.glb', g => {
       g.scene.updateMatrixWorld(true); let mesh = null; g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
@@ -596,6 +596,13 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     const m = new T.Mesh(new T.SphereGeometry(.8, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), procJellyMat); scene.add(m);
     jellies.push({ m, p: new T.Vector3(), ph: rand(0, 6), size: rand(1.1, 1.6) });
   }
+  let sharkLooks = [];
+  function setSharkLook(tier) {
+    if (!sharkLooks.length) return;
+    let k = Math.min(tier, sharkLooks.length - 1); while (k > 0 && !sharkLooks[k]) k--;
+    sharkLooks.forEach((m, i) => { if (m) m.visible = i === k; });
+    shark.userData.model = sharkLooks[k];
+  }
   function applyModels() {
     SPECIES.forEach(sp => {
       const M = MODELS[sp.id]; if (!M) return; sp.hasModel = true;
@@ -607,10 +614,15 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const im = meshes[sp.id];
       im.geometry = M.geo; im.material = addWiggle(modelMaterial(M.src, sp.metal), sp.wig); im.instanceColor = null;
     });
+    // one photoreal look per growth stage (아기 → 꼬마 → 청년 → 대장 → 전설)
     if (MODELS.shark) {
       shark.children.forEach(c => { if (c !== aura) c.visible = false; });
-      const m = new T.Mesh(MODELS.shark.geo, addWiggle(modelMaterial(MODELS.shark.src, .2, { emissive: new T.Color(0x000000) }), 'fish'));
-      m.scale.setScalar(2.8); m.position.z = .1; shark.add(m); shark.userData.model = m;
+      sharkLooks = ['shark', 'shark_t1', 'shark_t2', 'shark_t3', 'shark_t4'].map(id => {
+        const M = MODELS[id]; if (!M) return null;
+        const m = new T.Mesh(M.geo, addWiggle(modelMaterial(M.src, id === 'shark_t4' ? .5 : .2, { emissive: new T.Color(0x000000) }), 'fish'));
+        m.scale.setScalar(2.8); m.position.z = .1; m.visible = false; shark.add(m); return m;
+      });
+      setSharkLook(0);
     }
     // photoreal seabed: rocks and coral replace the toy shapes
     if (MODELS.rockA || MODELS.coral) {
@@ -665,7 +677,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function bossEnd(won) {
     boss.on = false; boss.g.visible = false; $('bossBar').hidden = true; boss.next = G.t + 120;
     if (won) {
-      const pts = 3000 * boss.level; G.score += pts; G.xp += 200; G.size = sizeFromXp(G.xp); G.hearts = Math.min(3, G.hearts + 1); G.hunger = 100;
+      const pts = 3000 * boss.level; G.score += pts; G.xp += 200; G.size = sizeFromXp(G.xp); { const nt = tierOf(G.size); if (nt > G.tier) { G.tier = nt; setSharkLook(nt); } } G.hearts = Math.min(3, G.hearts + 1); G.hunger = 100;
       banner('범고래 대장을 물리쳤다!', '+' + fmt(pts) + '점 · 하트 +1'); S.level(); flash('rgba(255,210,63,.6)', .6);
       for (let k = 0; k < 4; k++) sparkle(tmp.copy(boss.pos).add(new T.Vector3(rand(-4, 4), rand(-2, 3), rand(-4, 4))), 50, [0xffd23f, 0xff5e7e, 0x39e1ff, 0x3fe08c, 0xffffff], 14);
     }
@@ -823,6 +835,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     fish.forEach(f => { f.alive = true; f.respawn = 0; placeFish(f, G.pos); });
     bags.forEach(b => placeRandom(b.p, G.pos)); nets.forEach(n => placeRandom(n.p, G.pos, 6, 26)); jellies.forEach(j => placeRandom(j.p, G.pos, 6, 32));
     eomukState.active = false; eomukState.timer = 10;
+    setSharkLook(0);
     boss.on = false; boss.level = 0; boss.next = 0; boss.g.visible = false; $('bossBar').hidden = true;
   }
 
@@ -1034,7 +1047,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
         if (G.combo === 5 || G.combo === 10 || G.combo % 20 === 0) { popAt(tmp.copy(G.pos).addScaledVector(UP, 3 * G.size), G.combo + ' 콤보!', '#3FE08C', 40); }
         if (big) { G.shake = .5; popAt(tmp.copy(f.p).addScaledVector(UP, 2), sp.name + ' 꿀꺽!', '#FF9F43', 30); }
         const newSize = sizeFromXp(G.xp); G.size = newSize; const nt = tierOf(newSize);
-        if (nt > G.tier) { G.tier = nt; S.level(); banner(TIERS[nt].name + '로 성장!', nt === 4 ? '이제 북항 바다의 왕이에요' : '더 큰 물고기도 먹을 수 있어요'); flash('rgba(255,210,63,.6)', .5); sparkle(G.pos, 80, [0xffd23f, 0xff5e7e, 0x39e1ff, 0x3fe08c], 14); G.hearts = Math.min(3, G.hearts + 1); }
+        if (nt > G.tier) { G.tier = nt; setSharkLook(nt); S.level(); banner(TIERS[nt].name + '로 성장!', nt === 4 ? '이제 북항 바다의 왕이에요' : '더 큰 물고기도 먹을 수 있어요'); flash('rgba(255,210,63,.6)', .5); sparkle(G.pos, 80, [0xffd23f, 0xff5e7e, 0x39e1ff, 0x3fe08c], 14); G.hearts = Math.min(3, G.hearts + 1); }
         continue;
       }
       // collide

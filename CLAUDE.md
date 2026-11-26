@@ -16,4 +16,4 @@
 | 1 | 장터 주사위 | 보류 (v0.2 — 의뢰인 평가: "재미 하나도 없음") | `games/jangteo-dice/` |
 | 2 | 불장 라이더 | v0.1 — 의뢰인 평가: "별로" (이유 확인 필요) | `games/bull-rider/` |
 | 3 | RFL 그랜드 휠 | v0.1 — 의뢰인 평가: 좋음. rfl-cruise에 넣기 보류 (의뢰인이 Netlify 토큰 제공 거절 → 다시 묻지 말 것; 전체 덮어쓰기 금지) | `games/rfl-grand-wheel/` |
-| 4 | 북항이의 대모험 | v0.4 공개 — https://bukhang-shark.netlify.app · 쉬운 조작(손가락 쪽으로 헤엄, 고정 카메라, 깊이 자동) · 조작 방법 화면 · 범고래 보스 · 실사 바닥(모래·해초·바위·산호) · 실사 3D 15종 · 전국 순위표. 의뢰인 요청: '빙빙 돌고 빠르면 안 됨, 처음엔 쉽게'. 수정 후 `python3 build.py` → `site/` 폴더를 Netlify에 배포 | `games/bukhang-shark/` |
+| 4 | 북항이의 대모험 | v0.5 공개 (단계별 북항이 실사 모습 5종 추가) — https://bukhang-shark.netlify.app · 쉬운 조작(손가락 쪽으로 헤엄, 고정 카메라, 깊이 자동) · 조작 방법 화면 · 범고래 보스 · 실사 바닥(모래·해초·바위·산호) · 실사 3D 15종 · 전국 순위표. 의뢰인 요청: '빙빙 돌고 빠르면 안 됨, 처음엔 쉽게'. 수정 후 `python3 build.py` → `site/` 폴더를 Netlify에 배포 | `games/bukhang-shark/` |
