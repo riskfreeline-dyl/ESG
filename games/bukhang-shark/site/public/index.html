@@ -139,7 +139,21 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 .bossbar .hp { height: 16px; border-radius: 8px; background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.4); overflow: hidden; }
 .bossbar .hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #FF3D6E, #FF9F43); transition: width .3s; }
 .bossbar .say { font-family: var(--display); font-size: 26px; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.5); min-height: 32px; }
-.credit { font-size: 14px; opacity: .75; text-shadow: 0 1px 4px rgba(0,0,0,.6); margin-top: 2px; }
+/* creator credit pinned to the bottom of the first screen, always visible without scrolling */
+.credit-fixed { position: fixed; left: 0; right: 0; bottom: 0; z-index: 7; pointer-events: none; text-align: center; font-size: 13px; color: rgba(255,255,255,.85);
+  padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 6px); background: linear-gradient(rgba(3,36,58,0), rgba(3,36,58,.75)); text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+#oTitle { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); }
+/* phones: keep everything on the first screen (instructions live behind the 조작 방법 button) */
+@media (max-height: 860px) {
+  #oTitle .how { display: none; }
+  #oTitle .card { gap: 10px; }
+  #oTitle .logo { font-size: clamp(52px, 15vw, 88px); }
+  #oTitle .sub { font-size: 18px; }
+  #oTitle .go { min-height: 60px; font-size: 26px; }
+  #oTitle .rankbtn { min-height: 44px; font-size: 16px; }
+  #oTitle .partner p { font-size: 15px; }
+  #oTitle .cruise { min-height: 46px; font-size: 17px; }
+}
 .partner { display: grid; gap: 8px; justify-items: center; margin-top: 4px; }
 .partner p { margin: 0; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
 .partner p b { font-family: var(--display); font-weight: 400; color: #F2D383; letter-spacing: .02em; }
@@ -189,6 +203,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <div class="talk" id="talk" aria-live="polite"></div>
 
 <div class="overlay" id="oTitle">
+  <div class="credit-fixed">제작 · 이동영 © 2026</div>
   <div class="card">
     <h1 class="logo">북항이<span>의 대모험</span></h1>
     <p class="sub">부산 북항 바닷속, 아기 상어의 먹방 성장기!</p>
@@ -209,7 +224,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <p><b>RFL의 Meta Cruise</b>가 함께 합니다</p>
       <a class="cruise" href="https://rfl-cruise-tour.netlify.app" target="_blank" rel="noopener">🚢 RFL Meta Cruise 바로가기</a>
     </div>
-    <div class="credit">제작 · 이동영 © 2026</div>
   </div>
 </div>
 
