@@ -897,6 +897,17 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   // ---------- cute voice guide: 작은 목소리 + 말풍선 ----------
   let voiceOn = true, koVoice = null, talkUntil = 0, voiceT = 0; const said = {};
   const hasTTS = 'speechSynthesis' in window;
+  // recorded cute voice lines (ElevenLabs via Higgsfield); device speech is only the fallback
+  const VOICE = {"북항아, 출발! 작은 물고기부터 냠냠 먹어 봐!": "voice/v00.mp3", "북항아, 배고파요! 얼른 먹자!": "voice/v01.mp3", "하트가 하나 남았어요. 조심조심!": "voice/v02.mp3", "큰일이다! 범고래 대장이 나타났어!": "voice/v03.mp3", "범고래가 돌진해! 옆으로 피해!": "voice/v04.mp3", "지금이야! 범고래를 콱 물어!": "voice/v05.mp3", "해냈다! 범고래 대장을 이겼어!": "voice/v06.mp3", "광란 모드다! 다 먹어 버려!": "voice/v07.mp3", "냠냠! 10콤보! 최고야!": "voice/v08.mp3", "와! 꼬마 북항이가 됐다!": "voice/v09.mp3", "와! 청년 북항이가 됐다!": "voice/v10.mp3", "와! 대장 북항이가 됐다!": "voice/v11.mp3", "와! 북항의 전설이 됐다!": "voice/v12.mp3", "북항아, 앞에 꽃게!": "voice/v13.mp3", "북항아, 뒤에 꽃게!": "voice/v14.mp3", "북항아, 옆에 꽃게!": "voice/v15.mp3", "북항아, 앞에 갈치!": "voice/v16.mp3", "북항아, 뒤에 갈치!": "voice/v17.mp3", "북항아, 옆에 갈치!": "voice/v18.mp3", "북항아, 앞에 방어!": "voice/v19.mp3", "북항아, 뒤에 방어!": "voice/v20.mp3", "북항아, 옆에 방어!": "voice/v21.mp3", "북항아, 앞에 참다랑어!": "voice/v22.mp3", "북항아, 옆에 참다랑어!": "voice/v23.mp3", "북항아, 앞에 대왕문어!": "voice/v24.mp3", "북항아, 뒤에 대왕문어!": "voice/v25.mp3", "북항아, 옆에 대왕문어!": "voice/v26.mp3", "앞에 부산 어묵 있다! 먹으러 가자!": "voice/v27.mp3", "뒤에 부산 어묵 있다! 먹으러 가자!": "voice/v28.mp3", "옆에 부산 어묵 있다! 먹으러 가자!": "voice/v29.mp3", "앞에 해파리 조심!": "voice/v30.mp3", "뒤에 해파리 조심!": "voice/v31.mp3", "옆에 해파리 조심!": "voice/v32.mp3", "앞에 그물 조심해!": "voice/v33.mp3", "뒤에 그물 조심해!": "voice/v34.mp3", "옆에 그물 조심해!": "voice/v35.mp3", "북항아, 뒤에 참다랑어!": "voice/v36.mp3"};
+  const vbuf = {}; let curVoice = null;
+  function loadVoices() {
+    if (!A) return;
+    Object.values(VOICE).forEach(u => {
+      if (vbuf[u] !== undefined) return; vbuf[u] = null;
+      fetch(u).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+        .then(b => new Promise((ok, no) => A.decodeAudioData(b, ok, no))).then(d => { vbuf[u] = d; }).catch(() => {});
+    });
+  }
   function pickVoice() { try { const vs = speechSynthesis.getVoices().filter(v => /^ko/i.test(v.lang)); koVoice = vs.find(v => /yuna|sora|heami|seoyeon|female|여/i.test(v.name)) || vs[0] || null; } catch (e) {} }
   if (hasTTS) { pickVoice(); try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {} }
   const josa = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return (c >= 0 && c % 28) ? a : b; };   // 받침 있으면 a
@@ -907,7 +918,11 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     if (said[key] !== undefined && now - said[key] < gap) return;
     said[key] = now; talkUntil = now + 2.8;
     const b = $('talk'); b.textContent = '🐠 ' + text; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
-    if (voiceOn && sfxOn && hasTTS) {
+    const vu = VOICE[text];
+    if (voiceOn && sfxOn && vu && vbuf[vu] && A) {
+      try { if (curVoice) curVoice.stop(); } catch (e) {}
+      const src = A.createBufferSource(), g = A.createGain(); g.gain.value = .75; src.buffer = vbuf[vu]; src.connect(g).connect(A.destination); src.start(); curVoice = src;
+    } else if (voiceOn && sfxOn && hasTTS) {
       try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[!~]/g, '')); u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice; u.pitch = 1.8; u.rate = 1.08; u.volume = .55; speechSynthesis.speak(u); } catch (e) {}
     }
   }
@@ -935,7 +950,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   // ---------- flow ----------
   function setPlayUI(on) { ['hud', 'boost', 'stamWrap'].forEach(id => $(id).hidden = !on); if (!on) $('bossBar').hidden = true; }
   function start() {
-    ac(); musicStart(); ambientStart(); unlockVoice();
+    ac(); musicStart(); ambientStart(); unlockVoice(); loadVoices();
     setTimeout(() => talk('북항아, 출발! 작은 물고기부터 냠냠 먹어 봐!', 'start', 1, true), 1600);
     $('oTitle').hidden = true; $('oOver').hidden = true; resetGame(); G.state = 'play'; setPlayUI(true);
     $('hint').hidden = false; setTimeout(() => $('hint').hidden = true, 5000); hud();
