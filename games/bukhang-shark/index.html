@@ -49,8 +49,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 .boost small { display: block; font-family: var(--body); font-size: 13px; }
 .stam { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 132px); width: 104px; height: 8px; border-radius: 4px; background: rgba(0,0,0,.4); overflow: hidden; z-index: 3; }
 .stam i { display: block; height: 100%; background: var(--sun); }
-.joy { position: fixed; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; border: 3px solid rgba(255,255,255,.45); background: rgba(57,225,255,.12); pointer-events: none; z-index: 2; }
-.joy i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFFFFF, var(--aqua)); box-shadow: 0 0 18px var(--aqua); }
+.joy { position: fixed; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; border: 3px solid rgba(255,255,255,.45); background: rgba(57,225,255,.12); pointer-events: none; z-index: 2; }
+.joy i { display: none; position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFFFFF, var(--aqua)); box-shadow: 0 0 18px var(--aqua); }
 .hint { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); text-align: center; font-size: 22px; text-shadow: 0 2px 6px rgba(0,0,0,.6); pointer-events: none; z-index: 2; padding: 0 16px; }
 
 /* popups */
@@ -105,6 +105,20 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 .submit button { min-height: 50px; padding: 0 16px; border-radius: 14px; background: var(--sun); color: #3A2A08; font-family: var(--display); font-size: 19px; }
 .submit button:disabled { opacity: .5; }
 .rmsg { font-size: 16px; color: #B8F4FF; min-height: 20px; }
+.howto { width: 100%; text-align: left; display: grid; gap: 10px; }
+.hsec { background: rgba(3,36,58,.72); border: 2px solid rgba(255,255,255,.2); border-radius: 18px; padding: 12px 14px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hsec h3 { margin: 0 0 6px; font-family: var(--display); font-weight: 400; font-size: 22px; color: var(--sun); }
+.hsec p, .hsec li { margin: 0; font-size: 18px; line-height: 1.5; }
+.hsec ol, .hsec ul { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.hsec b { color: #B8F4FF; font-weight: 400; }
+.chain { display: flex; flex-wrap: wrap; gap: 4px 6px; font-size: 16px; align-items: center; }
+.chain span { background: rgba(255,255,255,.1); border-radius: 10px; padding: 2px 8px; }
+.howcard { max-height: calc(100vh - 40px); overflow-y: auto; }
+.bossbar { position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 196px); width: min(360px, 80vw); z-index: 3; pointer-events: none; text-align: center; display: grid; gap: 4px; }
+.bossbar b { font-family: var(--display); font-weight: 400; font-size: 20px; color: #FF8FA3; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+.bossbar .hp { height: 16px; border-radius: 8px; background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.4); overflow: hidden; }
+.bossbar .hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #FF3D6E, #FF9F43); transition: width .3s; }
+.bossbar .say { font-family: var(--display); font-size: 26px; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.5); min-height: 32px; }
 .partner { display: grid; gap: 8px; justify-items: center; margin-top: 4px; }
 .partner p { margin: 0; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
 .partner p b { font-family: var(--display); font-weight: 400; color: #F2D383; letter-spacing: .02em; }
@@ -125,6 +139,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <canvas id="gl" aria-label="부산 북항 바닷속 게임 화면"></canvas>
 <div class="flash" id="flash"></div>
 
+<div class="bossbar" id="bossBar" hidden><b id="bossName">⚠️ 범고래 대장</b><div class="hp"><i id="bossHp"></i></div><div class="say" id="bossSay"></div></div>
 <div class="hud" id="hud" hidden>
   <div class="panel">
     <div class="score num" id="score">0</div>
@@ -145,7 +160,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <button class="boost" id="boost" hidden aria-label="돌진">돌진<small>꾹 누르기</small></button>
 <div class="stam" id="stamWrap" hidden><i id="stam"></i></div>
 <div class="joy" id="joy" hidden><i id="joyKnob"></i></div>
-<div class="hint" id="hint" hidden>화면 아무 곳이나 손가락으로 끌면 헤엄쳐요</div>
+<div class="hint" id="hint" hidden>👆 가고 싶은 곳을 손가락으로 누르고 있으면 북항이가 그쪽으로 헤엄쳐요</div>
 <div class="pops" id="pops"></div>
 
 <div class="overlay" id="oTitle">
@@ -153,14 +168,17 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     <h1 class="logo">북항이<span>의 대모험</span></h1>
     <p class="sub">부산 북항 바닷속, 아기 상어의 먹방 성장기!</p>
     <div class="how">
-      <div>👆 화면을 <b>손가락으로 끌면</b> 그쪽으로 헤엄쳐요</div>
+      <div>👆 <b>가고 싶은 곳을 누르고 있으면</b> 북항이가 그쪽으로 천천히 헤엄쳐요</div>
       <div>🐟 <b>작은 물고기</b>를 먹으면 쑥쑥 커져요 (부산 고등어 최고!)</div>
       <div>🔴 <span class="r">빨갛게 빛나는 큰 물고기</span>는 아직 위험해요. 커지면 잡아먹어요</div>
       <div>🛍️ <b>비닐봉지·폐그물·해파리</b>는 피하기 — 바다를 지켜요</div>
       <div>✨ <b>황금 어묵</b>을 먹으면 <b>광란 모드</b>!</div>
     </div>
     <button class="go" id="bStart" disabled>잠깐만요…</button>
-    <button class="rankbtn" id="bRankTitle">🏆 전국 순위표</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button class="rankbtn" id="bHow">📖 조작 방법</button>
+      <button class="rankbtn" id="bRankTitle">🏆 전국 순위표</button>
+    </div>
     <div class="best" id="titleBest"></div>
     <div class="partner">
       <p><b>RFL의 Meta Cruise</b>가 함께 합니다</p>
@@ -184,6 +202,63 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     <div class="rmsg" id="rmsg" aria-live="polite"></div>
     <button class="go" id="bAgain">다시 헤엄치기</button>
     <button class="rankbtn" id="bRankOver">🏆 순위표 보기</button>
+  </div>
+</div>
+
+<div class="overlay" id="oHow" hidden>
+  <div class="card howcard">
+    <h2 class="reason" style="font-size:clamp(36px,10vw,56px)">📖 조작 방법</h2>
+    <div class="howto">
+      <div class="hsec"><h3>1. 시작하기</h3>
+        <p>첫 화면의 <b>[바다로 출발!]</b>을 누르면 시작해요. 처음 몇 초 동안은 아무것도 다치지 않아요. 천천히 화면을 둘러보세요.</p></div>
+      <div class="hsec"><h3>2. 헤엄치기 — 손가락 하나면 돼요</h3>
+        <ol>
+          <li><b>가고 싶은 곳을 손가락으로 누르고 있으세요.</b> 북항이가 손가락 쪽으로 천천히 방향을 틀어 헤엄쳐 가요.</li>
+          <li>방향을 다 틀면 <b>똑바로</b> 가요. 빙글빙글 돌지 않아요.</li>
+          <li>다른 곳으로 가고 싶으면 손가락을 <b>그쪽으로 옮기면</b> 돼요.</li>
+          <li><b>손가락을 떼면</b> 북항이가 그 방향으로 느릿느릿 떠다녀요.</li>
+          <li><b>위아래는 자동</b>이에요. 가까운 먹이 높이로 알아서 맞춰요.</li>
+          <li>화면은 늘 같은 방향에서 비춰요. 화면 위쪽이 늘 "앞바다" 쪽이에요.</li>
+        </ol></div>
+      <div class="hsec"><h3>3. 빨리 가기 — 돌진</h3>
+        <p>오른쪽 아래 <b>노란 [돌진] 버튼을 꾹</b> 누르고 있으면 빨라져요. 버튼 위 노란 막대(기운)가 줄어들고, 손을 떼고 쉬면 다시 차요. 컴퓨터에서는 <b>스페이스 키</b>예요.</p></div>
+      <div class="hsec"><h3>4. 먹기</h3>
+        <ul>
+          <li>먹이 근처로 가면 <b>입으로 쏙 빨려 들어와요.</b> 정확히 맞출 필요 없어요.</li>
+          <li>연달아 먹으면 <b>콤보</b>! 점수가 최대 3배까지 커져요.</li>
+          <li>먹을수록 <b>성장 막대</b>가 차고, 다 차면 한 단계 커져요. 이때 생명 하트도 하나 다시 채워져요.</li>
+        </ul></div>
+      <div class="hsec"><h3>5. 누구를 먹을 수 있나요?</h3>
+        <p><b>나보다 작은 것</b>은 먹을 수 있어요. <b style="color:#FF8FA3">빨갛게 깜빡이는 큰 물고기</b>는 지금은 위험하니 피하세요. 커지면 그 물고기도 먹을 수 있어요.</p>
+        <div class="chain" style="margin-top:6px"><span>멸치</span>→<span>고등어</span>→<span>전갱이</span>→<span>쥐치</span>→<span>볼락</span>→<span>참돔</span>→<span>복어</span>→<span>오징어</span>→<span>꽃게</span>→<span>갈치</span>→<span>방어</span>→<span>참다랑어</span>→<span>대왕문어</span></div>
+        <p style="margin-top:6px">크기 단계: 아기 → 꼬마 → 청년 → 대장 → <b>북항의 전설</b></p></div>
+      <div class="hsec"><h3>6. 조심할 것</h3>
+        <ul>
+          <li>🛍️ <b>비닐봉지</b>: 먹으면 배가 고파져요.</li>
+          <li>🕸️ <b>폐그물</b>: 걸리면 하트 1개가 줄고 잠깐 느려져요.</li>
+          <li>🪼 <b>해파리</b>: 닿으면 쏘여서 하트 1개가 줄어요.</li>
+          <li>🔴 <b>빨간 큰 물고기</b>: 물리면 하트 1개가 줄어요.</li>
+        </ul></div>
+      <div class="hsec"><h3>7. 좋은 것</h3>
+        <p>✨ <b>황금 어묵</b>을 먹으면 8초 동안 <b>광란 모드</b>! 큰 물고기, 해파리까지 뭐든지 먹을 수 있고 점수가 2배예요. 배도 가득 차요.</p></div>
+      <div class="hsec"><h3>8. 보스전 — 범고래 대장 🐋</h3>
+        <ol>
+          <li>북항이가 <b>청년 북항이</b>가 되면 범고래 대장이 나타나요. 화면 위에 보스의 체력 막대가 보여요.</li>
+          <li>범고래가 빙빙 돌다가 <b>빨갛게 빛나며 "피하세요!"</b>가 뜨면 곧 돌진해요. 옆으로 비켜요.</li>
+          <li>돌진이 끝나 범고래가 <b>노랗게 빛나며 "지금 물어요!"</b>가 뜨면 지쳐 있어요. 그때 다가가서 부딪히면 한 대 때려요.</li>
+          <li>체력을 다 깎으면 승리! 큰 점수와 하트를 받아요. 시간이 지나면 더 센 대장이 다시 나타나요.</li>
+        </ol></div>
+      <div class="hsec"><h3>9. 화면 보는 법</h3>
+        <ul>
+          <li>왼쪽 위: <b>점수</b>, 지금 크기, <b>성장 막대</b>(초록), <b>배부름 막대</b>(빨강). 배부름이 0이 되면 끝나요.</li>
+          <li>오른쪽 위: <b>하트 3개</b>(생명). 0이 되면 끝나요. 음악·효과음을 끄는 버튼도 있어요.</li>
+        </ul></div>
+      <div class="hsec"><h3>10. 끝난 뒤 — 순위 등록</h3>
+        <p>별명을 적고 <b>[순위 등록]</b>을 누르면 <b>전국 순위표</b>에 올라가요. "오늘" 순위와 "역대 최고" 순위를 볼 수 있어요.</p></div>
+      <div class="hsec"><h3>컴퓨터로 할 때</h3>
+        <p>방향키(또는 W·A·S·D)로 방향, <b>스페이스</b>로 돌진. 마우스로 화면을 누르고 있어도 돼요.</p></div>
+    </div>
+    <button class="go" id="bHowClose">알겠어요!</button>
   </div>
 </div>
 
@@ -283,12 +358,13 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   const rim = new T.DirectionalLight(0x5ad8ff, 0.5); rim.position.set(-40, 20, -60); scene.add(rim);
 
   // seabed
+  let seabedMat = null;
   const seabedH = (x, z) => Math.sin(x * .05) * 1.6 + Math.cos(z * .045) * 1.4 + Math.sin((x + z) * .11) * .6;
   {
     const geo = new T.PlaneGeometry(420, 420, 120, 120); geo.rotateX(-Math.PI / 2);
     const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, seabedH(p.getX(i), p.getZ(i)));
     geo.computeVertexNormals();
-    const mat = new T.MeshStandardMaterial({ map: sand, roughness: .95, emissive: new T.Color(0x6fd9ff), emissiveMap: caustic, emissiveIntensity: .55 });
+    const mat = seabedMat = new T.MeshStandardMaterial({ map: sand, roughness: .95, emissive: new T.Color(0x6fd9ff), emissiveMap: caustic, emissiveIntensity: .55 });
     scene.add(new T.Mesh(geo, mat));
   }
   // surface seen from below
@@ -303,6 +379,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     scene.add(m); rays.push(m);
   }
 
+  const procDeco = [];
   // Busan North Port: shipping containers on the seabed
   const CONT = [0xE63946, 0x1D7FD8, 0xF4A261, 0x2A9D8F, 0x9B5DE5, 0xFFD166, 0xEF476F, 0x06D6A0];
   const contTex = canvasTex(128, (g, S) => { g.fillStyle = '#fff'; g.fillRect(0, 0, S, S); g.fillStyle = 'rgba(0,0,0,.25)'; for (let x = 4; x < S; x += 10) g.fillRect(x, 0, 4, S); g.fillStyle = 'rgba(255,255,255,.7)'; g.font = 'bold 22px sans-serif'; g.fillText('RFL', 40, 72); });
@@ -333,14 +410,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
         q.setFromEuler(new T.Euler(rand(-.4, .4), rand(0, 6), rand(-.4, .4))); s.set(k, k * rand(.8, 1.6), k);
         M.compose(pos, q, s); im.setMatrixAt(i, M); im.setColorAt(i, c.setHex(HUE[Math.floor(Math.random() * HUE.length)]));
       }
-      scene.add(im);
+      scene.add(im); procDeco.push(im);
     });
   }
   // kelp (swaying)
   const kelp = (() => {
     const n = 170, im = new T.InstancedMesh(new T.BoxGeometry(.5, 1, .12), new T.MeshStandardMaterial({ color: 0x3fbf6a, roughness: .7, emissive: 0x0a3a1a, emissiveIntensity: .4 }), n);
     const data = Array.from({ length: n }, () => { const x = rand(-95, 95), z = rand(-95, 95); return { x, z, y: seabedH(x, z), h: rand(5, 16), ph: rand(0, 6), r: rand(0, 3) }; });
-    scene.add(im); return { im, data };
+    scene.add(im); return { im, im2: null, data };
   })();
   // drifting ships overhead (silhouettes)
   const ships = [];
@@ -419,7 +496,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   // fish species
   // len = model length per unit of size; bottom = keeps near the seabed; wig = swim motion in the shader
   const SPECIES = [
-    { id: 'anchovy', name: '멸치',      size: .32, color: 0xd6ecff, n: 70, speed: 7,   pts: 10,   xp: 1,  food: 4,  shape: 'fish', metal: .7, len: 2.2, wig: 'fish' },
+    { id: 'anchovy', name: '멸치',      size: .32, color: 0xd6ecff, n: 70, speed: 5.5, pts: 10,   xp: 1,  food: 6,  shape: 'fish', metal: .7, len: 2.2, wig: 'fish' },
     { id: 'mackerel', name: '고등어',   size: .7,  color: 0x2fb7a3, n: 28, speed: 8,   pts: 30,   xp: 3,  food: 9,  shape: 'fish', metal: .5, len: 2,   wig: 'fish' },
     { id: 'jack', name: '전갱이',       size: .75, color: 0xb9c98a, n: 24, speed: 8,   pts: 35,   xp: 3,  food: 9,  shape: 'fish', metal: .5, len: 2,   wig: 'fish' },
     { id: 'filefish', name: '쥐치',     size: .85, color: 0xc9a77a, n: 12, speed: 5,   pts: 45,   xp: 4,  food: 11, shape: 'deep', metal: .1, len: 1.8, wig: 'fish', bottom: true },
@@ -496,7 +573,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   const MODELS = {};
   function loadModels(onProgress, onDone) {
     if (!T.GLTFLoader) { onDone(); return; }
-    const L = new T.GLTFLoader(), ids = [...SPECIES.map(s => s.id), 'shark', 'jelly'];
+    const L = new T.GLTFLoader(), ids = [...SPECIES.map(s => s.id), 'shark', 'jelly', 'orca', 'rockA', 'rockB', 'coral'];
     let n = 0; const tick = () => { n++; onProgress(n, ids.length); if (n === ids.length) onDone(); };
     ids.forEach(id => L.load('models/' + id + '.glb', g => {
       g.scene.updateMatrixWorld(true); let mesh = null; g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
@@ -535,9 +612,103 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const m = new T.Mesh(MODELS.shark.geo, addWiggle(modelMaterial(MODELS.shark.src, .2, { emissive: new T.Color(0x000000) }), 'fish'));
       m.scale.setScalar(2.8); m.position.z = .1; shark.add(m); shark.userData.model = m;
     }
+    // photoreal seabed: rocks and coral replace the toy shapes
+    if (MODELS.rockA || MODELS.coral) {
+      procDeco.forEach(m => m.visible = false);
+      [['rockA', 34, 3, 7], ['rockB', 28, 3, 8], ['coral', 46, 1.6, 3.6]].forEach(([id, n, a, b]) => {
+        const M = MODELS[id]; if (!M) return;
+        const im = new T.InstancedMesh(M.geo, modelMaterial(M.src, 0, { emissive: new T.Color(0x000000) }), n);
+        for (let i = 0; i < n; i++) {
+          const x = rand(-92, 92), z = rand(-92, 92), k = rand(a, b);
+          tmp.set(x, seabedH(x, z) + k * (id === 'coral' ? .32 : .18), z); Q.setFromEuler(new T.Euler(0, rand(0, 6.3), 0)); SC.setScalar(k);
+          M4.compose(tmp, Q, SC); im.setMatrixAt(i, M4);
+          if (id !== 'coral' && k > 4.5) obstacles.push({ x, z, r: k * .45, top: tmp.y + k * .2 });
+        }
+        scene.add(im);
+      });
+    }
+    if (MODELS.orca) boss.setModel(MODELS.orca);
     if (MODELS.jelly) {
       const mat = addWiggle(modelMaterial(MODELS.jelly.src, 0, { transparent: true, opacity: .82, emissive: new T.Color(0x9a4aff), emissiveIntensity: .35, side: T.DoubleSide, depthWrite: false }), 'jelly');
       jellies.forEach(j => { j.m.geometry = MODELS.jelly.geo; j.m.material = mat; });
+    }
+  }
+
+  function loadPhotoTextures() {
+    const TL = new T.TextureLoader();
+    TL.load('tex/sand.jpg', t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(26, 26); seabedMat.map = t; seabedMat.needsUpdate = true; seabedMat.emissiveIntensity = .38; });
+    TL.load('tex/kelp.png', t => {
+      const mat = new T.MeshStandardMaterial({ map: t, alphaTest: .45, side: T.DoubleSide, roughness: .7, emissive: 0x0a2a10, emissiveIntensity: .3 });
+      const geo = new T.PlaneGeometry(1, 1);
+      kelp.im.geometry = geo; kelp.im.material = mat;
+      kelp.im2 = new T.InstancedMesh(geo, mat, kelp.data.length); kelp.im2.instanceMatrix.setUsage(T.DynamicDrawUsage); scene.add(kelp.im2);
+    });
+  }
+
+  // ---------- boss: 범고래 대장 (killer whale) ----------
+  // circle → glow red & warn → charge → tired & glow gold (bite it now!) → repeat
+  const boss = (() => {
+    const g = new T.Group(); g.visible = false; scene.add(g);
+    const procMat = new T.MeshStandardMaterial({ color: 0x0b0b10, roughness: .3, emissive: new T.Color(0xff2040), emissiveIntensity: 0 });
+    const body = new T.Mesh(new T.SphereGeometry(1, 24, 16), procMat); body.scale.set(.32, .3, 1); g.add(body);
+    const B = { g, mat: procMat, on: false, hp: 0, max: 0, phase: 'circle', pt: 0, ang: 0, pos: new T.Vector3(), dir: new T.Vector3(), len: 7.5, level: 0, next: 0, hitCd: 0 };
+    B.setModel = M => { body.visible = false; const mat = modelMaterial(M.src, .4); B.mat = mat; const m = new T.Mesh(M.geo, addWiggle(mat, 'fish')); g.add(m); };
+    return B;
+  })();
+  function bossSay(t, color = '#fff') { $('bossSay').textContent = t; $('bossSay').style.color = color; }
+  function bossStart() {
+    boss.level++; boss.on = true; boss.max = boss.hp = 3 + boss.level * 2; boss.phase = 'enter'; boss.pt = 0; boss.len = 7 + boss.level * .8 + G.size;
+    const a = rand(0, 6.3); boss.pos.set(G.pos.x + Math.cos(a) * 40, G.pos.y, G.pos.z + Math.sin(a) * 40); boss.ang = a;
+    boss.g.visible = true; $('bossBar').hidden = false; $('bossName').textContent = '⚠️ 범고래 대장 Lv.' + boss.level; $('bossHp').style.width = '100%'; bossSay('조심하세요!', '#FF8FA3');
+    banner('범고래 대장이 나타났다!', '빨갛게 빛나면 피하고, 노랗게 빛나면 물어요'); S.boss(); flash('rgba(255,40,60,.35)');
+  }
+  function bossEnd(won) {
+    boss.on = false; boss.g.visible = false; $('bossBar').hidden = true; boss.next = G.t + 120;
+    if (won) {
+      const pts = 3000 * boss.level; G.score += pts; G.xp += 200; G.size = sizeFromXp(G.xp); G.hearts = Math.min(3, G.hearts + 1); G.hunger = 100;
+      banner('범고래 대장을 물리쳤다!', '+' + fmt(pts) + '점 · 하트 +1'); S.level(); flash('rgba(255,210,63,.6)', .6);
+      for (let k = 0; k < 4; k++) sparkle(tmp.copy(boss.pos).add(new T.Vector3(rand(-4, 4), rand(-2, 3), rand(-4, 4))), 50, [0xffd23f, 0xff5e7e, 0x39e1ff, 0x3fe08c, 0xffffff], 14);
+    }
+  }
+  function bossUpdate(dt) {
+    if (!boss.on) { if (G.state === 'play' && G.tier >= 2 && G.t > Math.max(boss.next, 20)) bossStart(); return; }
+    boss.pt += dt; boss.hitCd = Math.max(0, boss.hitCd - dt);
+    const to = tmp.copy(G.pos).sub(boss.pos); const dist = to.length(); let speed = 7, want = null;
+    if (boss.phase === 'enter' || boss.phase === 'circle') {
+      boss.ang += dt * .5; const r = 16 + G.size * 2;
+      want = new T.Vector3(G.pos.x + Math.cos(boss.ang) * r, G.pos.y, G.pos.z + Math.sin(boss.ang) * r).sub(boss.pos);
+      speed = boss.phase === 'enter' ? 14 : 9;
+      if (boss.phase === 'enter' && dist < r + 6) { boss.phase = 'circle'; boss.pt = 0; }
+      if (boss.phase === 'circle' && boss.pt > 4.5 - Math.min(2, boss.level * .3)) { boss.phase = 'warn'; boss.pt = 0; bossSay('피하세요! 돌진해요!', '#FF8FA3'); S.warn(); }
+      boss.mat.emissive.setRGB(0, 0, 0); boss.mat.emissiveIntensity = 0;
+    } else if (boss.phase === 'warn') {
+      speed = 1.5; want = to.clone();
+      boss.mat.emissive.setRGB(1, .1, .2); boss.mat.emissiveIntensity = .5 + .4 * Math.sin(G.t * 18);
+      if (boss.pt > 1.3) { boss.phase = 'charge'; boss.pt = 0; boss.dir.copy(to).normalize(); }
+    } else if (boss.phase === 'charge') {
+      speed = 24 + boss.level * 2; want = boss.dir.clone();
+      if (boss.pt > 1.4) { boss.phase = 'tired'; boss.pt = 0; bossSay('지금 물어요!', '#FFD23F'); }
+    } else if (boss.phase === 'tired') {
+      speed = 1.2; want = boss.dir.clone();
+      boss.mat.emissive.setRGB(1, .8, .1); boss.mat.emissiveIntensity = .35 + .25 * Math.sin(G.t * 10);
+      if (boss.pt > 3.2) { boss.phase = 'circle'; boss.pt = 0; bossSay(''); }
+    }
+    if (want && want.lengthSq() > 1e-4) boss.dir.lerp(want.normalize(), Math.min(1, dt * (boss.phase === 'charge' ? .2 : 2.5))).normalize();
+    boss.pos.addScaledVector(boss.dir, speed * dt);
+    boss.pos.y = clamp(boss.pos.y, seabedH(boss.pos.x, boss.pos.z) + 3, SURF - 3);
+    boss.g.position.copy(boss.pos); boss.g.scale.setScalar(boss.len);
+    M4.lookAt(boss.dir, ZERO, UP); boss.g.quaternion.setFromRotationMatrix(M4);
+    // contact
+    if (dist < boss.len * .45 + G.size * .8 && boss.hitCd <= 0) {
+      if (boss.phase === 'tired' || G.frenzy > 0) {
+        boss.hp--; boss.hitCd = .8; S.big(); G.shake = .6; sparkle(boss.pos, 40, [0xffd23f, 0xffffff, 0xff5e7e], 10); popAt(boss.pos, '콱! 명중!', '#FFD23F', 40);
+        $('bossHp').style.width = (boss.hp / boss.max * 100) + '%'; G.pos.addScaledVector(to.normalize(), 5);
+        if (boss.hp <= 0) bossEnd(true); else { boss.phase = 'circle'; boss.pt = 0; bossSay(''); }
+      } else if (boss.phase === 'charge' && G.inv <= 0) {
+        G.hearts--; G.inv = 2; G.shake = 1; S.hurt(); flash('rgba(255,40,60,.55)', .55); G.lastHurt = '범고래 대장에게 들이받혔어요. 빨갛게 빛나면 옆으로 피하세요!';
+        popAt(G.pos, '쿵! 피하세요!', '#FF5E7E', 36); G.pos.addScaledVector(to.normalize(), 8); boss.hitCd = 1;
+        if (G.hearts <= 0) { gameOver('hurt'); return; }
+      }
     }
   }
 
@@ -586,6 +757,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     power: () => { noise(.8, .4, 300, 3000, 0, 'bandpass'); [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, .3, 'triangle', .07, i * .07)); },
     level: () => [392, 523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .32, 'square', .05, i * .1)),
     boost: () => noise(.5, .25, 400, 1600, 0, 'bandpass'),
+    boss: () => { tone(110, 1.2, 'sawtooth', .09, 0, 80); tone(82, 1.4, 'sawtooth', .08, .3, 60); noise(1, .3, 200, 60); },
+    warn: () => { [880, 0, 880].forEach((f, i) => f && tone(f, .18, 'square', .06, i * .22)); },
   };
   // music: breezy 104bpm harbor groove (pentatonic marimba + bass + soft shaker), brighter in frenzy
   const STEP = 60 / 104 / 4;
@@ -624,7 +797,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   ];
   const G = { state: 'title', t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 0, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false,
     yaw: 0, pitch: 0, pos: new T.Vector3(0, 14, 0), eaten: 0, tier: 0, shake: 0, slow: 0, bumpCd: 0, lastHurt: '', mouthOpen: 0 };
-  const sizeFromXp = xp => 1 + 3.3 * (1 - Math.exp(-xp / 320));
+  const sizeFromXp = xp => 1 + 3.3 * (1 - Math.exp(-xp / 1400));
   const tierOf = s => { let k = 0; TIERS.forEach((t, i) => { if (s >= t.at) k = i; }); return k; };
   const load = () => { try { return JSON.parse(localStorage.getItem('bukhang-shark') || '{}'); } catch (e) { return {}; } };
   const save = r => { try { localStorage.setItem('bukhang-shark', JSON.stringify(r)); } catch (e) {} };
@@ -644,26 +817,27 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     for (let k = 0; k < 10; k++) { p.set(rand(-75, 75), rand(yMin, yMax), rand(-75, 75)); if (!farFrom || p.distanceTo(farFrom) > 30) break; }
   }
   function resetGame() {
-    Object.assign(G, { t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 2, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false, yaw: 0, pitch: 0, eaten: 0, tier: 0, shake: 0, slow: 0 });
+    Object.assign(G, { t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 3, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false, yaw: 0, pitch: 0, eaten: 0, tier: 0, shake: 0, slow: 0 });
     G.pos.set(0, 14, 0);
+    schools[0].c.set(6, 14, 14); schools[1].c.set(-8, 13, 18); schools[2].c.set(12, 15, 22);   // food right in front at the start
     fish.forEach(f => { f.alive = true; f.respawn = 0; placeFish(f, G.pos); });
     bags.forEach(b => placeRandom(b.p, G.pos)); nets.forEach(n => placeRandom(n.p, G.pos, 6, 26)); jellies.forEach(j => placeRandom(j.p, G.pos, 6, 32));
     eomukState.active = false; eomukState.timer = 10;
+    boss.on = false; boss.level = 0; boss.next = 0; boss.g.visible = false; $('bossBar').hidden = true;
   }
 
-  // ---------- input: floating joystick ----------
-  const joy = { on: false, id: null, x0: 0, y0: 0, dx: 0, dy: 0 };
+  // ---------- input: swim toward the finger ----------
+  const joy = { on: false, id: null, x: 0, y: 0 };
+  function showFinger() { const j = $('joy'); j.style.left = joy.x + 'px'; j.style.top = joy.y + 'px'; j.hidden = false; }
   const keys = {};
   $('gl').addEventListener('pointerdown', e => {
-    if (G.state !== 'play' || joy.on) return; joy.on = true; joy.id = e.pointerId; joy.x0 = e.clientX; joy.y0 = e.clientY; joy.dx = joy.dy = 0;
-    const j = $('joy'); j.style.left = e.clientX + 'px'; j.style.top = e.clientY + 'px'; j.hidden = false; $('joyKnob').style.transform = ''; $('hint').hidden = true;
+    if (G.state !== 'play' || joy.on) return; joy.on = true; joy.id = e.pointerId; joy.x = e.clientX; joy.y = e.clientY; showFinger(); $('hint').hidden = true;
   });
   addEventListener('pointermove', e => {
     if (!joy.on || e.pointerId !== joy.id) return;
-    let dx = e.clientX - joy.x0, dy = e.clientY - joy.y0; const L = Math.hypot(dx, dy), M = 60; if (L > M) { dx *= M / L; dy *= M / L; }
-    joy.dx = dx / M; joy.dy = dy / M; $('joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
+    joy.x = e.clientX; joy.y = e.clientY; showFinger();
   });
-  const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.on = false; joy.dx = joy.dy = 0; $('joy').hidden = true; };
+  const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.on = false; $('joy').hidden = true; };
   addEventListener('pointerup', joyEnd); addEventListener('pointercancel', joyEnd);
   addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
   addEventListener('keyup', e => { keys[e.code] = false; });
@@ -696,7 +870,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   }
 
   // ---------- flow ----------
-  function setPlayUI(on) { ['hud', 'boost', 'stamWrap'].forEach(id => $(id).hidden = !on); }
+  function setPlayUI(on) { ['hud', 'boost', 'stamWrap'].forEach(id => $(id).hidden = !on); if (!on) $('bossBar').hidden = true; }
   function start() {
     ac(); musicStart(); ambientStart();
     $('oTitle').hidden = true; $('oOver').hidden = true; resetGame(); G.state = 'play'; setPlayUI(true);
@@ -741,26 +915,45 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   }
 
   // ---------- update ----------
-  const fwd = new T.Vector3(), mouthP = new T.Vector3(), tmp = new T.Vector3(), M4 = new T.Matrix4(), Q = new T.Quaternion(), SC = new T.Vector3(), UP = new T.Vector3(0, 1, 0), ZERO = new T.Vector3();
+  const camRight = new T.Vector3(), camFwd = new T.Vector3(), fwd = new T.Vector3(), mouthP = new T.Vector3(), tmp = new T.Vector3(), M4 = new T.Matrix4(), Q = new T.Quaternion(), SC = new T.Vector3(), UP = new T.Vector3(0, 1, 0), ZERO = new T.Vector3();
   function update(dt) {
     G.t += dt;
     const playing = G.state === 'play';
     // --- steering
-    let tx = joy.dx, ty = joy.dy;
-    if (keys.ArrowLeft || keys.KeyA) tx = -1; if (keys.ArrowRight || keys.KeyD) tx = 1; if (keys.ArrowUp || keys.KeyW) ty = -1; if (keys.ArrowDown || keys.KeyS) ty = 1;
+    // The camera never rotates, so "up on the screen" is always the same direction in the sea.
+    // The shark turns toward the finger (or arrow keys) and then swims straight: no endless circling.
+    camRight.setFromMatrixColumn(cam.matrixWorld, 0); camRight.y = 0; camRight.normalize();
+    camFwd.set(0, 0, -1).applyQuaternion(cam.quaternion); camFwd.y = 0; camFwd.normalize();
+    let wantYaw = null, steering = false;
+    if (playing && joy.on) {
+      v3.copy(G.pos).project(cam);
+      const dx = joy.x - (v3.x + 1) / 2 * innerWidth, dy = joy.y - (1 - v3.y) / 2 * innerHeight;
+      if (Math.hypot(dx, dy) > 16) { wantYaw = Math.atan2(camRight.x * dx - camFwd.x * dy, camRight.z * dx - camFwd.z * dy); }
+      steering = true;
+    }
+    let kx = 0, kz = 0; if (keys.ArrowLeft || keys.KeyA) kx = -1; if (keys.ArrowRight || keys.KeyD) kx = 1; if (keys.ArrowUp || keys.KeyW) kz = -1; if (keys.ArrowDown || keys.KeyS) kz = 1;
+    if (playing && (kx || kz)) { wantYaw = Math.atan2(camRight.x * kx - camFwd.x * kz, camRight.z * kx - camFwd.z * kz); steering = true; }
     if (keys.Space && playing) G.boosting = true; else if (!boostBtn.classList.contains('on')) G.boosting = false;
-    if (!playing) { tx = Math.sin(G.t * .35) * .5; ty = Math.sin(G.t * .5) * .3; }
-    G.yaw -= tx * 1.4 * dt;
-    G.pitch = lerp(G.pitch, clamp(-ty * .6, -.6, .6), Math.min(1, dt * 2));
-    // soft walls: turn back toward the harbor center
+    // soft walls: guide back toward the harbor center only when nobody is steering
     const out = Math.max(Math.abs(G.pos.x), Math.abs(G.pos.z)) - BOUND;
-    if (out > 0) { const want = Math.atan2(-G.pos.x, -G.pos.z); let d = want - G.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); G.yaw += d * Math.min(1, dt * (1 + out * .3)); }
+    if (out > 0 && wantYaw === null) wantYaw = Math.atan2(-G.pos.x, -G.pos.z);
+    if (!playing) wantYaw = G.yaw + .25;
+    let tx = 0;
+    if (wantYaw !== null) { let d = wantYaw - G.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); const step = clamp(d, -2 * dt, 2 * dt); G.yaw += step; tx = clamp(d, -1, 1) * .6; }
+    // depth is automatic: glide toward the height of the nearest fish you can eat
+    let ty = playing ? G.pos.y : 14 + Math.sin(G.t * .3) * 4, bestD = 1e9;
+    if (playing) for (const f of fish) {
+      if (!f.alive || (f.sp.size >= G.size * .95 && G.frenzy <= 0)) continue;
+      const dxz = Math.hypot(f.p.x - G.pos.x, f.p.z - G.pos.z); if (dxz < 18 && dxz < bestD) { bestD = dxz; ty = f.p.y; }
+    }
+    G.pitch = lerp(G.pitch, clamp((ty - G.pos.y) * .12, -.45, .45), Math.min(1, dt * 2));
+    G.pos.x = clamp(G.pos.x, -BOUND - 8, BOUND + 8); G.pos.z = clamp(G.pos.z, -BOUND - 8, BOUND + 8);
     const floor = seabedH(G.pos.x, G.pos.z) + 1.2 * G.size;
     if (G.pos.y < floor + 1) G.pitch = Math.max(G.pitch, .3); if (G.pos.y > SURF - 3) G.pitch = Math.min(G.pitch, -.25);
     fwd.set(Math.sin(G.yaw) * Math.cos(G.pitch), Math.sin(G.pitch), Math.cos(G.yaw) * Math.cos(G.pitch));
     const canBoost = G.boosting && G.stamina > .02 && playing;
     G.stamina = clamp(G.stamina + (canBoost ? -.45 : .18) * dt, 0, 1);
-    const speed = (6.3 + G.size * 1.35) * (canBoost ? 1.65 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
+    const speed = (4.6 + G.size * 1) * (steering || canBoost || !playing ? 1 : .55) * (canBoost ? 1.6 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
     G.pos.addScaledVector(fwd, speed * dt);
     G.pos.y = clamp(G.pos.y, floor, SURF - 2);
     // containers: slide over them
@@ -783,12 +976,17 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       G.inv = Math.max(0, G.inv - dt); G.slow = Math.max(0, G.slow - dt); G.bumpCd = Math.max(0, G.bumpCd - dt);
       G.comboT -= dt; if (G.comboT <= 0) G.combo = 0;
       if (G.frenzy > 0) { G.frenzy -= dt; if (Math.random() < .6) sparkle(tmp.copy(G.pos).addScaledVector(fwd, -1.5 * G.size), 1, [0xff5e7e, 0xffd23f, 0x3fe08c, 0x39e1ff, 0xc86bff], 2); if (G.frenzy <= 0) popAt(G.pos, '광란 끝!', '#ffffff', 26); }
-      else G.hunger -= dt * (2.2 + G.size * .45);
+      else G.hunger -= G.t < 8 ? 0 : dt * (1.0 + G.size * .3);
       if (G.hunger <= 0) { G.hunger = 0; gameOver('hunger'); }
     }
     mouthP.copy(G.pos).addScaledVector(fwd, 1.7 * G.shownSize);
 
     // --- schools wander
+    // beginner friendly: schools of fish you can eat never stay far away — they drift back near you
+    if (playing) schools.forEach((sc, i) => {
+      const sp = SPECIES[i]; if (sp.size >= G.size * .95 || sp.walker) return;
+      if (Math.hypot(sc.c.x - G.pos.x, sc.c.z - G.pos.z) > 35) { const a = G.yaw + rand(-1, 1); sc.c.set(clamp(G.pos.x + Math.sin(a) * 22, -75, 75), clamp(G.pos.y + rand(-4, 4), 5, SURF - 6), clamp(G.pos.z + Math.cos(a) * 22, -75, 75)); }
+    });
     schools.forEach((s, i) => { s.ph += dt * .12; s.c.x = clamp(s.c.x + Math.sin(s.ph * 1.3 + i) * dt * 4, -70, 70); s.c.z = clamp(s.c.z + Math.cos(s.ph + i * 2) * dt * 4, -70, 70); s.c.y = clamp(s.c.y + Math.sin(s.ph * 2.1 + i) * dt * 2, 6, SURF - 8); });
 
     // --- fish
@@ -801,16 +999,16 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const toShark = tmp.copy(G.pos).sub(f.p), dist = toShark.length();
       if (sp.shape === 'octo' || sp.walker) {
         // lurk near the seabed, slowly creep toward the shark when it is the bigger one
-        const want = danger && dist < 26 && playing ? toShark.clone().setY(0).setLength(sp.speed * 1.3) : new T.Vector3(Math.sin(G.t * .2 + f.ph), 0, Math.cos(G.t * .17 + f.ph)).multiplyScalar(sp.speed * .6);
+        const want = danger && dist < 26 && playing && G.t > 50 ? toShark.clone().setY(0).setLength(sp.speed * 1.3) : new T.Vector3(Math.sin(G.t * .2 + f.ph), 0, Math.cos(G.t * .17 + f.ph)).multiplyScalar(sp.speed * .6);
         if (edible && dist < 20) want.copy(toShark).setY(0).setLength(-sp.speed * 1.6);
         f.v.lerp(want, Math.min(1, dt));
       } else {
         const sc = schools[sp.si];
         f.v.x += (sc.c.x - f.p.x) * .02 * dt * 8 + rand(-1, 1) * dt * 4; f.v.y += (sc.c.y - f.p.y) * .02 * dt * 8 + rand(-.5, .5) * dt * 2; f.v.z += (sc.c.z - f.p.z) * .02 * dt * 8 + rand(-1, 1) * dt * 4;
         if (playing || G.state === 'title') {
-          const fear = 9 + G.size * 3;
-          if (!danger && dist < fear) f.v.addScaledVector(toShark, -(1 - dist / fear) * 22 * dt / Math.max(dist, .5));
-          if (danger && dist < 22 && playing) f.v.addScaledVector(toShark, 6 * dt / Math.max(dist, .5));  // big ones hunt you
+          const fear = 6 + G.size * 2;
+          if (!danger && dist < fear) f.v.addScaledVector(toShark, -(1 - dist / fear) * 10 * dt / Math.max(dist, .5));
+          if (danger && dist < 22 && playing && G.t > 50) f.v.addScaledVector(toShark, 6 * dt / Math.max(dist, .5));  // big ones hunt you
         }
         const max = sp.speed * (dist < 12 ? 1.5 : 1);
         if (f.v.length() > max) f.v.setLength(max); if (f.v.length() < sp.speed * .3) f.v.setLength(sp.speed * .3);
@@ -824,8 +1022,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       if (!playing) continue;
       // eat
       const md = f.p.distanceTo(mouthP);
-      if (edible && md < .75 * G.size + sp.size * .55) {
-        f.alive = false; f.respawn = rand(3, 7);
+      if (edible && md < 4 * G.size && playing) f.p.lerp(mouthP, Math.min(1, dt * 3));   // gentle suction toward the mouth
+      if (edible && md < 1.05 * G.size + sp.size * .7) {
+        f.alive = false; f.respawn = rand(5, 10);
         G.combo++; G.comboT = 1.8; const mult = Math.min(3, 1 + (G.combo - 1) * .15) * (G.frenzy > 0 ? 2 : 1);
         const pts = sp.pts * mult; G.score += pts; G.eaten++;
         G.xp += sp.xp; G.hunger = Math.min(100, G.hunger + sp.food); G.mouthOpen = 1;
@@ -852,6 +1051,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
         }
       }
     }
+    if (playing) bossUpdate(dt);
     // --- jellyfish: drift and pulse; they sting unless you are in frenzy
     jellies.forEach(j => {
       j.ph += dt; j.p.y += Math.sin(j.ph * .8) * dt * .9; j.p.x += Math.sin(j.ph * .13) * dt * .6;
@@ -923,8 +1123,13 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     });
     // kelp sway
     const km = kelp.im;
-    kelp.data.forEach((k, i) => { Q.setFromEuler(new T.Euler(Math.sin(G.t * .9 + k.ph) * .12, k.r, Math.cos(G.t * .7 + k.ph) * .12)); SC.set(1, k.h, 1); tmp.set(k.x, k.y + k.h / 2, k.z); M4.compose(tmp, Q, SC); km.setMatrixAt(i, M4); });
-    km.instanceMatrix.needsUpdate = true;
+    const photoKelp = !!kelp.im2;
+    kelp.data.forEach((k, i) => {
+      const sx = photoKelp ? k.h * .36 : 1;
+      Q.setFromEuler(new T.Euler(Math.sin(G.t * .9 + k.ph) * .12, k.r, Math.cos(G.t * .7 + k.ph) * .12)); SC.set(sx, k.h, 1); tmp.set(k.x, k.y + k.h / 2, k.z); M4.compose(tmp, Q, SC); km.setMatrixAt(i, M4);
+      if (photoKelp) { Q.setFromEuler(new T.Euler(Math.sin(G.t * .9 + k.ph) * .12, k.r + Math.PI / 2, Math.cos(G.t * .7 + k.ph) * .12)); M4.compose(tmp, Q, SC); kelp.im2.setMatrixAt(i, M4); }
+    });
+    km.instanceMatrix.needsUpdate = true; if (photoKelp) kelp.im2.instanceMatrix.needsUpdate = true;
     // particles
     for (let i = 0; i < plankton.n; i++) { const y = plankton.pos[i * 3 + 1] + dt * .25; plankton.pos[i * 3 + 1] = y > SURF - 1 ? 1 : y; }
     plankton.geo.attributes.position.needsUpdate = true;
@@ -948,14 +1153,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function updateCamera(dt) {
     const s = G.shownSize, playing = G.state !== 'title';
     if (!playing) {
-      const a = G.t * .09; camTarget.set(G.pos.x + Math.sin(a) * 11, G.pos.y + 3, G.pos.z + Math.cos(a) * 11);
+      const a = G.t * .06; camTarget.set(G.pos.x + Math.sin(a) * 11, G.pos.y + 3, G.pos.z + Math.cos(a) * 11);
     } else {
-      const fx = Math.sin(G.yaw), fz = Math.cos(G.yaw);
-      camTarget.set(G.pos.x - fx * (6 + s * 4.2), G.pos.y + 1.8 + s * 1.6 - G.pitch * 2, G.pos.z - fz * (6 + s * 4.2));
+      camTarget.set(G.pos.x, G.pos.y + 6 + s * 2.6, G.pos.z - (13 + s * 5));   // fixed angle: follows, never rotates
       camTarget.y = Math.max(camTarget.y, seabedH(camTarget.x, camTarget.z) + 1.5); camTarget.y = Math.min(camTarget.y, SURF - 1);
     }
     cam.position.lerp(camTarget, Math.min(1, dt * 2.2));
-    lookGoal.copy(G.pos).addScaledVector(fwd, 3 + s * 2); camLook.lerp(lookGoal, Math.min(1, dt * 3.5));
+    if (playing) lookGoal.copy(G.pos).addScaledVector(UP, .5 * s); else lookGoal.copy(G.pos).addScaledVector(fwd, 3 + s * 2);
+    camLook.lerp(lookGoal, Math.min(1, dt * 4));
     if (G.shake > 0) { G.shake = Math.max(0, G.shake - dt); camLook.x += rand(-1, 1) * G.shake * .3; camLook.y += rand(-1, 1) * G.shake * .3; }
     cam.lookAt(camLook);
     // fog thins a bit as you grow, frenzy tints the water
@@ -977,7 +1182,10 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   document.addEventListener('visibilitychange', () => { paused = document.hidden; last = performance.now(); if (document.hidden) musicStop(); else if (musicOn && A) musicStart(); });
 
   // ---------- UI wiring ----------
-  $('bStart').addEventListener('click', start);
+  $('bStart').addEventListener('click', () => { if (!load().seenHow) { const r = load(); r.seenHow = 1; save(r); howThenStart = true; $('oHow').hidden = false; $('oHow').scrollTop = 0; return; } start(); });
+  let howThenStart = false;
+  $('bHow').addEventListener('click', () => { howThenStart = false; $('oHow').hidden = false; $('oHow').scrollTop = 0; });
+  $('bHowClose').addEventListener('click', () => { $('oHow').hidden = true; if (howThenStart) { howThenStart = false; start(); } });
   $('bRankTitle').addEventListener('click', openBoard); $('bRankOver').addEventListener('click', openBoard);
   $('bRankClose').addEventListener('click', () => { $('oRank').hidden = true; });
   $('tabToday').addEventListener('click', () => { boardTab = 'today'; renderBoard(); });
@@ -991,8 +1199,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
   resetGame();
   loadModels((n, total) => { $('bStart').textContent = '실사 바다 생물 부르는 중… ' + n + '/' + total; },
-    () => { applyModels(); $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!'; });
+    () => { applyModels(); loadPhotoTextures(); $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!'; });
   requestAnimationFrame(frame);
-  window.__shark = { G, fish, start, SPECIES, eomukState };
+  window.__shark = { G, fish, start, SPECIES, eomukState, joy, sim: (sec) => { for (let k = 0; k < sec * 30; k++) { U.time.value = G.t; update(1 / 30); updateCamera(1 / 30); cam.updateMatrixWorld(); } } };
 })();
 </script>
