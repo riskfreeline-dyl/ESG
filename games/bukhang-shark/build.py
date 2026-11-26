@@ -15,6 +15,11 @@ head = (
     '<meta property="og:title" content="북항이의 대모험">\n'
     '<meta property="og:description" content="부산 북항 바닷속 아기 상어의 실사 3D 먹방 성장기! 전국 순위에 도전하세요. RFL의 Meta Cruise가 함께 합니다.">\n'
     '<meta name="theme-color" content="#03243A">\n'
+    '<meta property="og:type" content="website">\n'
+    '<meta property="og:url" content="https://bukhang-shark.netlify.app/">\n'
+    '<meta property="og:image" content="https://bukhang-shark.netlify.app/og.jpg">\n'
+    '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
+    '<meta name="twitter:card" content="summary_large_image">\n'
 )
 out = head + src[:i] + '\n</head>\n<body>' + src[i:] + '\n</body>\n</html>\n'
 (here / 'site' / 'public' / 'index.html').write_text(out, encoding='utf-8')
