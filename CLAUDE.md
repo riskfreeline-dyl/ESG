@@ -14,5 +14,6 @@
 | 순서 | 게임 | 상태 | 위치 |
 |---|---|---|---|
 | 1 | 장터 주사위 | 보류 (v0.2 — 의뢰인 평가: "재미 하나도 없음") | `games/jangteo-dice/` |
-| 2 | 불장 라이더 | 제작 중 v0.1 (화려하고 컬러풀하게 요청) | `games/bull-rider/` |
-| 3 | RFL 그랜드 휠 | v0.1 — Netlify `rfl-cruise` 사이트에 넣을 럭셔리 빅휠 (가상 칩 전용) | `games/rfl-grand-wheel/` |
+| 2 | 불장 라이더 | v0.1 — 의뢰인 평가: "별로" (이유 확인 필요) | `games/bull-rider/` |
+| 3 | RFL 그랜드 휠 | v0.1 — 의뢰인 평가: 좋음. rfl-cruise에 넣기 보류 (의뢰인이 Netlify 토큰 제공 거절 → 다시 묻지 말 것; 전체 덮어쓰기 금지) | `games/rfl-grand-wheel/` |
+| 4 | 북항이의 대모험 | v0.1 — 부산 북항 상어 3D 먹방 성장 게임 (three.js r128) | `games/bukhang-shark/` |
