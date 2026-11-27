@@ -1,8 +1,8 @@
-# RFL OMS 전체 기록 — WinEdge 분석부터 1~4단계 구현과 전체 소스코드까지
+# RFL OMS 전체 기록 — WinEdge 분석부터 1~5단계 구현과 전체 소스코드까지
 
 - 작성일: 2026-11-27
 - 저장소: `riskfreeline-dyl/ESG`, 브랜치 `claude/festive-newton-9f091h`
-- 상태: 1~4단계 완료, 테스트 73개 통과, 브라우저에서 전 탭·전 역할 동작 확인, 웹 배포 https://rfl-oms.netlify.app
+- 상태: 1~5단계 완료(WinEdge 공개 기능 전 영역 구현, 실제 시장 연동 제외), 테스트 94개 통과, 브라우저에서 전 탭·전 역할 동작 확인, 웹 배포 https://rfl-oms.netlify.app
 - 성격: **시뮬레이션 프로토타입**입니다. 시세와 체결은 모두 가상이며 실제 거래소·증권사와 연결되어 있지 않습니다.
 
 ## 목차
@@ -10,7 +10,7 @@
 1. 배경과 진행 원칙
 2. WinEdge 공개 페이지 분석
 3. WinEdge 기능 ↔ RFL OMS 구현 대응표
-4. 단계별 구현 내역 (1~4단계)
+4. 단계별 구현 내역 (1~5단계)
 5. 시스템 구조
 6. 실행·테스트 방법
 7. 가정값, 한계, 다음 단계
@@ -32,7 +32,7 @@
 3. UI·데이터 모델·코드를 **처음부터 독자적으로** 설계·구현
 4. 실제 거래 연동 없이 동작을 검증할 수 있도록 시장·체결은 시뮬레이션으로 구성
 
-**진행 순서:** 공개 페이지 분석 → 1단계(OMS·사전 리스크) → 2단계(바스켓·알고 주문) → 3단계(지수 차익거래·리스크 대시보드) → 4단계(DB 저장·로그인과 권한·거래비용과 헤지 증거금 상계). 기술 스택은 사용자 선택에 따라 Python + Streamlit.
+**진행 순서:** 공개 페이지 분석 → 1단계(OMS·사전 리스크) → 2단계(바스켓·알고 주문) → 3단계(지수 차익거래·리스크 대시보드) → 4단계(DB 저장·로그인과 권한·거래비용과 헤지 증거금 상계) → 5단계(외환·채권·금 차익, 페어 트레이딩, 마켓메이킹, 옵션). 기술 스택은 사용자 선택에 따라 Python + Streamlit.
 
 ---
 
@@ -94,11 +94,13 @@
 | 원클릭 실행·체결 요약·실시간 손익 | 원클릭 실행, 바스켓 모니터 | 2 | 구현 |
 | 실행 중 정정·취소, 자동 재전송, 재실행 | 일괄 정정·취소, 자동 재전송(최대 3회), 잔량 재실행 | 2 | 구현 |
 | TWAP / VWAP / POV | 알고 엔진, 스케줄 차트, 슬리피지 | 2 | 구현 |
-| 맞춤 알고리즘 | — | — | 미구현 |
+| 맞춤 알고리즘 | (TWAP/VWAP/POV 매개변수 조정만 가능) | — | 일부 |
 | 지수선물 ↔ 바스켓 차익거래 | 차익 모니터, 수동·자동 진입/청산, 헤지 잔차 | 3 | 구현 |
-| 통화·채권·금 현물/선물 차익, ETF 차익, 페어 트레이딩 | — | — | 미구현 |
-| 마켓메이킹·유동성 공급 | — | — | 미구현 |
-| 옵션 자산군 | — | — | 미구현 |
+| 통화·채권·금 현물/선물 차익 | 달러·국고채·금 현물 ↔ 선물, 보유비용 이론가, 수동·자동 진입/청산 | 5 | 구현 |
+| 페어 트레이딩 | Z-점수·헤지비율·반감기, 진입/청산/손절, 자동 매매 | 5 | 구현 |
+| ETF ↔ 기초 포트폴리오 차익 | — | — | 미구현 (지수선물 차익과 같은 구조로 추가 가능) |
+| 마켓메이킹·유동성 공급 (외환·국고채·금) | 양방향 호가, 재고 스큐·한도, 킬 스위치 연동 | 5 | 구현 |
+| 옵션 자산군 | 코스피200 옵션 체인, Black-76, 그릭스, 델타 헤지, 만기 손익, 매도 옵션 증거금 | 5 | 구현 |
 | 마이크로초 저지연 C 엔진 | 해당 없음 (Python 시뮬레이션) | — | 범위 밖 |
 | 외부 시스템·데이터 피드 연동 | 엔진을 UI와 분리해 교체 가능한 구조 | — | 미구현 |
 
@@ -171,6 +173,21 @@
 | 호환 처리 | 브라우저 Python에는 OpenSSL 기반 `pbkdf2_hmac`이 없어 같은 결과를 내는 순수 파이썬 PBKDF2 사용(테스트로 일치 검증), SQLite WAL 미지원 시 기본 모드 |
 | 검증 | 실제 배포 주소에서 관리자 생성 → 사용자 추가 → 트레이더 주문·바스켓·차익 → 새로고침 후 데이터 유지 확인 |
 
+### 4.6 5단계 — 외환·채권·금 차익, 페어 트레이딩, 마켓메이킹, 옵션
+
+| 영역 | 내용 |
+|---|---|
+| 시장 추가 | 달러 현물(USDKRW), 국고채 3년 현물(KTB3Y), 금 선물(GOLDF, 100g), 코스피200 옵션 18종(행사가 9개 × 콜·풋, 2.5pt 간격, 만기 30일) |
+| 현물/선물 연결 | 달러·국채·금 선물이 현물 보유비용 이론가 F* = S × (1 + (r − y) × T/365) 주변에서 평균회귀 괴리로 움직임 (외환은 원화·달러 금리차, 채권은 레포·표면이자, 금은 금리·리스 금리) |
+| 미시구조 잡음 | 외환·채권·금 현물 체결가가 효율 가격 주변에서 튀었다 되돌아오는 효과(호가 반등) — 마켓메이킹 수익의 원천 |
+| 외환·채권·금 차익 | 지수 차익 엔진을 일반화해 재사용. 선물 1계약 = 현물 (선물 승수 ÷ 현물 승수) 단위(달러 10,000, 국채 액면 1억, 금 100g). 시장별 비용 가정·자동 진입/청산 |
+| 페어 트레이딩 | 로그가격 회귀로 헤지비율 β, 스프레드 Z-점수, 수익률 상관, 평균회귀 반감기. 진입 2.0 / 청산 0.5 / 손절 4.0 (조정 가능). 현대차·기아는 시뮬레이션에서 공적분(함께 움직임)으로 설정 |
+| 마켓메이킹 | 외환·국고채·금 양방향 지정가 호가, 반폭·수량·재고 한도·재고 스큐 설정, 대기 호가는 자기 가격으로 체결, 재고 한도 쪽 호가 중단, 호가 거부·킬 스위치 시 자동 중지 |
+| 옵션 | Black-76 가격·델타·감마·베가·세타(풋-콜 패리티 검증), 행사가별 변동성 스큐, 체인 화면, 시장가 주문, 포트폴리오 그릭스, 델타 헤지 버튼, 만기·현재 손익 그래프 |
+| 옵션 리스크 | 매도 옵션 증거금 = 프리미엄 + 기초자산 명목 15%, 노출은 델타 환산, 스트레스 테스트는 기초자산·변동성 충격을 넣어 옵션 가격을 다시 계산(비선형) |
+| 엔진 개선 | 호가에 대기하던 지정가 주문은 시장이 지나갈 때 자기 지정가로 체결(이전에는 상대 호가 가격), 저가 옵션을 위해 가격 괴리 점검에 2틱 허용, 주문당 수량 한도 기본값 상향(외환·채권 단위 고려, 실질 통제는 명목금액 한도) |
+| 시뮬레이션에서 확인한 사실 | 마켓메이킹은 반폭이 틱당 가격 변동보다 좁으면 손실, 넓히면 비용 전 이익. 페어 트레이딩은 공적분 쌍에서 비용 전 이익이 나지만 주식 거래세·수수료가 상당 부분을 차지 — 화면에 비용 전/후 손익을 함께 표시 |
+
 ---
 
 ## 5. 시스템 구조
@@ -190,8 +207,12 @@ rfl_oms/              주문 처리 엔진 (Streamlit에 의존하지 않음)
   fees.py             거래비용 (수수료·세금)
   auth.py             역할·권한, 비밀번호 해시·정책
   storage.py          SQLite 저장소 (장부 테이블 + 엔진 스냅샷, 사용자·로그인 기록)
+  options.py          Black-76 옵션 가격·그릭스, 체인, 포트폴리오 그릭스, 델타 헤지, 손익 그래프
+  pairs.py            페어 트레이딩
+  mm.py               마켓메이킹
+  ledger.py           전략별 손익 계산 도우미
 views/                화면 구성 요소 (로그인, 관리, 바스켓, 알고, 차익, 리스크, 공유 런타임, 공용 도우미)
-tests/                단위 테스트 73개
+tests/                단위 테스트 94개
 tools/build_web.py    Netlify용 웹 버전(web/) 생성기
 netlify.toml          Netlify 배포 설정
 tools/build_record.py 이 기록 문서를 다시 만드는 스크립트
@@ -214,7 +235,7 @@ streamlit run app.py          # 브라우저에서 http://localhost:8501
 # DB 위치 변경: RFL_OMS_DB=/경로/rfl_oms.db streamlit run app.py
 
 pip install pytest
-python -m pytest -q           # 73 passed
+python -m pytest -q           # 94 passed
 
 python tools/build_record.py  # 이 기록 문서 다시 만들기
 ```
@@ -249,7 +270,7 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 
 1. (완료) 데이터베이스 저장, 로그인·권한, 증거금 상계·비용 반영
 2. 증권사 Open API 모의투자 계좌로 실시간 시세·주문 연동
-3. 마켓메이킹·유동성 공급, 페어 트레이딩, 통화·채권·금 차익, 옵션
+3. (완료) 마켓메이킹·유동성 공급, 페어 트레이딩, 통화·채권·금 차익, 옵션
 4. 다중 사용자 웹 서비스(FastAPI + React) 전환, Docker 패키징·배포
 
 ---
@@ -277,39 +298,47 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 ### 수록 파일 목록
 
 - `.gitignore` (10줄)
-- `README.md` (118줄)
-- `app.py` (565줄)
+- `README.md` (130줄)
+- `app.py` (582줄)
 - `netlify.toml` (8줄)
 - `requirements.txt` (8줄)
 - `rfl_oms/__init__.py` (27줄)
 - `rfl_oms/algo.py` (253줄)
-- `rfl_oms/analytics.py` (134줄)
-- `rfl_oms/arbitrage.py` (311줄)
+- `rfl_oms/analytics.py` (154줄)
+- `rfl_oms/arbitrage.py` (366줄)
 - `rfl_oms/auth.py` (123줄)
 - `rfl_oms/basket.py` (387줄)
-- `rfl_oms/engine.py` (483줄)
+- `rfl_oms/engine.py` (521줄)
 - `rfl_oms/fees.py` (28줄)
-- `rfl_oms/index.py` (54줄)
-- `rfl_oms/market.py` (201줄)
-- `rfl_oms/models.py` (176줄)
-- `rfl_oms/risk.py` (172줄)
+- `rfl_oms/index.py` (90줄)
+- `rfl_oms/ledger.py` (30줄)
+- `rfl_oms/market.py` (303줄)
+- `rfl_oms/mm.py` (161줄)
+- `rfl_oms/models.py` (186줄)
+- `rfl_oms/options.py` (141줄)
+- `rfl_oms/pairs.py` (210줄)
+- `rfl_oms/risk.py` (173줄)
 - `rfl_oms/storage.py` (301줄)
 - `run.sh` (8줄)
 - `run_windows.bat` (7줄)
 - `stockbasic` (1줄)
-- `tests/test_engine.py` (180줄)
+- `tests/test_engine.py` (181줄)
 - `tests/test_phase2.py` (186줄)
 - `tests/test_phase3.py` (155줄)
 - `tests/test_phase4.py` (257줄)
+- `tests/test_phase5.py` (203줄)
 - `tools/build_record.py` (65줄)
 - `tools/build_web.py` (89줄)
 - `views/__init__.py` (1줄)
 - `views/admin_view.py` (145줄)
 - `views/algo_view.py` (165줄)
-- `views/arb_view.py` (201줄)
+- `views/arb_view.py` (221줄)
 - `views/auth_view.py` (91줄)
 - `views/basket_view.py` (214줄)
 - `views/common.py` (59줄)
+- `views/mm_view.py` (75줄)
+- `views/options_view.py` (92줄)
+- `views/pairs_view.py` (125줄)
 - `views/risk_view.py` (136줄)
 - `views/runtime.py` (52줄)
 
@@ -331,7 +360,7 @@ web/
 ### `README.md`
 
 ````markdown
-# RFL OMS — 1~4단계 (모의 체결)
+# RFL OMS — 1~5단계 (모의 체결)
 
 기관·전문 트레이더용 주문관리시스템(OMS) 프로토타입입니다.
 **시세와 체결은 모두 시뮬레이션**이며 실제 거래소나 증권사와 연결되지 않습니다.
@@ -421,6 +450,15 @@ run_windows.bat          # Windows (더블클릭)
 | 사용자 관리 | | | ✅ |
 | 거래 데이터 초기화 | | | ✅ |
 
+## 5단계 범위 (WinEdge 공개 기능 나머지)
+
+| 영역 | 내용 |
+|---|---|
+| 외환·국고채·금 차익 | 달러·국고채·금 현물 ↔ 선물, 보유비용 이론가(금리차·레포·리스 금리), 비용 차감 순수익, 수동·자동 진입/청산 |
+| 페어 트레이딩 | Z-점수·헤지비율 β·상관·평균회귀 반감기, 진입/청산/손절 기준, 자동 매매 |
+| 마켓메이킹 | 외환·국고채·금 양방향 호가, 반폭·수량·재고 한도·재고 스큐, 킬 스위치·호가 거부 시 자동 중지 |
+| 옵션 | 코스피200 옵션 18종(Black-76), 체인, 그릭스, 델타 헤지, 만기 손익 그래프, 매도 옵션 증거금, 비선형 스트레스 테스트 |
+
 ## 구조
 
 ```
@@ -437,7 +475,10 @@ rfl_oms/analytics.py VaR, 스트레스 테스트, 노출 분해
 rfl_oms/fees.py      거래비용
 rfl_oms/auth.py      역할·권한, 비밀번호 해시
 rfl_oms/storage.py   SQLite 저장소
-views/               로그인·관리·바스켓·알고·차익·리스크 화면, 공유 런타임
+rfl_oms/options.py   옵션 가격·그릭스·델타 헤지
+rfl_oms/pairs.py     페어 트레이딩
+rfl_oms/mm.py        마켓메이킹
+views/               로그인·관리·바스켓·알고·차익·페어·마켓메이킹·옵션·리스크 화면, 공유 런타임
 tools/               기록 문서 생성기
 tests/               엔진 단위 테스트
 ```
@@ -477,6 +518,9 @@ from views.arb_view import arb_view
 from views.auth_view import account_sidebar, require_login
 from views.basket_view import basket_view
 from views.common import NUM, can, can_manage, current_user, fmt_price, krw, need
+from views.mm_view import mm_view
+from views.options_view import options_view
+from views.pairs_view import pairs_view
 from views.risk_view import risk_view
 from views.runtime import engine, runtime
 
@@ -514,8 +558,11 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
         "미체결·알고 전체 취소", width="stretch", disabled=not can(Perm.CANCEL_ANY), help=None if can(Perm.CANCEL_ANY) else need(Perm.CANCEL_ANY)
     ):
         a = oms.algos.cancel_all("전체 취소")
+        for sym, cfg in oms.mm.configs.items():
+            if cfg.enabled:
+                oms.mm.disable(sym, "전체 취소")
         n = oms.cancel_all()
-        st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소")
+        st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소 (마켓메이킹 중지)")
 
     st.sidebar.subheader("리스크 한도")
     lim = oms.limits
@@ -594,6 +641,8 @@ def header_metrics(oms: OMS) -> None:
 def market_watch(oms: OMS) -> None:
     rows = []
     for s, inst in oms.instruments.items():
+        if inst.option is not None:
+            continue  # 옵션은 옵션 탭의 체인에서 본다
         q = oms.market.quote(s)
         rows.append(
             {
@@ -753,10 +802,10 @@ def blotter(oms: OMS) -> None:
     status_filter = c1.segmented_control(
         "보기", ["전체", "미체결", "체결", "취소/거부"], default="전체", key="blotter_filter"
     )
-    hide_children = c2.checkbox("알고 자식주문 숨기기", value=True, help="TWAP/VWAP/POV가 낸 분할 주문을 목록에서 감춥니다")
+    hide_children = c2.checkbox("알고·마켓메이킹 자동주문 숨기기", value=True, help="TWAP/VWAP/POV 분할 주문과 마켓메이킹 호가를 목록에서 감춥니다")
     orders = list(oms.orders.values())
     if hide_children:
-        orders = [o for o in orders if o.strategy_tag not in oms.algos.algos]
+        orders = [o for o in orders if o.strategy_tag not in oms.algos.algos and not o.strategy_tag.startswith("MM:")]
     if status_filter == "미체결":
         orders = [o for o in orders if o.status.is_open]
     elif status_filter == "체결":
@@ -989,7 +1038,10 @@ def _main_body(oms: OMS) -> None:
     header_metrics(oms)
     market_watch(oms)
 
-    names = ["주문 입력", "바스켓", "알고리즘", "차익거래", "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그"]
+    names = [
+        "주문 입력", "바스켓", "알고리즘", "차익거래", "페어 트레이딩", "마켓메이킹", "옵션",
+        "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그",
+    ]
     show_admin = can(Perm.MANAGE_USERS) or can(Perm.SET_FEES)
     tabs = st.tabs(names + (["관리"] if show_admin else []))
     with tabs[0]:
@@ -1001,17 +1053,23 @@ def _main_body(oms: OMS) -> None:
     with tabs[3]:
         arb_view(oms)
     with tabs[4]:
-        blotter(oms)
+        pairs_view(oms)
     with tabs[5]:
-        positions_view(oms)
+        mm_view(oms)
     with tabs[6]:
-        risk_view(oms)
+        options_view(oms)
     with tabs[7]:
-        alerts_view(oms)
+        blotter(oms)
     with tabs[8]:
+        positions_view(oms)
+    with tabs[9]:
+        risk_view(oms)
+    with tabs[10]:
+        alerts_view(oms)
+    with tabs[11]:
         audit_view(oms)
     if show_admin:
-        with tabs[9]:
+        with tabs[12]:
             admin_view(oms)
 
 
@@ -1367,7 +1425,8 @@ def position_frame(oms: "OMS") -> pd.DataFrame:
         if p.qty == 0:
             continue
         inst = oms.instruments[s]
-        n = p.qty * oms.market.mark(s) * inst.multiplier
+        # 옵션은 델타 환산 기초자산 명목으로 노출을 본다
+        n = p.qty * oms.exposure_per_unit(s) * (1 if inst.option is None or oms.market.option_greeks(s).delta >= 0 else -1)
         rows.append(
             {
                 "종목": s,
@@ -1376,7 +1435,7 @@ def position_frame(oms: "OMS") -> pd.DataFrame:
                 "수량": p.qty,
                 "순명목": n,
                 "총명목": abs(n),
-                "증거금": abs(n) * inst.margin_rate,
+                "증거금": oms.position_margin(s, p.qty),
             }
         )
     return pd.DataFrame(rows, columns=["종목", "종목명", "자산군", "수량", "순명목", "총명목", "증거금"])
@@ -1407,7 +1466,7 @@ def equity_beta_exposure(oms: "OMS") -> float:
     df = position_frame(oms)
     if df.empty:
         return 0.0
-    return float(df.loc[df["자산군"].isin(["주식", "주가지수선물"]), "순명목"].sum())
+    return float(df.loc[df["자산군"].isin(["주식", "주가지수선물", "주가지수옵션"]), "순명목"].sum())
 
 
 @dataclass
@@ -1445,11 +1504,15 @@ def value_at_risk(oms: "OMS", confidence: float = 0.99, lookback: int = 250) -> 
 DEFAULT_SCENARIOS: dict[str, dict[str, float]] = {
     "주가 급락 (−5%)": {"주식": -0.05, "주가지수선물": -0.05},
     "주가 급등 (+5%)": {"주식": 0.05, "주가지수선물": 0.05},
-    "원/달러 급등 (+3%)": {"통화선물": 0.03},
-    "금리 +50bp (국채선물 −1.3%)": {"금리선물": -0.013},
-    "금 급락 (−5%)": {"금 현물": -0.05},
+    "원/달러 급등 (+3%)": {"통화선물": 0.03, "외환 현물": 0.03},
+    "금리 +50bp (국채 −1.3%)": {"금리선물": -0.013, "채권 현물": -0.013},
+    "금 급락 (−5%)": {"금 현물": -0.05, "금 선물": -0.05},
     "선물 베이시스 확대 (선물 −1%)": {"주가지수선물": -0.01},
-    "복합 위기": {"주식": -0.08, "주가지수선물": -0.09, "통화선물": 0.05, "금리선물": 0.008, "금 현물": 0.03},
+    "변동성 급등 (옵션 +5%p)": {"옵션 변동성": 0.05},
+    "복합 위기": {
+        "주식": -0.08, "주가지수선물": -0.09, "통화선물": 0.05, "외환 현물": 0.05, "금리선물": 0.008,
+        "채권 현물": 0.008, "금 현물": 0.03, "금 선물": 0.03, "옵션 변동성": 0.10,
+    },
 }
 
 
@@ -1458,9 +1521,24 @@ def stress_test(oms: "OMS", scenarios: dict[str, dict[str, float]] | None = None
     df = position_frame(oms)
     equity = oms.equity()
     rows = []
+    from .options import black76, smile_vol
+    from .market import OPTION_RATE
+
     for name, shocks in scenarios.items():
         pnl = 0.0
         for _, r in df.iterrows():
+            inst = oms.instruments[r["종목"]]
+            if inst.option is not None:
+                # 옵션은 기초자산·변동성 충격을 넣어 가격을 다시 계산 (비선형 반영)
+                spec = inst.option
+                T = oms.market.option_years(spec)
+                F0 = oms.market.mark(spec.underlying)
+                F = F0 * (1 + shocks.get(oms.instruments[spec.underlying].asset_class, 0.0))
+                vol = smile_vol(oms.market.option_base_vol, F, spec.strike) + shocks.get("옵션 변동성", 0.0)
+                base = black76(F0, spec.strike, T, OPTION_RATE, smile_vol(oms.market.option_base_vol, F0, spec.strike), spec.kind).price
+                new = black76(F, spec.strike, T, OPTION_RATE, vol, spec.kind).price
+                pnl += (new - base) * r["수량"] * inst.multiplier  # 모형가끼리 비교 (호가 반올림 영향 제거)
+                continue
             shock = shocks.get(r["종목"], shocks.get(r["자산군"], 0.0))
             pnl += r["순명목"] * shock
         rows.append(
@@ -1599,6 +1677,11 @@ class ArbPosition:
 
 
 class ArbEngine:
+    """지수선물 ↔ 구성종목 바스켓 차익. 하위 클래스가 기초(현물)와 복제 방법만 바꿔 재사용한다."""
+
+    PREFIX = "X"  # 포지션 번호 접두사
+    KIND = "지수"
+
     def __init__(self, oms: "OMS"):
         self.oms = oms
         self.costs = ArbCosts()
@@ -1614,20 +1697,32 @@ class ArbEngine:
         return self.oms.market.index_def
 
     @property
+    def model(self):
+        """이론가 모형 (rate, dividend_yield, days_to_expiry, fair_futures 보유)."""
+        return self.index_def
+
+    @property
     def available(self) -> bool:
-        return self.index_def is not None
+        return self.model is not None
+
+    @property
+    def futures_symbol(self) -> str:
+        return self.model.futures_symbol
+
+    def spot_value(self) -> float:
+        return self.oms.market.index_value()
 
     # ---------------- 시세 ----------------
     def snapshot(self) -> ArbSnapshot:
         m = self.oms.market
-        idx = m.index_value()
-        q = m.quote(self.index_def.futures_symbol)
+        idx = self.spot_value()
+        q = m.quote(self.futures_symbol)
         return ArbSnapshot(
             tick=m.tick_no,
             index=idx,
             fut_bid=q.bid,
             fut_ask=q.ask,
-            fair=self.index_def.fair_futures(idx),
+            fair=self.model.fair_futures(idx),
             cost_pts=idx * self.costs.round_trip_bps() / 1e4,
         )
 
@@ -1668,7 +1763,7 @@ class ArbEngine:
 
     def hedge(self, pos: ArbPosition) -> tuple[float, float]:
         """(선물 명목, 현물 명목) — 부호 포함. 합이 0에 가까울수록 완전 헤지."""
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         fut = stock = 0.0
         for sym, q in self.net_holdings(pos).items():
             n = q * self.oms.market.mark(sym) * self.oms.instruments[sym].multiplier
@@ -1685,7 +1780,7 @@ class ArbEngine:
     def pre_check(self, direction: ArbDirection, contracts: int) -> list[str]:
         """두 레그 모두 사전 점검을 통과해야 진입한다 (한쪽만 체결되는 위험 방지)."""
         problems = []
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         for c in self.oms.preview(fsym, direction.futures_side, OrderType.MARKET, contracts):
             if not c.passed:
                 problems.append(f"선물 {c.name}: {c.detail}")
@@ -1703,9 +1798,9 @@ class ArbEngine:
             return None, problems
         self._seq += 1
         snap = self.snapshot()
-        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
+        pos = ArbPosition(f"{self.PREFIX}{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
         self.positions[pos.arb_id] = pos
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         fut = self.oms.submit(fsym, direction.futures_side, OrderType.MARKET, contracts, strategy_tag=pos.arb_id)
         pos.futures_order_ids.append(fut.order_id)
         basket = self.oms.baskets.execute(
@@ -1727,7 +1822,7 @@ class ArbEngine:
         pos = self.positions.get(arb_id)
         if pos is None or pos.status is ArbStatus.CLOSED:
             return False
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         net = self.net_holdings(pos)
         fq = net.pop(fsym, 0)
         if fq:
@@ -1789,6 +1884,44 @@ class ArbEngine:
             self.enter(ArbDirection.SELL_ARB)
         elif snap.buy_edge >= self.settings.entry_edge_pts:
             self.enter(ArbDirection.BUY_ARB)
+
+
+class CarryArbEngine(ArbEngine):
+    """현물 1종목 ↔ 선물 차익 (외환·국고채·금). 선물 1계약 = 현물 (선물 승수 ÷ 현물 승수) 단위."""
+
+    def __init__(self, oms: "OMS", futures_symbol: str, prefix: str, costs: ArbCosts):
+        self._fsym = futures_symbol
+        self.PREFIX = prefix
+        super().__init__(oms)
+        self.costs = costs
+        self.settings.entry_edge_pts = 0.0
+        self.history = [self.snapshot()] if self.available else []
+
+    @property
+    def model(self):
+        return self.oms.market.carry_link(self._fsym)
+
+    @property
+    def KIND(self) -> str:  # noqa: N802 (상위 클래스 속성 재정의)
+        return self.model.name if self.model else self._fsym
+
+    def spot_value(self) -> float:
+        return self.oms.market.mark(self.model.spot_symbol)
+
+    def spot_units_per_contract(self) -> int:
+        inst = self.oms.instruments
+        return max(round(inst[self._fsym].multiplier / inst[self.model.spot_symbol].multiplier), 1)
+
+    def unit_lines(self, side: Side, units: int) -> list[BasketLine]:
+        return [BasketLine(self.model.spot_symbol, side, self.spot_units_per_contract() * units)]
+
+
+CARRY_ARB_SETUP = {
+    # 선물: (포지션 접두사, 비용 가정)
+    "USDF": ("FX", ArbCosts(commission_bps=0.3, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=1.0)),
+    "KTBF": ("BD", ArbCosts(commission_bps=0.3, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=0.5)),
+    "GOLDF": ("GD", ArbCosts(commission_bps=2.0, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=1.0)),
+}
 ```
 
 ### `rfl_oms/auth.py`
@@ -2327,9 +2460,11 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from .algo import AlgoEngine
-from .arbitrage import ArbEngine
+from .arbitrage import CARRY_ARB_SETUP, ArbEngine, CarryArbEngine
 from .basket import BasketManager
 from .fees import FeeSchedule
+from .mm import MarketMaker
+from .pairs import PairsEngine
 from .market import MarketSim
 from .models import (
     Alert,
@@ -2373,8 +2508,18 @@ class OMS:
         self.algos = AlgoEngine(self)
         self.baskets = BasketManager(self)
         self.arb = ArbEngine(self)
+        # 외환·국고채·금 현물/선물 차익 (시장에 해당 선물이 연결되어 있을 때만)
+        self.carry_arbs: dict[str, CarryArbEngine] = {
+            fsym: CarryArbEngine(self, fsym, prefix, costs)
+            for fsym, (prefix, costs) in CARRY_ARB_SETUP.items()
+            if self.market.carry_link(fsym) is not None
+        }
         # 시장이 한 틱 진행된 뒤, 미체결 주문 매칭 다음에 호출되는 처리기
         self.tick_hooks = [self.algos.on_tick, self.baskets.on_tick, self.arb.on_tick]
+        self.tick_hooks += [e.on_tick for e in self.carry_arbs.values()]
+        self.pairs = PairsEngine(self)
+        self.mm = MarketMaker(self)
+        self.tick_hooks += [self.pairs.on_tick, self.mm.on_tick]
         # (틱, 실현손익, 미실현손익, 평가자산, 총노출)
         self.pnl_history: list[tuple[int, float, float, float, float]] = []
         self._record_pnl()
@@ -2462,10 +2607,10 @@ class OMS:
         for s, inst in self.instruments.items():
             pos = self.positions[s].qty
             worst = max(abs(pos + buys[s]), abs(pos - sells[s]))
-            n = worst * self.market.mark(s) * inst.multiplier
+            n = worst * self.exposure_per_unit(s) if worst else 0.0
             qty[s], notional[s] = worst, n
             gross += n
-            margin += n * inst.margin_rate
+            margin += max(self.position_margin(s, pos + buys[s]), self.position_margin(s, pos - sells[s]))
         # 헤지 상계는 보수적으로: 현재 포지션, 매수 전량 체결, 매도 전량 체결 중 가장 작은 상계만 인정
         pos_now = {s: p.qty for s, p in self.positions.items()}
         all_buys = {s: pos_now[s] + buys[s] for s in pos_now}
@@ -2487,12 +2632,32 @@ class OMS:
         hedged = min(abs(fut), abs(stock))
         return hedged * finst.margin_rate * self.limits.margin_offset_pct / 100
 
+    SHORT_OPTION_MARGIN = 0.15  # 매도 옵션 증거금: 프리미엄 + 기초자산 명목의 15%
+
+    def exposure_per_unit(self, symbol: str) -> float:
+        """1단위당 노출 금액. 옵션은 델타 환산 기초자산 명목, 나머지는 시가 명목."""
+        inst = self.instruments[symbol]
+        if inst.option is not None:
+            F = self.market.mark(inst.option.underlying)
+            return abs(self.market.option_greeks(symbol).delta) * F * inst.multiplier
+        return self.market.mark(symbol) * inst.multiplier
+
+    def position_margin(self, symbol: str, qty: int) -> float:
+        """부호 있는 수량에 대한 증거금. 매도 옵션은 프리미엄 + 기초자산 명목 비율을 추가로 잡는다."""
+        if qty == 0:
+            return 0.0
+        inst = self.instruments[symbol]
+        premium = abs(qty) * self.market.mark(symbol) * inst.multiplier
+        if inst.option is not None:
+            if qty > 0:
+                return premium  # 매수 옵션은 프리미엄 전액
+            F = self.market.mark(inst.option.underlying)
+            return premium + abs(qty) * F * inst.multiplier * self.SHORT_OPTION_MARGIN
+        return premium * inst.margin_rate
+
     def margin_breakdown(self) -> dict[str, float]:
         """체결된 포지션 기준 증거금: 상계 전, 상계액, 순증거금."""
-        gross = sum(
-            abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier * self.instruments[s].margin_rate
-            for s, p in self.positions.items()
-        )
+        gross = sum(self.position_margin(s, p.qty) for s, p in self.positions.items())
         credit = self.hedge_credit({s: p.qty for s, p in self.positions.items()})
         return {"상계 전": gross, "헤지 상계": credit, "순증거금": gross - credit}
 
@@ -2636,6 +2801,8 @@ class OMS:
         self._log(order, "라우팅", f"{order.venue} 접수")
 
         self._match(order)
+        if order.status.is_open:
+            order.rested = True  # 남은 수량은 호가에 대기 → 이후 체결은 지정가로
         self._expire_if_ioc(order)
         self._evaluate_alerts()
         return order
@@ -2672,7 +2839,10 @@ class OMS:
         order.qty, order.limit_price = qty, price
         self._enrich(order)
         self._log(order, "정정", f"{old} → {qty:,}@{self._px(order.symbol, price)}")
+        order.rested = False  # 정정으로 즉시 체결되면 상대 호가에 체결
         self._match(order)
+        if order.status.is_open:
+            order.rested = True
         self._evaluate_alerts()
         return True, checks
 
@@ -2710,7 +2880,8 @@ class OMS:
         leaves = order.qty - order.filled_qty
         cap = order.limit_price if order.order_type is OrderType.LIMIT else None
         for price, qty in self.market.take_liquidity(order.symbol, order.side, leaves, cap):
-            self._fill(order, qty, price)
+            # 대기하던 지정가 주문은 시장이 그 가격을 지나갈 때 자기 지정가로 체결된다
+            self._fill(order, qty, order.limit_price if order.rested and cap is not None else price)
 
     def _fill(self, order: Order, qty: int, price: float) -> None:
         inst = self.instruments[order.symbol]
@@ -2889,6 +3060,77 @@ def build_default_index(start_prices: dict[str, float], futures_symbol: str, fut
         s: max(round(unit_value * w / start_prices[s]), 1) for s, w in DEFAULT_WEIGHTS.items() if s in start_prices
     }
     return idx
+
+
+@dataclass
+class CarryLink:
+    """현물 1종목과 선물의 보유비용 관계 (외환·채권·금 현물/선물).
+
+    F* = S × (1 + (rate − dividend_yield) × T/365)
+    - 외환: rate = 원화 금리, dividend_yield = 달러 금리 (금리평형)
+    - 채권: rate = 레포 금리, dividend_yield = 표면이자율
+    - 금: rate = 원화 금리, dividend_yield = 금 리스 금리
+    """
+
+    name: str
+    futures_symbol: str
+    spot_symbol: str
+    rate: float
+    dividend_yield: float
+    days_to_expiry: int
+    basis_vol_bp: float  # 선물 괴리 충격 (현물가 대비 bp)
+    rate_label: str = "금리"
+    yield_label: str = "보유수익률"
+
+    @property
+    def carry(self) -> float:
+        return (self.rate - self.dividend_yield) * self.days_to_expiry / 365
+
+    def fair_futures(self, spot: float) -> float:
+        return spot * (1 + self.carry)
+
+
+def default_carry_links() -> list[CarryLink]:
+    return [
+        CarryLink("외환", "USDF", "USDKRW", 0.030, 0.045, 60, 3.0, "원화 금리", "달러 금리"),
+        CarryLink("국고채", "KTBF", "KTB3Y", 0.030, 0.032, 90, 2.0, "레포 금리", "표면이자율"),
+        CarryLink("금", "GOLDF", "GOLD", 0.030, 0.000, 60, 4.0, "원화 금리", "금 리스 금리"),
+    ]
+```
+
+### `rfl_oms/ledger.py`
+
+```python
+"""전략별 손익 계산 공용 도우미: 주문 묶음의 현금흐름 + 남은 보유분 평가."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from .engine import OMS
+    from .models import Order
+
+
+def net_holdings(orders: Iterable["Order"]) -> dict[str, int]:
+    net: dict[str, int] = {}
+    for o in orders:
+        if o.filled_qty:
+            net[o.symbol] = net.get(o.symbol, 0) + o.side.sign * o.filled_qty
+    return net
+
+
+def orders_pnl(oms: "OMS", orders: list["Order"]) -> dict[str, float]:
+    """{'손익': 비용 전, '비용': 수수료·세금, '순손익': 비용 후}"""
+    gross = 0.0
+    for o in orders:
+        if o.filled_qty:
+            gross -= o.side.sign * o.filled_qty * o.avg_fill_price * oms.instruments[o.symbol].multiplier
+    for sym, q in net_holdings(orders).items():
+        gross += q * oms.market.mark(sym) * oms.instruments[sym].multiplier
+    ids = {o.order_id for o in orders}
+    fees = sum(f.fee for f in oms.fills if f.order_id in ids)
+    return {"손익": gross, "비용": fees, "순손익": gross - fees}
 ```
 
 ### `rfl_oms/market.py`
@@ -2903,8 +3145,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .index import IndexDef, build_default_index
-from .models import Instrument, Side
+from .index import CarryLink, IndexDef, build_default_index, default_carry_links
+from .models import Instrument, OptionSpec, Side
+from .options import black76, smile_vol
 
 DEFAULT_INSTRUMENTS: tuple[Instrument, ...] = (
     Instrument("005930", "삼성전자", "주식", 100, 1, 1.0, "KRX-SIM", 72_000, 0.0015, 3_000),
@@ -2920,7 +3163,26 @@ DEFAULT_INSTRUMENTS: tuple[Instrument, ...] = (
     Instrument("105560", "KB금융", "주식", 100, 1, 1.0, "KRX-SIM", 82_000, 0.0014, 1_200),
     Instrument("005490", "POSCO홀딩스", "주식", 500, 1, 1.0, "KRX-SIM", 380_000, 0.0018, 400),
     Instrument("068270", "셀트리온", "주식", 100, 1, 1.0, "KRX-SIM", 175_000, 0.0020, 600),
+    # 현물/선물 차익·마켓메이킹용 현물과 금 선물 (선물 가격은 현물 이론가에 연동)
+    Instrument("USDKRW", "달러 현물 (1달러)", "외환 현물", 0.1, 1, 1.0, "FX-SIM", 1_385.0, 0.0004, 2_000_000),
+    Instrument("KTB3Y", "국고채 3년 현물 (액면 100만원)", "채권 현물", 0.01, 10_000, 1.0, "BOND-SIM", 105.40, 0.0002, 2_000),
+    Instrument("GOLDF", "금 선물 (100g)", "금 선물", 10, 100, 0.08, "KRX-SIM", 150_500, 0.0008, 300),
 )
+
+# 미시구조 잡음: 체결가가 효율 가격 주변에서 튀었다 되돌아오는 효과 (호가 반등).
+# 마켓메이킹이 스프레드를 벌 수 있는 원천이다. 대상 자산군: (잡음 비중, 잔존 비율)
+NOISY_CLASSES = {"외환 현물": (0.95, 0.3), "채권 현물": (0.95, 0.3), "금 현물": (0.95, 0.3)}
+
+# 함께 움직이는(공적분) 짝 종목: (A, B, 평균회귀 강도) — 페어 트레이딩용
+PAIR_LINKS = (("005380", "000270", 0.08),)
+
+# 코스피200 옵션 (시뮬레이션)
+OPTION_UNDERLYING = "K200F"
+OPTION_STRIKE_STEP = 2.5
+OPTION_STRIKES_EACH_SIDE = 4
+OPTION_EXPIRY_DAYS = 30
+OPTION_BASE_VOL = 0.18
+OPTION_RATE = 0.035
 
 BOOK_LEVELS = 5
 EQUITY_MARKET_CORR = 0.6  # 주식 수익률 중 시장 공통요인 비중(상관계수 근사)
@@ -2978,6 +3240,23 @@ class MarketSim:
         self._prev_close = dict(self._price)
         if self.index_def:
             self._link_futures()
+        # 외환·채권·금 선물: 현물 이론가 + 평균회귀 괴리
+        self.carry_links: list[CarryLink] = [
+            c for c in default_carry_links() if c.futures_symbol in self.instruments and c.spot_symbol in self.instruments
+        ]
+        self.carry_dev: dict[str, float] = {c.futures_symbol: 0.0 for c in self.carry_links}
+        for c in self.carry_links:
+            self._link_carry(c)
+        self._pair_ratio0 = {
+            (a, b): math.log(self._price[a] / self._price[b])
+            for a, b, _ in PAIR_LINKS
+            if a in self.instruments and b in self.instruments
+        }
+        self._eff_price = {s: self._price[s] for s, i in self.instruments.items() if i.asset_class in NOISY_CLASSES}
+        self._noise = {s: 0.0 for s in self._eff_price}
+        self.option_base_vol = OPTION_BASE_VOL
+        if OPTION_UNDERLYING in self.instruments:
+            self._create_options()
         self._prev_close = dict(self._price)
         self._book: dict[str, dict[Side, list[list[float]]]] = {}
         self.history: dict[str, list[tuple[int, float]]] = {s: [] for s in self.instruments}
@@ -3000,6 +3279,8 @@ class MarketSim:
     def set_price(self, symbol: str, price: float) -> None:
         """테스트와 시나리오용: 기준가를 강제로 지정한다."""
         self._price[symbol] = self.instruments[symbol].round_to_tick(price)
+        if symbol in getattr(self, "_eff_price", {}):
+            self._eff_price[symbol], self._noise[symbol] = self._price[symbol], 0.0
         self._rebuild_book(symbol)
 
     def index_value(self) -> float | None:
@@ -3016,22 +3297,85 @@ class MarketSim:
         # 기준가(매수1호가) = 이론가 + 괴리 − 반 틱 → 중간가가 이론가 + 괴리에 가깝게
         self._price[fsym] = inst.round_to_tick(self.fair_futures() + self.basis_dev - inst.tick_size / 2)
 
+    # ----- 현물/선물 연결 -----
+    def carry_link(self, futures_symbol: str) -> CarryLink | None:
+        return next((c for c in self.carry_links if c.futures_symbol == futures_symbol), None)
+
+    def _link_carry(self, c: CarryLink) -> None:
+        inst = self.instruments[c.futures_symbol]
+        fair = c.fair_futures(self.mark(c.spot_symbol))
+        self._price[c.futures_symbol] = inst.round_to_tick(fair + self.carry_dev[c.futures_symbol] - inst.tick_size / 2)
+
+    # ----- 옵션 -----
+    def _create_options(self) -> None:
+        F = self.mark(OPTION_UNDERLYING)
+        atm = round(F / OPTION_STRIKE_STEP) * OPTION_STRIKE_STEP
+        expiry = OPTION_EXPIRY_DAYS * SESSION_TICKS
+        for k in range(-OPTION_STRIKES_EACH_SIDE, OPTION_STRIKES_EACH_SIDE + 1):
+            strike = round(atm + k * OPTION_STRIKE_STEP, 2)
+            for kind, label in (("C", "콜"), ("P", "풋")):
+                sym = f"K200{kind}{strike:.1f}"
+                spec = OptionSpec(OPTION_UNDERLYING, strike, kind, expiry)
+                self.instruments[sym] = Instrument(
+                    sym, f"코스피200 {label} {strike:.1f}", "주가지수옵션", 0.01, 250_000, 1.0, "KRX-SIM",
+                    0.01, 0.0, 60, option=spec,
+                )
+                self._price[sym] = 0.01
+                self._price_option(sym)
+
+    def option_years(self, spec: OptionSpec) -> float:
+        return max(spec.expiry_tick - self.tick_no, 0) / SESSION_TICKS / 365
+
+    def option_vol(self, spec: OptionSpec) -> float:
+        return smile_vol(self.option_base_vol, self.mark(spec.underlying), spec.strike)
+
+    def option_greeks(self, symbol: str, underlying: float | None = None):
+        spec = self.instruments[symbol].option
+        F = self.mark(spec.underlying) if underlying is None else underlying
+        return black76(F, spec.strike, self.option_years(spec), OPTION_RATE, self.option_vol(spec), spec.kind)
+
+    def _price_option(self, symbol: str) -> None:
+        inst = self.instruments[symbol]
+        model = self.option_greeks(symbol).price
+        self._price[symbol] = max(inst.round_to_tick(model - inst.tick_size / 2), inst.tick_size)
+
     def step(self) -> None:
         self.tick_no += 1
         mkt = self.rng.normal()
         fsym = self.index_def.futures_symbol if self.index_def else None
+        linked = {fsym, *(c.futures_symbol for c in self.carry_links)}
         for s, inst in self.instruments.items():
+            if inst.option is not None or s in linked:
+                continue  # 옵션은 모형가, 연결된 선물은 현물 이론가로 정한다
             z = self.rng.normal()
             if inst.asset_class == "주식":
                 rho = EQUITY_MARKET_CORR
                 z = rho * mkt + math.sqrt(1 - rho**2) * z
-            if s == fsym:
-                continue
-            new_price = inst.round_to_tick(self._price[s] * math.exp(z * inst.volatility))
+            if s in self._eff_price:
+                share, keep = NOISY_CLASSES[inst.asset_class]
+                # 효율 가격은 변동성의 일부로만 움직이고, 나머지는 평균회귀하는 잡음
+                self._eff_price[s] *= math.exp(z * inst.volatility * math.sqrt(1 - share**2))
+                self._noise[s] = keep * self._noise[s] + self.rng.normal(0.0, inst.volatility * share)
+                new_price = inst.round_to_tick(self._eff_price[s] * math.exp(self._noise[s]))
+            else:
+                new_price = inst.round_to_tick(self._price[s] * math.exp(z * inst.volatility))
             self._price[s] = max(new_price, inst.tick_size)
+        # 짝 종목: 두 종목 가격비(로그)가 원래 수준으로 되돌아가도록 B를 당긴다
+        for a, b, kappa in PAIR_LINKS:
+            if (a, b) in self._pair_ratio0:
+                dev = math.log(self._price[a] / self._price[b]) - self._pair_ratio0[(a, b)]
+                inst_b = self.instruments[b]
+                self._price[b] = max(inst_b.round_to_tick(self._price[b] * math.exp(kappa * dev)), inst_b.tick_size)
         if fsym:
             self.basis_dev = BASIS_MEAN_REVERSION * self.basis_dev + self.rng.normal(0.0, BASIS_VOL)
             self._link_futures()
+        for c in self.carry_links:
+            shock = self.mark(c.spot_symbol) * c.basis_vol_bp / 1e4
+            self.carry_dev[c.futures_symbol] = BASIS_MEAN_REVERSION * self.carry_dev[c.futures_symbol] + self.rng.normal(0.0, shock)
+            self._link_carry(c)
+        for s, inst in self.instruments.items():
+            if inst.option is not None:
+                self._price_option(s)
         for s, inst in self.instruments.items():
             self._rebuild_book(s)
             vol = inst.base_liquidity * volume_profile(self.tick_no) * self.rng.lognormal(0.0, 0.3)
@@ -3097,6 +3441,172 @@ class MarketSim:
         return fills
 ```
 
+### `rfl_oms/mm.py`
+
+```python
+"""마켓메이킹·유동성 공급 (외환·국고채·KRX 금).
+
+매 틱 기준가 양쪽에 매수·매도 지정가 호가를 유지한다.
+- 호가 폭: 기준가 ± (반폭 틱 수)
+- 재고 스큐: 보유가 많으면 호가 전체를 낮춰 매도를 유도하고, 적으면 높인다
+- 재고 한도: 한도를 넘게 되는 쪽 호가는 내지 않는다
+- 모든 호가는 일반 주문과 같은 사전 리스크 점검을 거치며, 거부되면 그 종목 마켓메이킹을 멈춘다
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from .ledger import orders_pnl
+from .models import AlertLevel, OrderStatus, OrderType, Side, TimeInForce
+
+if TYPE_CHECKING:
+    from .engine import OMS
+
+
+@dataclass
+class MMConfig:
+    symbol: str
+    size: int  # 한쪽 호가 수량
+    max_inventory: int  # 보유 한도 (매수·매도 각각)
+    half_spread_ticks: int = 2
+    skew_ticks: float = 2.0  # 재고가 한도에 닿았을 때 호가를 옮기는 틱 수
+    enabled: bool = False
+    owner: str = ""
+    bid_id: str | None = None
+    ask_id: str | None = None
+    quotes_sent: int = 0
+    stop_reason: str = ""
+
+    @property
+    def tag(self) -> str:
+        return f"MM:{self.symbol}"
+
+
+# 반폭은 각 상품의 틱당 가격 변동(달러 약 5틱, 국채 약 2틱, 금 약 12틱)보다 넓게 잡는다.
+# (시뮬레이션에서 반폭이 이보다 좁으면 추세에 밀려 손실이 나는 것을 확인함)
+DEFAULT_MM = (
+    MMConfig("USDKRW", size=100_000, max_inventory=1_000_000, half_spread_ticks=6, skew_ticks=4),
+    MMConfig("KTB3Y", size=100, max_inventory=1_000, half_spread_ticks=3, skew_ticks=2),
+    MMConfig("GOLD", size=200, max_inventory=2_000, half_spread_ticks=15, skew_ticks=10),
+)
+
+
+class MarketMaker:
+    def __init__(self, oms: "OMS"):
+        self.oms = oms
+        self.configs: dict[str, MMConfig] = {
+            c.symbol: MMConfig(**{**c.__dict__}) for c in DEFAULT_MM if c.symbol in oms.instruments
+        }
+
+    # ---------------- 조회 ----------------
+    def orders(self, cfg: MMConfig):
+        return [o for o in self.oms.orders.values() if o.strategy_tag == cfg.tag]
+
+    def inventory(self, cfg: MMConfig) -> int:
+        return sum(o.side.sign * o.filled_qty for o in self.orders(cfg))
+
+    def stats(self, cfg: MMConfig) -> dict:
+        orders = self.orders(cfg)
+        filled = [o for o in orders if o.filled_qty]
+        buys = sum(o.filled_qty for o in filled if o.side is Side.BUY)
+        sells = sum(o.filled_qty for o in filled if o.side is Side.SELL)
+        pnl = orders_pnl(self.oms, orders)
+        return {
+            "재고": buys - sells,
+            "매수 체결": buys,
+            "매도 체결": sells,
+            "체결 건수": len(filled),
+            "호가 제출": cfg.quotes_sent,
+            **pnl,
+        }
+
+    def quotes(self, cfg: MMConfig) -> tuple[float, float]:
+        """(매수호가, 매도호가) 계산: 기준가 ± 반폭 + 재고 스큐, 상대 호가를 넘지 않게."""
+        m = self.oms.market
+        inst = self.oms.instruments[cfg.symbol]
+        q = m.quote(cfg.symbol)
+        tick = inst.tick_size
+        skew = -cfg.skew_ticks * self.inventory(cfg) / cfg.max_inventory if cfg.max_inventory else 0.0
+        bid = inst.round_to_tick(q.mid - cfg.half_spread_ticks * tick + skew * tick)
+        ask = inst.round_to_tick(q.mid + cfg.half_spread_ticks * tick + skew * tick)
+        bid = min(bid, inst.round_to_tick(q.ask - tick))  # 즉시 체결되지 않는 대기 호가
+        ask = max(ask, inst.round_to_tick(q.bid + tick))
+        if ask <= bid:
+            ask = inst.round_to_tick(bid + tick)
+        return max(bid, tick), ask
+
+    # ---------------- 제어 ----------------
+    def enable(self, symbol: str) -> None:
+        cfg = self.configs[symbol]
+        cfg.enabled, cfg.owner, cfg.stop_reason = True, self.oms.actor, ""
+        self.oms.system_event("마켓메이킹 시작", f"{symbol} 수량 {cfg.size:,}, 반폭 {cfg.half_spread_ticks}틱, 재고한도 {cfg.max_inventory:,}")
+        with self.oms.acting(cfg.owner):
+            self._requote(cfg)
+
+    def disable(self, symbol: str, reason: str = "사용자 중지") -> None:
+        cfg = self.configs[symbol]
+        self._cancel_quotes(cfg, reason)
+        if cfg.enabled:
+            cfg.enabled, cfg.stop_reason = False, reason
+            self.oms.system_event("마켓메이킹 중지", f"{symbol} — {reason}")
+
+    def _cancel_quotes(self, cfg: MMConfig, reason: str) -> None:
+        for oid in (cfg.bid_id, cfg.ask_id):
+            if oid and self.oms.orders[oid].status.is_open:
+                self.oms.cancel(oid, reason)
+        cfg.bid_id = cfg.ask_id = None
+
+    def _place(self, cfg: MMConfig, side: Side, price: float, current: str | None) -> str | None:
+        """호가 하나를 유지: 같은 가격이면 그대로, 다르면 정정, 없으면 새로 낸다."""
+        if current:
+            o = self.oms.orders[current]
+            if o.status.is_open:
+                if o.limit_price == price and o.qty - o.filled_qty == cfg.size:
+                    return current
+                ok, _ = self.oms.amend(current, new_qty=o.filled_qty + cfg.size, new_limit_price=price)
+                if ok:
+                    cfg.quotes_sent += 1
+                    return current if self.oms.orders[current].status.is_open else None
+                self.oms.cancel(current, "호가 갱신")
+        o = self.oms.submit(cfg.symbol, side, OrderType.LIMIT, cfg.size, price, TimeInForce.DAY, strategy_tag=cfg.tag)
+        cfg.quotes_sent += 1
+        if o.status is OrderStatus.REJECTED:
+            self.disable(cfg.symbol, f"호가 거부: {o.reject_reason}")
+            self.oms._alert(AlertLevel.CRITICAL, "마켓메이킹 중지", f"{cfg.symbol} 호가 거부 — {o.reject_reason}")
+            return None
+        return o.order_id if o.status.is_open else None
+
+    def _requote(self, cfg: MMConfig) -> None:
+        inv = self.inventory(cfg)
+        bid, ask = self.quotes(cfg)
+        want_bid = inv + cfg.size <= cfg.max_inventory
+        want_ask = inv - cfg.size >= -cfg.max_inventory
+        if want_bid:
+            cfg.bid_id = self._place(cfg, Side.BUY, bid, cfg.bid_id)
+        elif cfg.bid_id:
+            self.oms.cancel(cfg.bid_id, "재고 한도")
+            cfg.bid_id = None
+        if not cfg.enabled:
+            return
+        if want_ask:
+            cfg.ask_id = self._place(cfg, Side.SELL, ask, cfg.ask_id)
+        elif cfg.ask_id:
+            self.oms.cancel(cfg.ask_id, "재고 한도")
+            cfg.ask_id = None
+
+    def on_tick(self) -> None:
+        for cfg in self.configs.values():
+            if not cfg.enabled:
+                continue
+            if self.oms.kill_switch:
+                self.disable(cfg.symbol, "킬 스위치")
+                continue
+            with self.oms.acting(f"{cfg.owner}(MM)"):
+                self._requote(cfg)
+```
+
 ### `rfl_oms/models.py`
 
 ```python
@@ -3149,6 +3659,14 @@ class AlertLevel(str, Enum):
 
 
 @dataclass(frozen=True)
+class OptionSpec:
+    underlying: str  # 기초자산(선물) 종목코드
+    strike: float
+    kind: str  # "C"(콜) 또는 "P"(풋)
+    expiry_tick: int  # 만기 시점의 시장 틱
+
+
+@dataclass(frozen=True)
 class Instrument:
     symbol: str
     name: str
@@ -3160,6 +3678,7 @@ class Instrument:
     start_price: float
     volatility: float  # 틱당 수익률 표준편차 (시뮬레이션)
     base_liquidity: int  # 호가 단계별 기본 잔량 (시뮬레이션)
+    option: OptionSpec | None = None  # 옵션이면 계약 조건
 
     @property
     def price_decimals(self) -> int:
@@ -3213,6 +3732,7 @@ class Order:
     reject_reason: str = ""
     strategy_tag: str = ""
     trader: str = ""  # 주문을 낸 사용자
+    rested: bool = False  # 접수 후 즉시 체결되지 않고 호가에 대기한 적이 있는지 (대기 주문은 지정가로 체결)
     events: list[OrderEvent] = field(default_factory=list)
 
     @property
@@ -3278,6 +3798,367 @@ class PriceAlertRule:
     active: bool = True
 ```
 
+### `rfl_oms/options.py`
+
+```python
+"""옵션 가격·민감도: Black-76 (선물 기초자산 유럽형 옵션).
+
+F: 선물가격, K: 행사가, T: 만기(년), r: 할인금리, vol: 변동성(연)
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+
+SQRT2 = math.sqrt(2.0)
+
+
+def _ncdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / SQRT2))
+
+
+def _npdf(x: float) -> float:
+    return math.exp(-0.5 * x * x) / math.sqrt(2 * math.pi)
+
+
+@dataclass
+class Greeks:
+    price: float
+    delta: float  # 선물 1포인트 변화당 옵션가격 변화
+    gamma: float
+    vega: float  # 변동성 1%p 변화당 옵션가격 변화
+    theta: float  # 하루 경과당 옵션가격 변화
+
+
+def black76(F: float, K: float, T: float, r: float, vol: float, kind: str) -> Greeks:
+    disc = math.exp(-r * T)
+    if T <= 0 or vol <= 0:
+        intrinsic = max(F - K, 0.0) if kind == "C" else max(K - F, 0.0)
+        delta = (1.0 if F > K else 0.0) if kind == "C" else (-1.0 if F < K else 0.0)
+        return Greeks(intrinsic, delta, 0.0, 0.0, 0.0)
+    sq = vol * math.sqrt(T)
+    d1 = (math.log(F / K) + 0.5 * vol * vol * T) / sq
+    d2 = d1 - sq
+    if kind == "C":
+        price = disc * (F * _ncdf(d1) - K * _ncdf(d2))
+        delta = disc * _ncdf(d1)
+    else:
+        price = disc * (K * _ncdf(-d2) - F * _ncdf(-d1))
+        delta = -disc * _ncdf(-d1)
+    gamma = disc * _npdf(d1) / (F * sq)
+    vega = disc * F * _npdf(d1) * math.sqrt(T) / 100
+    # 시간 경과에 따른 가격 변화(하루): 수치 미분으로 계산해 콜·풋 모두 일관되게
+    dt = 1 / 365
+    if T > dt:
+        later = black76(F, K, T - dt, r, vol, kind).price
+        theta = later - price
+    else:
+        theta = (max(F - K, 0.0) if kind == "C" else max(K - F, 0.0)) - price
+    return Greeks(price, delta, gamma, vega, theta)
+
+
+def smile_vol(base_vol: float, F: float, K: float, skew: float = -0.6) -> float:
+    """행사가가 낮을수록 변동성이 높은 단순 스큐."""
+    return min(max(base_vol + skew * (K / F - 1.0), 0.06), 0.8)
+
+
+# ============================ 포트폴리오 도구 ============================
+def option_symbols(oms) -> list[str]:
+    return [s for s, i in oms.instruments.items() if i.option is not None]
+
+
+def chain(oms) -> list[dict]:
+    """행사가별 콜·풋 시세와 민감도."""
+    rows: dict[float, dict] = {}
+    for s in option_symbols(oms):
+        spec = oms.instruments[s].option
+        q = oms.market.quote(s)
+        g = oms.market.option_greeks(s)
+        row = rows.setdefault(spec.strike, {"행사가": spec.strike})
+        p = "콜" if spec.kind == "C" else "풋"
+        row.update({
+            f"{p} 종목": s, f"{p} 매수호가": q.bid, f"{p} 매도호가": q.ask, f"{p} 델타": round(g.delta, 3),
+            f"{p} 보유": oms.positions[s].qty, "변동성(%)": round(oms.market.option_vol(spec) * 100, 1),
+        })
+    return [rows[k] for k in sorted(rows)]
+
+
+def portfolio_greeks(oms) -> dict[str, float]:
+    """옵션 + 기초 선물 합계. 델타는 선물 계약 수 환산, 금액은 원화."""
+    from .market import OPTION_UNDERLYING
+
+    fut = oms.instruments.get(OPTION_UNDERLYING)
+    if fut is None:
+        return {}
+    F = oms.market.mark(OPTION_UNDERLYING)
+    mult = fut.multiplier
+    delta = float(oms.positions[OPTION_UNDERLYING].qty)
+    gamma = vega = theta = 0.0
+    for s in option_symbols(oms):
+        q = oms.positions[s].qty
+        if not q:
+            continue
+        g = oms.market.option_greeks(s)
+        ratio = oms.instruments[s].multiplier / mult
+        delta += q * g.delta * ratio
+        gamma += q * g.gamma * ratio
+        vega += q * g.vega * oms.instruments[s].multiplier
+        theta += q * g.theta * oms.instruments[s].multiplier
+    return {
+        "델타(선물 계약)": delta,
+        "델타 금액": delta * F * mult,
+        "감마(1pt당 델타 변화)": gamma,
+        "베가(변동성 1%p당 원)": vega,
+        "세타(하루당 원)": theta,
+    }
+
+
+def delta_hedge_qty(oms) -> int:
+    """델타를 0에 가깝게 만드는 선물 주문 수량 (+매수 / −매도)."""
+    g = portfolio_greeks(oms)
+    return -round(g.get("델타(선물 계약)", 0.0))
+
+
+def payoff(oms, points: int = 61, width: float = 0.12) -> list[tuple[float, float, float]]:
+    """기초 선물 가격별 (가격, 현재 평가손익, 만기 손익). 옵션·선물 보유분만 대상."""
+    from .market import OPTION_RATE, OPTION_UNDERLYING
+
+    F0 = oms.market.mark(OPTION_UNDERLYING)
+    fut = oms.instruments[OPTION_UNDERLYING]
+    pf = oms.positions[OPTION_UNDERLYING]
+    opts = [(s, oms.positions[s]) for s in option_symbols(oms) if oms.positions[s].qty]
+    out = []
+    for k in range(points):
+        F = F0 * (1 - width + 2 * width * k / (points - 1))
+        now = expiry = (F - pf.avg_price) * pf.qty * fut.multiplier if pf.qty else 0.0
+        for s, p in opts:
+            inst = oms.instruments[s]
+            spec = inst.option
+            val_now = black76(F, spec.strike, oms.market.option_years(spec), OPTION_RATE,
+                              smile_vol(oms.market.option_base_vol, F, spec.strike), spec.kind).price
+            val_exp = max(F - spec.strike, 0.0) if spec.kind == "C" else max(spec.strike - F, 0.0)
+            now += (val_now - p.avg_price) * p.qty * inst.multiplier
+            expiry += (val_exp - p.avg_price) * p.qty * inst.multiplier
+        out.append((F, now, expiry))
+    return out
+```
+
+### `rfl_oms/pairs.py`
+
+```python
+"""페어 트레이딩 (통계적 차익).
+
+두 종목 로그가격의 회귀로 헤지비율 β를 구하고, 스프레드 = log(A) − β·log(B)의
+최근 평균 대비 Z-점수가 진입 기준을 넘으면 비싼 쪽을 팔고 싼 쪽을 산다.
+Z-점수가 청산 기준 안으로 돌아오면 청산, 손절 기준을 넘으면 손절한다.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from .ledger import net_holdings, orders_pnl
+from .models import AlertLevel, OrderStatus, OrderType, Side
+
+if TYPE_CHECKING:
+    from .engine import OMS
+
+DEFAULT_PAIRS = (("005380", "000270"), ("005930", "000660"), ("105560", "005490"))
+
+
+class PairDirection(str, Enum):
+    SHORT_A = "A 매도 · B 매수"  # 스프레드가 높음 (A가 상대적으로 비쌈)
+    LONG_A = "A 매수 · B 매도"  # 스프레드가 낮음 (A가 상대적으로 쌈)
+
+
+@dataclass
+class PairSettings:
+    lookback: int = 60  # 통계 계산 기간(틱)
+    entry_z: float = 2.0
+    exit_z: float = 0.5
+    stop_z: float = 4.0
+    notional: float = 50_000_000  # A 종목 1레그 명목금액
+    auto: bool = False
+    auto_owner: str = ""
+    max_open: int = 2
+
+
+@dataclass
+class PairStat:
+    a: str
+    b: str
+    n: int
+    beta: float | None = None
+    z: float | None = None
+    spread: float | None = None
+    mean: float | None = None
+    std: float | None = None
+    corr: float | None = None
+    half_life: float | None = None  # 스프레드 평균회귀 반감기(틱), 회귀하지 않으면 None
+
+    @property
+    def ready(self) -> bool:
+        return self.z is not None
+
+
+@dataclass
+class PairPosition:
+    pair_id: str
+    a: str
+    b: str
+    direction: PairDirection
+    qty_a: int
+    qty_b: int
+    entry: PairStat
+    opened_tick: int
+    owner: str
+    order_ids: list[str] = field(default_factory=list)
+    open: bool = True
+    exit_z: float | None = None
+    closed_tick: int | None = None
+    note: str = ""
+
+
+class PairsEngine:
+    def __init__(self, oms: "OMS"):
+        self.oms = oms
+        self.settings = PairSettings()
+        self.pairs: list[tuple[str, str]] = [p for p in DEFAULT_PAIRS if all(s in oms.instruments for s in p)]
+        self.positions: dict[str, PairPosition] = {}
+        self.z_history: dict[tuple[str, str], list[tuple[int, float]]] = {p: [] for p in self.pairs}
+        self._seq = 0
+
+    # ---------------- 통계 ----------------
+    def stat(self, a: str, b: str) -> PairStat:
+        lb = self.settings.lookback
+        ha = dict(self.oms.market.history[a][-(lb + 1):])
+        hb = dict(self.oms.market.history[b][-(lb + 1):])
+        ticks = sorted(set(ha) & set(hb))
+        st = PairStat(a, b, len(ticks))
+        if len(ticks) < 20:
+            return st
+        la = np.log([ha[t] for t in ticks])
+        lb_ = np.log([hb[t] for t in ticks])
+        if np.std(lb_) == 0 or np.std(la) == 0:
+            return st
+        beta, alpha = np.polyfit(lb_, la, 1)
+        spread = la - beta * lb_
+        mean, std = float(spread.mean()), float(spread.std(ddof=1))
+        if std == 0:
+            return st
+        st.beta, st.spread, st.mean, st.std = float(beta), float(spread[-1]), mean, std
+        st.z = (st.spread - mean) / std
+        ra, rb = np.diff(la), np.diff(lb_)
+        st.corr = float(np.corrcoef(ra, rb)[0, 1]) if ra.std() and rb.std() else None
+        # 반감기: Δs = φ·s(−1) + ε 회귀, φ < 0 이면 평균회귀
+        ds, lag = np.diff(spread), spread[:-1] - mean
+        phi = float(np.dot(lag, ds) / np.dot(lag, lag)) if np.dot(lag, lag) else 0.0
+        st.half_life = -math.log(2) / phi if phi < 0 else None
+        return st
+
+    def pair_orders(self, pos: PairPosition):
+        return [self.oms.orders[i] for i in pos.order_ids]
+
+    def pnl(self, pos: PairPosition) -> dict[str, float]:
+        return orders_pnl(self.oms, self.pair_orders(pos))
+
+    def open_positions(self) -> list[PairPosition]:
+        return [p for p in self.positions.values() if p.open]
+
+    # ---------------- 진입·청산 ----------------
+    def size(self, a: str, b: str, beta: float) -> tuple[int, int]:
+        """A는 설정 금액만큼, B는 β만큼의 금액으로 (로그 수익률 기준 헤지)."""
+        pa, pb = self.oms.market.mark(a), self.oms.market.mark(b)
+        qa = max(int(self.settings.notional // pa), 1)
+        qb = max(round(abs(beta) * qa * pa / pb), 1)
+        return qa, qb
+
+    def enter(self, a: str, b: str, direction: PairDirection | None = None) -> tuple[PairPosition | None, list[str]]:
+        st = self.stat(a, b)
+        if not st.ready:
+            return None, [f"통계 계산에 필요한 데이터가 부족합니다 ({st.n}/20틱). 시장을 더 진행하세요"]
+        if direction is None:
+            direction = PairDirection.SHORT_A if st.z > 0 else PairDirection.LONG_A
+        qa, qb = self.size(a, b, st.beta)
+        side_a = Side.SELL if direction is PairDirection.SHORT_A else Side.BUY
+        side_b = Side.BUY if side_a is Side.SELL else Side.SELL
+        problems = [
+            f"{sym} {c.name}: {c.detail}"
+            for sym, side, q in ((a, side_a, qa), (b, side_b, qb))
+            for c in self.oms.preview(sym, side, OrderType.MARKET, q)
+            if not c.passed
+        ]
+        if problems:
+            self.oms._alert(AlertLevel.WARNING, "페어 진입 거부", f"{a}/{b} — {problems[0]}")
+            return None, problems
+        self._seq += 1
+        pos = PairPosition(f"P{self._seq:03d}", a, b, direction, qa, qb, st, self.oms.market.tick_no, self.oms.actor)
+        self.positions[pos.pair_id] = pos
+        for sym, side, q in ((a, side_a, qa), (b, side_b, qb)):
+            o = self.oms.submit(sym, side, OrderType.MARKET, q, strategy_tag=pos.pair_id)
+            pos.order_ids.append(o.order_id)
+            if o.status is OrderStatus.REJECTED or o.filled_qty < q:
+                pos.note = "레그 일부 미체결"
+                self.oms._alert(AlertLevel.CRITICAL, "페어 레그 불일치", f"{pos.pair_id} {sym} 체결 {o.filled_qty}/{q}")
+        self.oms._alert(
+            AlertLevel.INFO, "페어 진입",
+            f"{pos.pair_id} {a}/{b} {direction.value} · Z {st.z:+.2f} · β {st.beta:.2f} · 수량 {qa}/{qb}",
+        )
+        return pos, []
+
+    def close(self, pair_id: str, reason: str = "수동 청산") -> bool:
+        pos = self.positions.get(pair_id)
+        if pos is None or not pos.open:
+            return False
+        for sym, q in net_holdings(self.pair_orders(pos)).items():
+            if q:
+                o = self.oms.submit(sym, Side.SELL if q > 0 else Side.BUY, OrderType.MARKET, abs(q), strategy_tag=pos.pair_id)
+                pos.order_ids.append(o.order_id)
+        st = self.stat(pos.a, pos.b)
+        pos.open, pos.exit_z, pos.closed_tick, pos.note = False, st.z, self.oms.market.tick_no, reason
+        self.oms._alert(
+            AlertLevel.INFO, "페어 청산",
+            f"{pair_id} {reason} · Z {pos.entry.z:+.2f} → {st.z:+.2f}" if st.z is not None else f"{pair_id} {reason}",
+        )
+        return True
+
+    # ---------------- 틱 처리 ----------------
+    def on_tick(self) -> None:
+        tick = self.oms.market.tick_no
+        stats = {}
+        for a, b in self.pairs:
+            st = self.stat(a, b)
+            stats[(a, b)] = st
+            if st.ready:
+                hist = self.z_history.setdefault((a, b), [])
+                hist.append((tick, st.z))
+                del hist[:-500]
+        if not self.settings.auto or self.oms.kill_switch:
+            return
+        s = self.settings
+        with self.oms.acting(f"{s.auto_owner}(자동)"):
+            for pos in self.open_positions():
+                st = stats.get((pos.a, pos.b))
+                if st is None or not st.ready:
+                    continue
+                if abs(st.z) <= s.exit_z:
+                    self.close(pos.pair_id, "자동 청산(스프레드 수렴)")
+                elif abs(st.z) >= s.stop_z:
+                    self.close(pos.pair_id, "자동 손절(스프레드 확대)")
+            held = {(p.a, p.b) for p in self.open_positions()}
+            for (a, b), st in stats.items():
+                if len(self.open_positions()) >= s.max_open:
+                    break
+                if st.ready and (a, b) not in held and s.entry_z <= abs(st.z) < s.stop_z:
+                    self.enter(a, b)
+```
+
 ### `rfl_oms/risk.py`
 
 ```python
@@ -3297,7 +4178,7 @@ from .models import Instrument, Order, OrderType
 @dataclass
 class RiskLimits:
     capital: float = 1_000_000_000  # 계좌 기본 자본 (원)
-    max_order_qty: int = 10_000  # 주문당 최대 수량
+    max_order_qty: int = 1_000_000  # 주문당 최대 수량 (외환은 달러, 채권은 액면 단위라 크게 둠 — 실질 통제는 명목금액 한도)
     max_order_notional: float = 500_000_000  # 주문당 최대 명목금액
     price_band_pct: float = 10.0  # 지정가와 현재가의 최대 괴리율 (%)
     max_position_notional: float = 1_000_000_000  # 종목별 최대 포지션 명목금액
@@ -3406,7 +4287,8 @@ def pre_trade_checks(
         results.append(
             CheckResult(
                 "가격 괴리율",
-                dev <= limits.price_band_pct,
+                # 저가 옵션처럼 호가단위가 큰 종목은 2틱 이내 괴리를 허용
+                dev <= limits.price_band_pct or abs(order.limit_price - mark) <= 2 * inst.tick_size + 1e-9,
                 f"현재가 대비 {dev:.2f}% (허용 {limits.price_band_pct:.1f}%)",
                 dev / limits.price_band_pct if limits.price_band_pct else None,
             )
@@ -3489,7 +4371,7 @@ from .auth import (
 )
 from .engine import OMS
 
-STATE_VERSION = 4  # 엔진 구조가 바뀌면 올린다 (다른 버전 스냅샷은 복원하지 않음)
+STATE_VERSION = 5  # 엔진 구조가 바뀌면 올린다 (다른 버전 스냅샷은 복원하지 않음)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -3849,6 +4731,7 @@ def test_partial_fill_and_ioc_remainder_canceled():
 
 
 def test_order_qty_limit_rejects(oms):
+    oms.limits.max_order_qty = 10_000
     o = oms.submit("005930", Side.BUY, OrderType.MARKET, 20_000)
     assert o.status is OrderStatus.REJECTED
     assert "주문 수량 한도" in o.reject_reason
@@ -4453,7 +5336,7 @@ def test_set_limits_is_audited(oms):
     with oms.acting("risk1"):
         oms.set_limits(RiskLimits(max_order_qty=500))
     ev = [e for e in oms.audit if e.event == "한도 변경"][-1]
-    assert "max_order_qty: 10000 → 500" in ev.detail and ev.actor == "risk1"
+    assert "max_order_qty: 1000000 → 500" in ev.detail and ev.actor == "risk1"
 
 
 # ------------------------------ 권한 ------------------------------
@@ -4590,6 +5473,214 @@ def test_pure_python_pbkdf2_matches_hashlib():
 
     for pw, salt in [(b"Admin1234", b"0123456789abcdef"), (b"x" * 100, b"salt"), (b"", b"")]:
         assert _pbkdf2_sha256_pure(pw, salt, 500) == hashlib.pbkdf2_hmac("sha256", pw, salt, 500)
+```
+
+### `tests/test_phase5.py`
+
+```python
+import math
+
+import pytest
+
+from rfl_oms import OMS, ArbDirection, MarketSim, RiskLimits, Side
+from rfl_oms.analytics import stress_test
+from rfl_oms.models import OrderStatus, OrderType
+from rfl_oms.options import black76, chain, delta_hedge_qty, payoff, portfolio_greeks
+from rfl_oms.pairs import PairDirection
+
+BIG = 10**13
+
+
+@pytest.fixture
+def oms():
+    o = OMS(market=MarketSim(seed=41))
+    o.limits = RiskLimits(
+        capital=BIG, max_order_qty=10**9, max_order_notional=BIG, max_position_notional=BIG, max_gross_exposure=BIG
+    )
+    return o
+
+
+# ------------------------------ 시장 연결 ------------------------------
+def test_carry_futures_track_fair(oms):
+    for _ in range(200):
+        oms.market.step()
+    for c in oms.market.carry_links:
+        fair = c.fair_futures(oms.market.mark(c.spot_symbol))
+        assert abs(oms.market.mark(c.futures_symbol) / fair - 1) < 0.003, c.name
+
+
+def test_fx_futures_discount_from_rate_gap(oms):
+    c = oms.market.carry_link("USDF")
+    assert c.rate < c.dividend_yield and c.fair_futures(1000) < 1000  # 달러 금리가 더 높으면 선물 할인
+
+
+def test_pair_is_mean_reverting(oms):
+    for _ in range(400):
+        oms.market.step()
+    r = [math.log(pa / pb) for (_, pa), (_, pb) in zip(oms.market.history["005380"], oms.market.history["000270"])]
+    assert max(r) - min(r) < 0.06
+
+
+# ------------------------------ 외환·채권·금 차익 ------------------------------
+@pytest.mark.parametrize("fsym,spot,units", [("USDF", "USDKRW", 10_000), ("KTBF", "KTB3Y", 100), ("GOLDF", "GOLD", 100)])
+def test_carry_arb_enter_close(oms, fsym, spot, units):
+    eng = oms.carry_arbs[fsym]
+    pos, problems = eng.enter(ArbDirection.SELL_ARB, 2)
+    assert not problems
+    net = eng.net_holdings(pos)
+    assert net[fsym] == -2 and net[spot] == 2 * units
+    fut, stk = eng.hedge(pos)
+    assert abs(fut + stk) / abs(fut) < 0.02  # 차이는 보유비용(캐리)만큼
+    oms.step(3)
+    assert eng.close(pos.arb_id)
+    assert all(q == 0 for q in eng.net_holdings(pos).values())
+    assert eng.pnl_net(pos) == pytest.approx(eng.pnl(pos) - eng.fees(pos))
+
+
+def test_carry_arb_ids_and_auto(oms):
+    eng = oms.carry_arbs["USDF"]
+    eng.settings.auto, eng.settings.entry_edge_pts, eng.settings.max_open = True, -1e9, 1
+    oms.step(1)
+    assert list(eng.positions)[0].startswith("FX")
+    assert len(eng.open_positions()) == 1
+
+
+# ------------------------------ 페어 트레이딩 ------------------------------
+def test_pair_stat_needs_history(oms):
+    assert not oms.pairs.stat("005380", "000270").ready
+    pos, problems = oms.pairs.enter("005380", "000270")
+    assert pos is None and problems
+
+
+def test_pair_enter_sizes_and_close(oms):
+    oms.step(80)
+    st = oms.pairs.stat("005380", "000270")
+    assert st.ready and st.beta is not None and st.half_life is not None  # 공적분 쌍은 반감기 존재
+    pos, _ = oms.pairs.enter("005380", "000270", PairDirection.SHORT_A)
+    assert pos.qty_a == int(oms.pairs.settings.notional // oms.market.mark("005380")) or pos.qty_a > 0
+    assert oms.positions["005380"].qty == -pos.qty_a and oms.positions["000270"].qty == pos.qty_b
+    assert oms.pairs.close(pos.pair_id)
+    assert oms.positions["005380"].qty == 0 and oms.positions["000270"].qty == 0
+    p = oms.pairs.pnl(pos)
+    assert p["순손익"] == pytest.approx(p["손익"] - p["비용"])
+
+
+def test_pair_auto_trades(oms):
+    s = oms.pairs.settings
+    s.auto, s.auto_owner, s.entry_z = True, "kim", 1.5
+    oms.step(250)
+    assert oms.pairs.positions, "자동 진입이 한 번도 없음"
+    assert all(oms.orders[i].trader == "kim(자동)" for p in oms.pairs.positions.values() for i in p.order_ids)
+
+
+# ------------------------------ 마켓메이킹 ------------------------------
+def test_mm_quotes_two_sided_and_passive(oms):
+    with oms.acting("kim"):
+        oms.mm.enable("USDKRW")
+    cfg = oms.mm.configs["USDKRW"]
+    bid, ask = oms.orders[cfg.bid_id], oms.orders[cfg.ask_id]
+    q = oms.market.quote("USDKRW")
+    assert bid.side is Side.BUY and ask.side is Side.SELL
+    assert bid.limit_price < q.ask and ask.limit_price > q.bid  # 즉시 체결되지 않는 대기 호가
+    assert bid.status.is_open and ask.status.is_open and bid.rested
+
+
+def test_mm_fills_at_quote_price_and_respects_inventory(oms):
+    cfg = oms.mm.configs["KTB3Y"]
+    cfg.max_inventory = cfg.size * 2
+    with oms.acting("kim"):
+        oms.mm.enable("KTB3Y")
+    oms.step(200)
+    filled = [o for o in oms.mm.orders(cfg) if o.filled_qty]
+    assert filled
+    for o in filled:  # 대기 호가는 자기 지정가로 체결
+        assert o.avg_fill_price == pytest.approx(o.limit_price)
+    assert abs(oms.mm.inventory(cfg)) <= cfg.max_inventory
+
+
+def test_mm_stops_on_kill_switch(oms):
+    with oms.acting("kim"):
+        oms.mm.enable("GOLD")
+    oms.set_kill_switch(True)
+    oms.step(1)
+    cfg = oms.mm.configs["GOLD"]
+    assert not cfg.enabled and cfg.stop_reason == "킬 스위치"
+    assert not [o for o in oms.mm.orders(cfg) if o.status.is_open]
+
+
+def test_mm_disabled_when_quote_rejected(oms):
+    oms.limits = RiskLimits(restricted_symbols=frozenset({"GOLD"}))
+    with oms.acting("kim"):
+        oms.mm.enable("GOLD")
+    cfg = oms.mm.configs["GOLD"]
+    assert not cfg.enabled and "거부" in cfg.stop_reason
+    assert any(a.category == "마켓메이킹 중지" for a in oms.alerts)
+
+
+# ------------------------------ 옵션 ------------------------------
+def test_black76_put_call_parity():
+    F, K, T, r, v = 350.0, 345.0, 30 / 365, 0.035, 0.2
+    c, p = black76(F, K, T, r, v, "C"), black76(F, K, T, r, v, "P")
+    assert c.price - p.price == pytest.approx(math.exp(-r * T) * (F - K))
+    h = 1e-3
+    fd = (black76(F + h, K, T, r, v, "C").price - black76(F - h, K, T, r, v, "C").price) / (2 * h)
+    assert c.delta == pytest.approx(fd, rel=1e-4)
+    assert c.theta < 0 and p.theta < 0
+
+
+def test_option_chain_and_prices_follow_underlying(oms):
+    rows = chain(oms)
+    assert len(rows) == 9 and all("콜 종목" in r and "풋 종목" in r for r in rows)
+    sym = rows[4]["콜 종목"]
+    before = oms.market.mark(sym)
+    oms.market.set_price("K200F", oms.market.mark("K200F") + 5)
+    oms.market._price_option(sym)
+    assert oms.market.mark(sym) > before
+
+
+def test_short_option_margin_addon(oms):
+    sym = chain(oms)[4]["풋 종목"]
+    oms.submit(sym, Side.SELL, OrderType.MARKET, 4)
+    prem = 4 * oms.market.mark(sym) * 250_000
+    F = oms.market.mark("K200F")
+    assert oms.position_margin(sym, -4) == pytest.approx(prem + 4 * F * 250_000 * 0.15)
+    assert oms.position_margin(sym, 4) == pytest.approx(prem)
+
+
+def test_delta_hedge_neutralizes(oms):
+    sym = chain(oms)[5]["콜 종목"]
+    oms.submit(sym, Side.BUY, OrderType.MARKET, 20)
+    q = delta_hedge_qty(oms)
+    assert q < 0
+    oms.submit("K200F", Side.SELL, OrderType.MARKET, -q)
+    assert abs(portfolio_greeks(oms)["델타(선물 계약)"]) <= 0.5
+
+
+def test_option_stress_is_nonlinear_and_isolated(oms):
+    sym = chain(oms)[4]["콜 종목"]
+    oms.submit(sym, Side.BUY, OrderType.MARKET, 2)
+    df = stress_test(oms).set_index("시나리오")
+    up, down = df.loc["주가 급등 (+5%)", "예상 손익"], df.loc["주가 급락 (−5%)", "예상 손익"]
+    assert up > 0 > down and up > -down  # 콜 매수: 상승 이익이 하락 손실보다 큼 (볼록성)
+    assert df.loc["금 급락 (−5%)", "예상 손익"] == 0
+    assert df.loc["변동성 급등 (옵션 +5%p)", "예상 손익"] > 0
+
+
+def test_payoff_long_call_shape(oms):
+    sym = chain(oms)[4]["콜 종목"]
+    oms.submit(sym, Side.BUY, OrderType.MARKET, 1)
+    pts = payoff(oms)
+    assert pts[0][2] == pytest.approx(pts[1][2])  # 깊은 외가격 구간: 만기 손익 = −프리미엄 (평평)
+    assert pts[-1][2] > pts[-2][2] > 0
+
+
+def test_resting_order_fills_at_limit(oms):
+    q = oms.market.quote("005930")
+    o = oms.submit("005930", Side.BUY, OrderType.LIMIT, 10, limit_price=q.bid - 500)
+    assert o.rested and o.status is OrderStatus.WORKING
+    oms.market.set_price("005930", q.bid - 2_000)
+    oms._match(o)
+    assert o.avg_fill_price == q.bid - 500
 ```
 
 ### `tools/build_record.py`
@@ -5085,7 +6176,7 @@ def algo_view(oms: OMS) -> None:
 ### `views/arb_view.py`
 
 ```python
-"""지수 차익거래 화면: 괴리 모니터, 진입·청산, 자동 매매, 포지션."""
+"""차익거래 화면: 지수(주식 바스켓)·외환·국고채·금 현물/선물 괴리 모니터, 진입·청산, 자동 매매."""
 
 from __future__ import annotations
 
@@ -5100,29 +6191,34 @@ from rfl_oms.auth import Perm
 from .common import NUM, can, can_manage, current_user, krw, need
 
 
-def settings_panel(oms: OMS) -> None:
-    arb = oms.arb
-    s, c = arb.settings, arb.costs
-    idx = oms.market.index_def
+def settings_panel(arb) -> None:
+    s, c, mdl, k = arb.settings, arb.costs, arb.model, arb.PREFIX
+    is_index = arb.PREFIX == "X"
+    rate_label = "무위험 금리" if is_index else mdl.rate_label
+    yield_label = "배당수익률" if is_index else mdl.yield_label
     with st.expander("설정 · 이론가 모형 · 비용", expanded=False):
         a = st.columns(3)
-        idx.rate = a[0].number_input("무위험 금리(%)", 0.0, 20.0, idx.rate * 100, 0.05) / 100
-        idx.dividend_yield = a[1].number_input("배당수익률(%)", 0.0, 20.0, idx.dividend_yield * 100, 0.05) / 100
-        idx.days_to_expiry = int(a[2].number_input("만기까지 일수", 1, 365, idx.days_to_expiry))
+        mdl.rate = a[0].number_input(f"{rate_label}(%)", 0.0, 20.0, mdl.rate * 100, 0.05, key=f"{k}_rate") / 100
+        mdl.dividend_yield = a[1].number_input(f"{yield_label}(%)", 0.0, 20.0, mdl.dividend_yield * 100, 0.05, key=f"{k}_yld") / 100
+        mdl.days_to_expiry = int(a[2].number_input("만기까지 일수", 1, 365, mdl.days_to_expiry, key=f"{k}_days"))
         b = st.columns(4)
-        c.commission_bps = b[0].number_input("주식 수수료(bp, 편도)", 0.0, 50.0, c.commission_bps, 0.1)
-        c.sell_tax_bps = b[1].number_input("주식 매도세(bp)", 0.0, 100.0, c.sell_tax_bps, 0.5, help="시뮬레이션 가정값입니다. 실제 세율에 맞게 조정하세요.")
-        c.futures_bps = b[2].number_input("선물 수수료(bp, 편도)", 0.0, 20.0, c.futures_bps, 0.1)
-        c.slippage_bps = b[3].number_input("슬리피지(bp, 편도)", 0.0, 50.0, c.slippage_bps, 0.5)
+        spot_word = "주식" if is_index else "현물"
+        c.commission_bps = b[0].number_input(f"{spot_word} 수수료(bp, 편도)", 0.0, 50.0, c.commission_bps, 0.1, key=f"{k}_comm")
+        c.sell_tax_bps = b[1].number_input(f"{spot_word} 매도세(bp)", 0.0, 100.0, c.sell_tax_bps, 0.5, key=f"{k}_tax", help="시뮬레이션 가정값입니다. 실제 세율에 맞게 조정하세요.")
+        c.futures_bps = b[2].number_input("선물 수수료(bp, 편도)", 0.0, 20.0, c.futures_bps, 0.1, key=f"{k}_fut")
+        c.slippage_bps = b[3].number_input("슬리피지(bp, 편도)", 0.0, 50.0, c.slippage_bps, 0.5, key=f"{k}_slip")
         d = st.columns(4)
-        s.entry_edge_pts = d[0].number_input("진입 기준(비용 차감 후, pt)", -5.0, 10.0, s.entry_edge_pts, 0.05)
-        s.exit_mispricing_pts = d[1].number_input("청산 기준(괴리, pt)", 0.0, 10.0, s.exit_mispricing_pts, 0.05)
-        s.max_open = int(d[2].number_input("최대 동시 포지션", 1, 20, s.max_open))
+        unit = "pt" if is_index else "원"
+        step = 0.05 if is_index else float(max(arb.oms.instruments[arb.futures_symbol].tick_size, 0.001))
+        s.entry_edge_pts = d[0].number_input(f"진입 기준(비용 차감 후, {unit})", -1e6, 1e6, float(s.entry_edge_pts), step, key=f"{k}_entry")
+        s.exit_mispricing_pts = d[1].number_input(f"청산 기준(괴리, {unit})", 0.0, 1e6, float(s.exit_mispricing_pts), step, key=f"{k}_exit")
+        s.max_open = int(d[2].number_input("최대 동시 포지션", 1, 20, s.max_open, key=f"{k}_max"))
         s.stock_mode = d[3].selectbox(
             "현물 레그 실행", [ExecMode.MARKET, ExecMode.TWAP, ExecMode.VWAP], format_func=lambda m: m.value,
             index=[ExecMode.MARKET, ExecMode.TWAP, ExecMode.VWAP].index(s.stock_mode)
             if s.stock_mode in (ExecMode.MARKET, ExecMode.TWAP, ExecMode.VWAP) else 0,
             help="TWAP/VWAP은 10틱에 걸쳐 나눠 체결하므로 그동안 헤지가 불완전합니다",
+            key=f"{k}_mode",
         )
         st.caption(
             f"왕복 비용 {c.round_trip_bps():.1f}bp = 수수료 2×{c.commission_bps:g} + 매도세 {c.sell_tax_bps:g} "
@@ -5130,8 +6226,7 @@ def settings_panel(oms: OMS) -> None:
         )
 
 
-def spread_chart(oms: OMS) -> None:
-    arb = oms.arb
+def spread_chart(arb) -> None:
     h = arb.history
     df = pd.DataFrame(
         {
@@ -5157,12 +6252,11 @@ def spread_chart(oms: OMS) -> None:
                 x=[p.closed_tick], y=[p.exit.mispricing], mode="markers", marker=dict(symbol="x", size=9, color=color),
                 showlegend=False, hovertext=f"{p.arb_id} 청산",
             )
-    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.12), yaxis_title="pt", xaxis_title="틱")
+    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.12), yaxis_title="pt" if arb.PREFIX == "X" else "원", xaxis_title="틱")
     st.plotly_chart(fig, width="stretch")
 
 
-def positions_table(oms: OMS) -> None:
-    arb = oms.arb
+def positions_table(arb) -> None:
     if not arb.positions:
         st.caption("차익 포지션이 없습니다.")
         return
@@ -5176,8 +6270,8 @@ def positions_table(oms: OMS) -> None:
                 "계약": p.contracts,
                 "상태": p.status.value,
                 "진입 틱": p.opened_tick,
-                "진입 괴리(pt)": round(p.entry.mispricing, 3),
-                "청산 괴리(pt)": round(p.exit.mispricing, 3) if p.exit else None,
+                "진입 괴리": round(p.entry.mispricing, 4),
+                "청산 괴리": round(p.exit.mispricing, 4) if p.exit else None,
                 "손익(비용 전)": round(arb.pnl(p)),
                 "비용": round(arb.fees(p)),
                 "순손익": round(arb.pnl_net(p)),
@@ -5197,11 +6291,11 @@ def positions_table(oms: OMS) -> None:
     open_ids = [p.arb_id for p in arb.open_positions() if can_manage(p.owner.removesuffix("(자동)"))]
     if open_ids:
         c = st.columns([2, 1, 1])
-        sel = c[0].selectbox("청산할 포지션", open_ids, label_visibility="collapsed")
-        if c[1].button("선택 청산", width="stretch"):
+        sel = c[0].selectbox("청산할 포지션", open_ids, label_visibility="collapsed", key=f"{arb.PREFIX}_closesel")
+        if c[1].button("선택 청산", width="stretch", key=f"{arb.PREFIX}_close1"):
             arb.close(sel)
             st.rerun()
-        if c[2].button("전체 청산", width="stretch"):
+        if c[2].button("전체 청산", width="stretch", key=f"{arb.PREFIX}_closeall"):
             for i in open_ids:
                 arb.close(i)
             st.rerun()
@@ -5236,56 +6330,73 @@ def constituents_table(oms: OMS) -> None:
 
 
 def arb_view(oms: OMS) -> None:
-    arb = oms.arb
+    engines = {"지수 (주식 바스켓)": oms.arb}
+    engines.update({f"{e.KIND} ({e.futures_symbol} ↔ {e.model.spot_symbol})": e for e in oms.carry_arbs.values() if e.available})
+    choice = st.segmented_control("시장", list(engines), default=list(engines)[0], key="arb_market") or list(engines)[0]
+    arb_market_view(oms, engines[choice])
+
+
+def arb_market_view(oms: OMS, arb) -> None:
     if not arb.available:
-        st.info("지수선물과 구성종목이 설정되지 않아 차익거래를 사용할 수 없습니다.")
+        st.info("선물과 현물이 설정되지 않아 차익거래를 사용할 수 없습니다.")
         return
+    is_index = arb.PREFIX == "X"
+    unit = "pt" if is_index else "원"
+    d = max(oms.instruments[arb.futures_symbol].price_decimals, 2)
     snap = arb.snapshot()
     m = st.columns(6)
-    m[0].metric("RFL 시뮬 지수", f"{snap.index:,.2f}")
-    m[1].metric("선물 중간가", f"{snap.fut_mid:,.3f}", help=f"매수호가 {snap.fut_bid:,.2f} / 매도호가 {snap.fut_ask:,.2f}")
-    m[2].metric("이론가", f"{snap.fair:,.2f}", help=f"이론 베이시스 {snap.theo_basis:+.2f}pt")
-    m[3].metric("괴리", f"{snap.mispricing:+.2f}pt", delta=f"{snap.mispricing_bps:+.1f}bp", delta_color="off")
-    m[4].metric("매도차익 순수익", f"{snap.sell_edge:+.2f}pt")
-    m[5].metric("매수차익 순수익", f"{snap.buy_edge:+.2f}pt")
+    m[0].metric("RFL 시뮬 지수" if is_index else f"현물 {arb.model.spot_symbol}", f"{snap.index:,.{d}f}")
+    m[1].metric("선물 중간가", f"{snap.fut_mid:,.{d + 1}f}", help=f"매수호가 {snap.fut_bid:,.{d}f} / 매도호가 {snap.fut_ask:,.{d}f}")
+    m[2].metric("이론가", f"{snap.fair:,.{d}f}", help=f"이론 베이시스 {snap.theo_basis:+.{d}f}{unit}")
+    m[3].metric("괴리", f"{snap.mispricing:+.{d}f}{unit}", delta=f"{snap.mispricing_bps:+.1f}bp", delta_color="off")
+    m[4].metric("매도차익 순수익", f"{snap.sell_edge:+.{d}f}{unit}")
+    m[5].metric("매수차익 순수익", f"{snap.buy_edge:+.{d}f}{unit}")
 
-    settings_panel(oms)
-    spread_chart(oms)
+    settings_panel(arb)
+    spread_chart(arb)
 
     s = arb.settings
+    k = arb.PREFIX
     c = st.columns([1, 1.2, 1.2, 1.4])
-    s.contracts = int(c[0].number_input("계약 수", 1, 100, s.contracts))
+    s.contracts = int(c[0].number_input("계약 수", 1, 100, s.contracts, key=f"{k}_contracts"))
     trade_ok = can(Perm.TRADE)
     tip = None if trade_ok else need(Perm.TRADE)
     hot_sell = snap.sell_edge >= s.entry_edge_pts
     hot_buy = snap.buy_edge >= s.entry_edge_pts
     c[1].write("")
     if c[1].button("매도차익 진입" + (" 🔥" if hot_sell else ""), width="stretch", type="primary" if hot_sell else "secondary",
-                   help=tip or "선물 매도 + 현물 바스켓 매수", disabled=not trade_ok):
+                   help=tip or "선물 매도 + 현물 매수", disabled=not trade_ok, key=f"{k}_sell"):
         pos, problems = arb.enter(ArbDirection.SELL_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[2].write("")
     if c[2].button("매수차익 진입" + (" 🔥" if hot_buy else ""), width="stretch", type="primary" if hot_buy else "secondary",
-                   help=tip or "선물 매수 + 현물 바스켓 매도(대차 매도 가정)", disabled=not trade_ok):
+                   help=tip or "선물 매수 + 현물 매도(대차 매도 가정)", disabled=not trade_ok, key=f"{k}_buy"):
         pos, problems = arb.enter(ArbDirection.BUY_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[3].write("")
     auto = c[3].toggle(
-        "자동 차익 (진입·청산)", value=s.auto, disabled=not trade_ok,
+        "자동 차익 (진입·청산)", value=s.auto, disabled=not trade_ok, key=f"{k}_auto",
         help=tip or "시장이 진행될 때 기준을 넘으면 자동 진입, 괴리가 수렴하면 자동 청산. 자동 주문은 켠 사용자 이름으로 기록됩니다",
     )
     if trade_ok and auto != s.auto:
         s.auto = auto
         s.auto_owner = current_user().username
-        oms.system_event("자동 차익", "켜짐" if auto else "꺼짐")
+        oms.system_event("자동 차익", f"{arb.KIND} " + ("켜짐" if auto else "꺼짐"))
     if s.auto:
         c[3].caption(f"자동 실행자: {s.auto_owner}")
 
     st.markdown("#### 차익 포지션")
-    positions_table(oms)
-    with st.expander("지수 구성 · 선물 1계약 복제 바스켓"):
-        constituents_table(oms)
-    st.caption("손익은 거래비용을 빼기 전 값입니다. 매수차익의 현물 매도는 대차(공매도)가 가능하다고 가정합니다.")
+    positions_table(arb)
+    if is_index:
+        with st.expander("지수 구성 · 선물 1계약 복제 바스켓"):
+            constituents_table(oms)
+    else:
+        mdl = arb.model
+        st.caption(
+            f"이론가 = 현물 × (1 + ({mdl.rate_label} {mdl.rate:.2%} − {mdl.yield_label} {mdl.dividend_yield:.2%}) × {mdl.days_to_expiry}/365) · "
+            f"선물 1계약 = 현물 {arb.spot_units_per_contract():,}단위"
+        )
+    st.caption("매수차익의 현물 매도는 대차(공매도)가 가능하다고 가정합니다. 비용 차감 후 손익은 '순손익' 열을 보세요.")
 ```
 
 ### `views/auth_view.py`
@@ -5665,6 +6776,313 @@ def need(perm) -> str:
 
     roles = ", ".join(r.value for r, ps in ROLE_PERMS.items() if perm in ps)
     return f"'{perm.value}' 권한이 필요합니다 ({roles})"
+```
+
+### `views/mm_view.py`
+
+```python
+"""마켓메이킹·유동성 공급 화면 (외환·국고채·KRX 금)."""
+
+from __future__ import annotations
+
+import pandas as pd
+import streamlit as st
+
+from rfl_oms import OMS
+from rfl_oms.auth import Perm
+
+from .common import NUM, can, can_manage, fmt_price, need
+
+
+def mm_view(oms: OMS) -> None:
+    mm = oms.mm
+    trade_ok = can(Perm.TRADE)
+    tip = None if trade_ok else need(Perm.TRADE)
+
+    rows = []
+    for sym, cfg in mm.configs.items():
+        st_ = mm.stats(cfg)
+        q = oms.market.quote(sym)
+        bid = oms.orders[cfg.bid_id].limit_price if cfg.bid_id and oms.orders[cfg.bid_id].status.is_open else None
+        ask = oms.orders[cfg.ask_id].limit_price if cfg.ask_id and oms.orders[cfg.ask_id].status.is_open else None
+        rows.append(
+            {
+                "종목": f"{sym} {oms.instruments[sym].name}",
+                "상태": "운영중" if cfg.enabled else ("중지: " + cfg.stop_reason if cfg.stop_reason else "중지"),
+                "시장 매수/매도": f"{fmt_price(oms, sym, q.bid)} / {fmt_price(oms, sym, q.ask)}",
+                "내 매수호가": fmt_price(oms, sym, bid) if bid else "-",
+                "내 매도호가": fmt_price(oms, sym, ask) if ask else "-",
+                "재고": st_["재고"],
+                "재고 한도": cfg.max_inventory,
+                "체결 건수": st_["체결 건수"],
+                "손익(비용 전)": round(st_["손익"]),
+                "비용": round(st_["비용"]),
+                "순손익": round(st_["순손익"]),
+                "운영자": cfg.owner,
+            }
+        )
+    st.dataframe(
+        pd.DataFrame(rows), hide_index=True, width="stretch",
+        column_config={k: NUM for k in ["재고", "재고 한도", "체결 건수", "손익(비용 전)", "비용", "순손익"]},
+    )
+
+    st.markdown("#### 종목별 설정")
+    cols = st.columns(len(mm.configs))
+    for col, (sym, cfg) in zip(cols, mm.configs.items()):
+        inst = oms.instruments[sym]
+        with col:
+            st.markdown(f"**{inst.name}**")
+            st.caption(f"호가단위 {inst.tick_size:g} · 승수 {inst.multiplier:g}")
+            with st.form(f"mm_{sym}"):
+                size = st.number_input("호가 수량", 1, 10**9, cfg.size, key=f"mm_size_{sym}")
+                half = st.number_input("반폭(틱)", 1, 200, cfg.half_spread_ticks, key=f"mm_half_{sym}",
+                                       help="기준가에서 매수·매도 호가까지 거리. 가격 변동보다 좁으면 추세에 밀려 손실이 납니다")
+                maxinv = st.number_input("재고 한도", 1, 10**10, cfg.max_inventory, key=f"mm_inv_{sym}")
+                skew = st.number_input("재고 스큐(틱)", 0.0, 100.0, float(cfg.skew_ticks), 0.5, key=f"mm_skew_{sym}",
+                                       help="재고가 한도에 닿으면 호가 전체를 이만큼 옮겨 반대 방향 체결을 유도")
+                if st.form_submit_button("설정 저장", disabled=not trade_ok, help=tip):
+                    cfg.size, cfg.half_spread_ticks, cfg.max_inventory, cfg.skew_ticks = int(size), int(half), int(maxinv), float(skew)
+                    oms.system_event("마켓메이킹 설정", f"{sym} 수량 {cfg.size:,}, 반폭 {cfg.half_spread_ticks}틱, 재고한도 {cfg.max_inventory:,}, 스큐 {cfg.skew_ticks}")
+                    st.success("저장했습니다")
+            if cfg.enabled:
+                if st.button("중지", key=f"mm_off_{sym}", width="stretch", disabled=not can_manage(cfg.owner)):
+                    mm.disable(sym)
+                    st.rerun()
+            elif st.button("시작", key=f"mm_on_{sym}", type="primary", width="stretch", disabled=not trade_ok, help=tip):
+                mm.enable(sym)
+                st.rerun()
+    st.caption(
+        "매 틱 기준가 양쪽에 매수·매도 호가를 유지하고, 시장이 그 가격을 지나가면 자기 호가로 체결됩니다. "
+        "재고가 쌓이면 호가를 옮겨 줄이고, 한도에 닿은 쪽은 호가를 내지 않습니다. 킬 스위치가 켜지면 모든 호가를 취소하고 멈춥니다. "
+        "실제 유동성 공급자(LP)는 거래소 수수료 감면을 받는 경우가 많으니 수수료 설정을 확인하세요."
+    )
+```
+
+### `views/options_view.py`
+
+```python
+"""코스피200 옵션 화면: 체인, 주문, 포트폴리오 민감도, 델타 헤지, 만기 손익."""
+
+from __future__ import annotations
+
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+from rfl_oms import OMS, OrderType, Side
+from rfl_oms.auth import Perm
+from rfl_oms.market import OPTION_UNDERLYING, SESSION_TICKS
+from rfl_oms.options import chain, delta_hedge_qty, option_symbols, payoff, portfolio_greeks
+
+from .common import NUM, can, krw, need
+
+
+def options_view(oms: OMS) -> None:
+    if OPTION_UNDERLYING not in oms.instruments or not option_symbols(oms):
+        st.info("옵션이 설정되지 않았습니다.")
+        return
+    trade_ok = can(Perm.TRADE)
+    tip = None if trade_ok else need(Perm.TRADE)
+    F = oms.market.mark(OPTION_UNDERLYING)
+    spec0 = oms.instruments[option_symbols(oms)[0]].option
+    days_left = max(spec0.expiry_tick - oms.market.tick_no, 0) / SESSION_TICKS
+
+    m = st.columns(4)
+    m[0].metric("기초자산 (코스피200 선물)", f"{F:,.2f}")
+    m[1].metric("만기까지", f"{days_left:,.1f}일", help="시뮬레이션 1거래일 = 120틱")
+    oms.market.option_base_vol = m[2].number_input(
+        "기준 변동성(%)", 5.0, 80.0, oms.market.option_base_vol * 100, 0.5, key="opt_vol",
+        disabled=not can(Perm.SET_LIMITS) and not trade_ok, help="옵션 가격 계산에 쓰는 변동성(행사가별 스큐 적용)",
+    ) / 100
+    m[3].metric("승수", "250,000원")
+
+    st.markdown("#### 옵션 체인")
+    df = pd.DataFrame(chain(oms))
+    cols = ["콜 보유", "콜 델타", "콜 매수호가", "콜 매도호가", "행사가", "풋 매수호가", "풋 매도호가", "풋 델타", "풋 보유", "변동성(%)"]
+    st.dataframe(df[cols], hide_index=True, width="stretch")
+    st.caption("행사가 근처가 등가격(ATM)입니다. 가격은 Black-76 모형으로 계산한 시뮬레이션 값입니다.")
+
+    left, right = st.columns([1, 1.5])
+    with left:
+        st.markdown("#### 주문")
+        with st.form("opt_order"):
+            c = st.columns(2)
+            kind = c[0].radio("종류", ["콜", "풋"], horizontal=True)
+            side = c[1].radio("구분", [Side.BUY, Side.SELL], format_func=lambda x: x.value, horizontal=True)
+            strike = st.selectbox("행사가", df["행사가"].tolist(), index=len(df) // 2, format_func=lambda k: f"{k:.1f}")
+            qty = st.number_input("수량(계약)", 1, 1000, 1)
+            if st.form_submit_button("시장가 주문", type="primary", disabled=not trade_ok, help=tip):
+                sym = df.loc[df["행사가"] == strike, f"{kind} 종목"].iloc[0]
+                o = oms.submit(sym, side, OrderType.MARKET, int(qty), strategy_tag="옵션")
+                if o.reject_reason:
+                    st.error(f"{o.order_id} 거부: {o.reject_reason}")
+                else:
+                    st.success(f"{o.order_id} {oms.instruments[sym].name} {side.value} {o.filled_qty}/{o.qty} @ {o.avg_fill_price:.2f}")
+        st.caption("매도 옵션 증거금 = 프리미엄 + 기초자산 명목의 15% (시뮬레이션 가정)")
+
+        st.markdown("#### 포트폴리오 민감도")
+        g = portfolio_greeks(oms)
+        gc = st.columns(2)
+        gc[0].metric("델타 (선물 계약 환산)", f"{g['델타(선물 계약)']:+.2f}", help=f"델타 금액 {g['델타 금액']:,.0f}원")
+        gc[1].metric("감마", f"{g['감마(1pt당 델타 변화)']:+.3f}", help="기초자산 1pt 변화당 델타 변화(계약)")
+        gc = st.columns(2)
+        gc[0].metric("베가 (변동성 1%p)", krw(g["베가(변동성 1%p당 원)"]))
+        gc[1].metric("세타 (하루)", krw(g["세타(하루당 원)"]))
+        hedge = delta_hedge_qty(oms)
+        label = f"델타 헤지: 선물 {abs(hedge)}계약 {'매수' if hedge > 0 else '매도'}" if hedge else "델타 헤지 (이미 중립)"
+        if st.button(label, width="stretch", disabled=not trade_ok or hedge == 0, help=tip or "선물로 델타를 0에 가깝게 맞춥니다", key="opt_hedge"):
+            o = oms.submit(OPTION_UNDERLYING, Side.BUY if hedge > 0 else Side.SELL, OrderType.MARKET, abs(hedge), strategy_tag="델타헤지")
+            (st.error(o.reject_reason) if o.reject_reason else st.success(f"{o.order_id} 선물 {o.side.value} {o.filled_qty}계약"))
+    with right:
+        st.markdown("#### 손익 그래프 (옵션 + 코스피200 선물 보유분)")
+        pts = payoff(oms)
+        if not any(oms.positions[s].qty for s in option_symbols(oms)) and not oms.positions[OPTION_UNDERLYING].qty:
+            st.info("옵션이나 코스피200 선물 보유분이 없습니다. 왼쪽에서 주문해 보세요.")
+        else:
+            fig = go.Figure()
+            fig.add_scatter(x=[p[0] for p in pts], y=[p[2] for p in pts], name="만기 손익", line=dict(width=2.2))
+            fig.add_scatter(x=[p[0] for p in pts], y=[p[1] for p in pts], name="현재 평가손익", line=dict(width=1.4, dash="dot"))
+            fig.add_vline(x=F, line_color="gray", line_dash="dash", annotation_text="현재가")
+            fig.add_hline(y=0, line_color="gray", line_width=1)
+            fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.1), xaxis_title="코스피200 선물 가격", yaxis_title="원")
+            st.plotly_chart(fig, width="stretch")
+        held = [
+            {"종목": s, "종목명": oms.instruments[s].name, "수량": oms.positions[s].qty, "평균단가": round(oms.positions[s].avg_price, 3),
+             "현재가": oms.market.mark(s), "델타": round(oms.market.option_greeks(s).delta, 3), "평가손익": round(oms.unrealized_pnl(s))}
+            for s in option_symbols(oms) if oms.positions[s].qty
+        ]
+        if held:
+            st.dataframe(pd.DataFrame(held), hide_index=True, width="stretch", column_config={"수량": NUM, "평가손익": NUM})
+```
+
+### `views/pairs_view.py`
+
+```python
+"""페어 트레이딩 화면."""
+
+from __future__ import annotations
+
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+from rfl_oms import OMS
+from rfl_oms.auth import Perm
+from rfl_oms.pairs import PairDirection
+
+from .common import NUM, can, can_manage, current_user, need
+
+
+def _name(oms: OMS, s: str) -> str:
+    return oms.instruments[s].name
+
+
+def pairs_view(oms: OMS) -> None:
+    pe = oms.pairs
+    s = pe.settings
+    trade_ok = can(Perm.TRADE)
+    tip = None if trade_ok else need(Perm.TRADE)
+
+    stats = [pe.stat(a, b) for a, b in pe.pairs]
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "페어 (A / B)": f"{_name(oms, x.a)} / {_name(oms, x.b)}",
+                    "Z-점수": round(x.z, 2) if x.ready else None,
+                    "헤지비율 β": round(x.beta, 3) if x.beta is not None else None,
+                    "수익률 상관": round(x.corr, 2) if x.corr is not None else None,
+                    "평균회귀 반감기(틱)": round(x.half_life, 1) if x.half_life else None,
+                    "판단": (
+                        "데이터 부족" if not x.ready
+                        else "평균회귀 약함 (주의)" if not x.half_life or x.half_life > s.lookback / 2
+                        else "A 비쌈 → A 매도·B 매수" if x.z >= s.entry_z
+                        else "A 쌈 → A 매수·B 매도" if x.z <= -s.entry_z
+                        else "관망"
+                    ),
+                    "관측 틱": x.n,
+                }
+                for x in stats
+            ]
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption("Z-점수 = (현재 스프레드 − 평균) ÷ 표준편차, 스프레드 = log(A) − β·log(B). 반감기가 짧을수록 스프레드가 빨리 되돌아옵니다.")
+
+    left, right = st.columns([1.6, 1])
+    with left:
+        labels = {f"{_name(oms, a)} / {_name(oms, b)}": (a, b) for a, b in pe.pairs}
+        pick = st.selectbox("차트", list(labels), key="pair_pick")
+        a, b = labels[pick]
+        hist = pe.z_history.get((a, b), [])
+        fig = go.Figure()
+        if hist:
+            fig.add_scatter(x=[t for t, _ in hist], y=[z for _, z in hist], name="Z-점수", line=dict(width=1.8))
+        for y, color, dash in ((s.entry_z, "#c62828", "dot"), (-s.entry_z, "#2e7d32", "dot"), (s.exit_z, "gray", "dash"), (-s.exit_z, "gray", "dash"), (s.stop_z, "#6a1b9a", "dashdot"), (-s.stop_z, "#6a1b9a", "dashdot")):
+            fig.add_hline(y=y, line_color=color, line_dash=dash, line_width=1)
+        fig.update_layout(height=280, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="틱", yaxis_title="Z")
+        st.plotly_chart(fig, width="stretch")
+        st.caption("빨강·초록 점선: 진입 기준, 회색: 청산 기준, 보라: 손절 기준")
+    with right:
+        with st.form("pair_settings"):
+            c = st.columns(2)
+            lookback = c[0].number_input("통계 기간(틱)", 20, 400, s.lookback, 10)
+            notional = c[1].number_input("A 레그 금액(원)", 1e6, 1e10, float(s.notional), 1e7, format="%.0f")
+            c = st.columns(3)
+            entry = c[0].number_input("진입 |Z|", 0.5, 6.0, s.entry_z, 0.1)
+            exit_ = c[1].number_input("청산 |Z|", 0.0, 3.0, s.exit_z, 0.1)
+            stop = c[2].number_input("손절 |Z|", 1.0, 10.0, s.stop_z, 0.5)
+            max_open = st.number_input("최대 동시 포지션", 1, 10, s.max_open)
+            if st.form_submit_button("설정 저장", disabled=not trade_ok, help=tip):
+                s.lookback, s.notional, s.entry_z, s.exit_z, s.stop_z, s.max_open = int(lookback), notional, entry, exit_, stop, int(max_open)
+                st.success("저장했습니다")
+        c = st.columns(2)
+        if c[0].button("A 매도 · B 매수", width="stretch", disabled=not trade_ok, help=tip, key="pair_short"):
+            pos, problems = pe.enter(a, b, PairDirection.SHORT_A)
+            (st.success(f"{pos.pair_id} 진입") if pos else st.error("; ".join(problems[:2])))
+        if c[1].button("A 매수 · B 매도", width="stretch", disabled=not trade_ok, help=tip, key="pair_long"):
+            pos, problems = pe.enter(a, b, PairDirection.LONG_A)
+            (st.success(f"{pos.pair_id} 진입") if pos else st.error("; ".join(problems[:2])))
+        auto = st.toggle("자동 페어 트레이딩", value=s.auto, disabled=not trade_ok, help=tip or "기준에 따라 모든 페어를 자동 진입·청산·손절", key="pair_auto")
+        if trade_ok and auto != s.auto:
+            s.auto, s.auto_owner = auto, current_user().username
+            oms.system_event("자동 페어", "켜짐" if auto else "꺼짐")
+        if s.auto:
+            st.caption(f"자동 실행자: {s.auto_owner}")
+
+    st.markdown("#### 페어 포지션")
+    if not pe.positions:
+        st.caption("페어 포지션이 없습니다.")
+        return
+    rows = []
+    for p in reversed(list(pe.positions.values())):
+        pnl = pe.pnl(p)
+        rows.append(
+            {
+                "ID": p.pair_id,
+                "페어": f"{_name(oms, p.a)} / {_name(oms, p.b)}",
+                "방향": p.direction.value,
+                "수량 A / B": f"{p.qty_a:,} / {p.qty_b:,}",
+                "진입 Z": round(p.entry.z, 2),
+                "청산 Z": round(p.exit_z, 2) if p.exit_z is not None else None,
+                "상태": "보유" if p.open else "청산",
+                "손익(비용 전)": round(pnl["손익"]),
+                "비용": round(pnl["비용"]),
+                "순손익": round(pnl["순손익"]),
+                "진입자": p.owner,
+                "메모": p.note,
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", column_config={k: NUM for k in ["손익(비용 전)", "비용", "순손익"]})
+    closable = [p.pair_id for p in pe.open_positions() if can_manage(p.owner.removesuffix("(자동)"))]
+    if closable:
+        c = st.columns([2, 1])
+        sel = c[0].selectbox("청산할 포지션", closable, label_visibility="collapsed", key="pair_close_sel")
+        if c[1].button("청산", width="stretch", key="pair_close"):
+            pe.close(sel)
+            st.rerun()
+    st.caption("주식 매도세·수수료가 페어 수익의 상당 부분을 차지합니다. 비용 차감 후 '순손익'을 기준으로 판단하세요.")
 ```
 
 ### `views/risk_view.py`

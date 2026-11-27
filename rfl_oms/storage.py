@@ -29,7 +29,7 @@ from .auth import (
 )
 from .engine import OMS
 
-STATE_VERSION = 4  # 엔진 구조가 바뀌면 올린다 (다른 버전 스냅샷은 복원하지 않음)
+STATE_VERSION = 5  # 엔진 구조가 바뀌면 올린다 (다른 버전 스냅샷은 복원하지 않음)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (

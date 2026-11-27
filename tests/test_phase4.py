@@ -118,7 +118,7 @@ def test_set_limits_is_audited(oms):
     with oms.acting("risk1"):
         oms.set_limits(RiskLimits(max_order_qty=500))
     ev = [e for e in oms.audit if e.event == "한도 변경"][-1]
-    assert "max_order_qty: 10000 → 500" in ev.detail and ev.actor == "risk1"
+    assert "max_order_qty: 1000000 → 500" in ev.detail and ev.actor == "risk1"
 
 
 # ------------------------------ 권한 ------------------------------

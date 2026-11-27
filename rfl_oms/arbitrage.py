@@ -119,6 +119,11 @@ class ArbPosition:
 
 
 class ArbEngine:
+    """지수선물 ↔ 구성종목 바스켓 차익. 하위 클래스가 기초(현물)와 복제 방법만 바꿔 재사용한다."""
+
+    PREFIX = "X"  # 포지션 번호 접두사
+    KIND = "지수"
+
     def __init__(self, oms: "OMS"):
         self.oms = oms
         self.costs = ArbCosts()
@@ -134,20 +139,32 @@ class ArbEngine:
         return self.oms.market.index_def
 
     @property
+    def model(self):
+        """이론가 모형 (rate, dividend_yield, days_to_expiry, fair_futures 보유)."""
+        return self.index_def
+
+    @property
     def available(self) -> bool:
-        return self.index_def is not None
+        return self.model is not None
+
+    @property
+    def futures_symbol(self) -> str:
+        return self.model.futures_symbol
+
+    def spot_value(self) -> float:
+        return self.oms.market.index_value()
 
     # ---------------- 시세 ----------------
     def snapshot(self) -> ArbSnapshot:
         m = self.oms.market
-        idx = m.index_value()
-        q = m.quote(self.index_def.futures_symbol)
+        idx = self.spot_value()
+        q = m.quote(self.futures_symbol)
         return ArbSnapshot(
             tick=m.tick_no,
             index=idx,
             fut_bid=q.bid,
             fut_ask=q.ask,
-            fair=self.index_def.fair_futures(idx),
+            fair=self.model.fair_futures(idx),
             cost_pts=idx * self.costs.round_trip_bps() / 1e4,
         )
 
@@ -188,7 +205,7 @@ class ArbEngine:
 
     def hedge(self, pos: ArbPosition) -> tuple[float, float]:
         """(선물 명목, 현물 명목) — 부호 포함. 합이 0에 가까울수록 완전 헤지."""
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         fut = stock = 0.0
         for sym, q in self.net_holdings(pos).items():
             n = q * self.oms.market.mark(sym) * self.oms.instruments[sym].multiplier
@@ -205,7 +222,7 @@ class ArbEngine:
     def pre_check(self, direction: ArbDirection, contracts: int) -> list[str]:
         """두 레그 모두 사전 점검을 통과해야 진입한다 (한쪽만 체결되는 위험 방지)."""
         problems = []
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         for c in self.oms.preview(fsym, direction.futures_side, OrderType.MARKET, contracts):
             if not c.passed:
                 problems.append(f"선물 {c.name}: {c.detail}")
@@ -223,9 +240,9 @@ class ArbEngine:
             return None, problems
         self._seq += 1
         snap = self.snapshot()
-        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
+        pos = ArbPosition(f"{self.PREFIX}{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
         self.positions[pos.arb_id] = pos
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         fut = self.oms.submit(fsym, direction.futures_side, OrderType.MARKET, contracts, strategy_tag=pos.arb_id)
         pos.futures_order_ids.append(fut.order_id)
         basket = self.oms.baskets.execute(
@@ -247,7 +264,7 @@ class ArbEngine:
         pos = self.positions.get(arb_id)
         if pos is None or pos.status is ArbStatus.CLOSED:
             return False
-        fsym = self.index_def.futures_symbol
+        fsym = self.futures_symbol
         net = self.net_holdings(pos)
         fq = net.pop(fsym, 0)
         if fq:
@@ -309,3 +326,41 @@ class ArbEngine:
             self.enter(ArbDirection.SELL_ARB)
         elif snap.buy_edge >= self.settings.entry_edge_pts:
             self.enter(ArbDirection.BUY_ARB)
+
+
+class CarryArbEngine(ArbEngine):
+    """현물 1종목 ↔ 선물 차익 (외환·국고채·금). 선물 1계약 = 현물 (선물 승수 ÷ 현물 승수) 단위."""
+
+    def __init__(self, oms: "OMS", futures_symbol: str, prefix: str, costs: ArbCosts):
+        self._fsym = futures_symbol
+        self.PREFIX = prefix
+        super().__init__(oms)
+        self.costs = costs
+        self.settings.entry_edge_pts = 0.0
+        self.history = [self.snapshot()] if self.available else []
+
+    @property
+    def model(self):
+        return self.oms.market.carry_link(self._fsym)
+
+    @property
+    def KIND(self) -> str:  # noqa: N802 (상위 클래스 속성 재정의)
+        return self.model.name if self.model else self._fsym
+
+    def spot_value(self) -> float:
+        return self.oms.market.mark(self.model.spot_symbol)
+
+    def spot_units_per_contract(self) -> int:
+        inst = self.oms.instruments
+        return max(round(inst[self._fsym].multiplier / inst[self.model.spot_symbol].multiplier), 1)
+
+    def unit_lines(self, side: Side, units: int) -> list[BasketLine]:
+        return [BasketLine(self.model.spot_symbol, side, self.spot_units_per_contract() * units)]
+
+
+CARRY_ARB_SETUP = {
+    # 선물: (포지션 접두사, 비용 가정)
+    "USDF": ("FX", ArbCosts(commission_bps=0.3, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=1.0)),
+    "KTBF": ("BD", ArbCosts(commission_bps=0.3, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=0.5)),
+    "GOLDF": ("GD", ArbCosts(commission_bps=2.0, sell_tax_bps=0.0, futures_bps=0.3, slippage_bps=1.0)),
+}

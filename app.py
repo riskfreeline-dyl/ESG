@@ -21,6 +21,9 @@ from views.arb_view import arb_view
 from views.auth_view import account_sidebar, require_login
 from views.basket_view import basket_view
 from views.common import NUM, can, can_manage, current_user, fmt_price, krw, need
+from views.mm_view import mm_view
+from views.options_view import options_view
+from views.pairs_view import pairs_view
 from views.risk_view import risk_view
 from views.runtime import engine, runtime
 
@@ -58,8 +61,11 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
         "미체결·알고 전체 취소", width="stretch", disabled=not can(Perm.CANCEL_ANY), help=None if can(Perm.CANCEL_ANY) else need(Perm.CANCEL_ANY)
     ):
         a = oms.algos.cancel_all("전체 취소")
+        for sym, cfg in oms.mm.configs.items():
+            if cfg.enabled:
+                oms.mm.disable(sym, "전체 취소")
         n = oms.cancel_all()
-        st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소")
+        st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소 (마켓메이킹 중지)")
 
     st.sidebar.subheader("리스크 한도")
     lim = oms.limits
@@ -138,6 +144,8 @@ def header_metrics(oms: OMS) -> None:
 def market_watch(oms: OMS) -> None:
     rows = []
     for s, inst in oms.instruments.items():
+        if inst.option is not None:
+            continue  # 옵션은 옵션 탭의 체인에서 본다
         q = oms.market.quote(s)
         rows.append(
             {
@@ -297,10 +305,10 @@ def blotter(oms: OMS) -> None:
     status_filter = c1.segmented_control(
         "보기", ["전체", "미체결", "체결", "취소/거부"], default="전체", key="blotter_filter"
     )
-    hide_children = c2.checkbox("알고 자식주문 숨기기", value=True, help="TWAP/VWAP/POV가 낸 분할 주문을 목록에서 감춥니다")
+    hide_children = c2.checkbox("알고·마켓메이킹 자동주문 숨기기", value=True, help="TWAP/VWAP/POV 분할 주문과 마켓메이킹 호가를 목록에서 감춥니다")
     orders = list(oms.orders.values())
     if hide_children:
-        orders = [o for o in orders if o.strategy_tag not in oms.algos.algos]
+        orders = [o for o in orders if o.strategy_tag not in oms.algos.algos and not o.strategy_tag.startswith("MM:")]
     if status_filter == "미체결":
         orders = [o for o in orders if o.status.is_open]
     elif status_filter == "체결":
@@ -533,7 +541,10 @@ def _main_body(oms: OMS) -> None:
     header_metrics(oms)
     market_watch(oms)
 
-    names = ["주문 입력", "바스켓", "알고리즘", "차익거래", "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그"]
+    names = [
+        "주문 입력", "바스켓", "알고리즘", "차익거래", "페어 트레이딩", "마켓메이킹", "옵션",
+        "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그",
+    ]
     show_admin = can(Perm.MANAGE_USERS) or can(Perm.SET_FEES)
     tabs = st.tabs(names + (["관리"] if show_admin else []))
     with tabs[0]:
@@ -545,17 +556,23 @@ def _main_body(oms: OMS) -> None:
     with tabs[3]:
         arb_view(oms)
     with tabs[4]:
-        blotter(oms)
+        pairs_view(oms)
     with tabs[5]:
-        positions_view(oms)
+        mm_view(oms)
     with tabs[6]:
-        risk_view(oms)
+        options_view(oms)
     with tabs[7]:
-        alerts_view(oms)
+        blotter(oms)
     with tabs[8]:
+        positions_view(oms)
+    with tabs[9]:
+        risk_view(oms)
+    with tabs[10]:
+        alerts_view(oms)
+    with tabs[11]:
         audit_view(oms)
     if show_admin:
-        with tabs[9]:
+        with tabs[12]:
             admin_view(oms)
 
 

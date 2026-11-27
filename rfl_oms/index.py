@@ -52,3 +52,39 @@ def build_default_index(start_prices: dict[str, float], futures_symbol: str, fut
         s: max(round(unit_value * w / start_prices[s]), 1) for s, w in DEFAULT_WEIGHTS.items() if s in start_prices
     }
     return idx
+
+
+@dataclass
+class CarryLink:
+    """현물 1종목과 선물의 보유비용 관계 (외환·채권·금 현물/선물).
+
+    F* = S × (1 + (rate − dividend_yield) × T/365)
+    - 외환: rate = 원화 금리, dividend_yield = 달러 금리 (금리평형)
+    - 채권: rate = 레포 금리, dividend_yield = 표면이자율
+    - 금: rate = 원화 금리, dividend_yield = 금 리스 금리
+    """
+
+    name: str
+    futures_symbol: str
+    spot_symbol: str
+    rate: float
+    dividend_yield: float
+    days_to_expiry: int
+    basis_vol_bp: float  # 선물 괴리 충격 (현물가 대비 bp)
+    rate_label: str = "금리"
+    yield_label: str = "보유수익률"
+
+    @property
+    def carry(self) -> float:
+        return (self.rate - self.dividend_yield) * self.days_to_expiry / 365
+
+    def fair_futures(self, spot: float) -> float:
+        return spot * (1 + self.carry)
+
+
+def default_carry_links() -> list[CarryLink]:
+    return [
+        CarryLink("외환", "USDF", "USDKRW", 0.030, 0.045, 60, 3.0, "원화 금리", "달러 금리"),
+        CarryLink("국고채", "KTBF", "KTB3Y", 0.030, 0.032, 90, 2.0, "레포 금리", "표면이자율"),
+        CarryLink("금", "GOLDF", "GOLD", 0.030, 0.000, 60, 4.0, "원화 금리", "금 리스 금리"),
+    ]

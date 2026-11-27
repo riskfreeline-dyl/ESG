@@ -50,6 +50,7 @@ def test_partial_fill_and_ioc_remainder_canceled():
 
 
 def test_order_qty_limit_rejects(oms):
+    oms.limits.max_order_qty = 10_000
     o = oms.submit("005930", Side.BUY, OrderType.MARKET, 20_000)
     assert o.status is OrderStatus.REJECTED
     assert "주문 수량 한도" in o.reject_reason

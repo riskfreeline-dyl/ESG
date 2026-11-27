@@ -47,6 +47,14 @@ class AlertLevel(str, Enum):
 
 
 @dataclass(frozen=True)
+class OptionSpec:
+    underlying: str  # 기초자산(선물) 종목코드
+    strike: float
+    kind: str  # "C"(콜) 또는 "P"(풋)
+    expiry_tick: int  # 만기 시점의 시장 틱
+
+
+@dataclass(frozen=True)
 class Instrument:
     symbol: str
     name: str
@@ -58,6 +66,7 @@ class Instrument:
     start_price: float
     volatility: float  # 틱당 수익률 표준편차 (시뮬레이션)
     base_liquidity: int  # 호가 단계별 기본 잔량 (시뮬레이션)
+    option: OptionSpec | None = None  # 옵션이면 계약 조건
 
     @property
     def price_decimals(self) -> int:
@@ -111,6 +120,7 @@ class Order:
     reject_reason: str = ""
     strategy_tag: str = ""
     trader: str = ""  # 주문을 낸 사용자
+    rested: bool = False  # 접수 후 즉시 체결되지 않고 호가에 대기한 적이 있는지 (대기 주문은 지정가로 체결)
     events: list[OrderEvent] = field(default_factory=list)
 
     @property

@@ -11,9 +11,11 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from .algo import AlgoEngine
-from .arbitrage import ArbEngine
+from .arbitrage import CARRY_ARB_SETUP, ArbEngine, CarryArbEngine
 from .basket import BasketManager
 from .fees import FeeSchedule
+from .mm import MarketMaker
+from .pairs import PairsEngine
 from .market import MarketSim
 from .models import (
     Alert,
@@ -57,8 +59,18 @@ class OMS:
         self.algos = AlgoEngine(self)
         self.baskets = BasketManager(self)
         self.arb = ArbEngine(self)
+        # 외환·국고채·금 현물/선물 차익 (시장에 해당 선물이 연결되어 있을 때만)
+        self.carry_arbs: dict[str, CarryArbEngine] = {
+            fsym: CarryArbEngine(self, fsym, prefix, costs)
+            for fsym, (prefix, costs) in CARRY_ARB_SETUP.items()
+            if self.market.carry_link(fsym) is not None
+        }
         # 시장이 한 틱 진행된 뒤, 미체결 주문 매칭 다음에 호출되는 처리기
         self.tick_hooks = [self.algos.on_tick, self.baskets.on_tick, self.arb.on_tick]
+        self.tick_hooks += [e.on_tick for e in self.carry_arbs.values()]
+        self.pairs = PairsEngine(self)
+        self.mm = MarketMaker(self)
+        self.tick_hooks += [self.pairs.on_tick, self.mm.on_tick]
         # (틱, 실현손익, 미실현손익, 평가자산, 총노출)
         self.pnl_history: list[tuple[int, float, float, float, float]] = []
         self._record_pnl()
@@ -146,10 +158,10 @@ class OMS:
         for s, inst in self.instruments.items():
             pos = self.positions[s].qty
             worst = max(abs(pos + buys[s]), abs(pos - sells[s]))
-            n = worst * self.market.mark(s) * inst.multiplier
+            n = worst * self.exposure_per_unit(s) if worst else 0.0
             qty[s], notional[s] = worst, n
             gross += n
-            margin += n * inst.margin_rate
+            margin += max(self.position_margin(s, pos + buys[s]), self.position_margin(s, pos - sells[s]))
         # 헤지 상계는 보수적으로: 현재 포지션, 매수 전량 체결, 매도 전량 체결 중 가장 작은 상계만 인정
         pos_now = {s: p.qty for s, p in self.positions.items()}
         all_buys = {s: pos_now[s] + buys[s] for s in pos_now}
@@ -171,12 +183,32 @@ class OMS:
         hedged = min(abs(fut), abs(stock))
         return hedged * finst.margin_rate * self.limits.margin_offset_pct / 100
 
+    SHORT_OPTION_MARGIN = 0.15  # 매도 옵션 증거금: 프리미엄 + 기초자산 명목의 15%
+
+    def exposure_per_unit(self, symbol: str) -> float:
+        """1단위당 노출 금액. 옵션은 델타 환산 기초자산 명목, 나머지는 시가 명목."""
+        inst = self.instruments[symbol]
+        if inst.option is not None:
+            F = self.market.mark(inst.option.underlying)
+            return abs(self.market.option_greeks(symbol).delta) * F * inst.multiplier
+        return self.market.mark(symbol) * inst.multiplier
+
+    def position_margin(self, symbol: str, qty: int) -> float:
+        """부호 있는 수량에 대한 증거금. 매도 옵션은 프리미엄 + 기초자산 명목 비율을 추가로 잡는다."""
+        if qty == 0:
+            return 0.0
+        inst = self.instruments[symbol]
+        premium = abs(qty) * self.market.mark(symbol) * inst.multiplier
+        if inst.option is not None:
+            if qty > 0:
+                return premium  # 매수 옵션은 프리미엄 전액
+            F = self.market.mark(inst.option.underlying)
+            return premium + abs(qty) * F * inst.multiplier * self.SHORT_OPTION_MARGIN
+        return premium * inst.margin_rate
+
     def margin_breakdown(self) -> dict[str, float]:
         """체결된 포지션 기준 증거금: 상계 전, 상계액, 순증거금."""
-        gross = sum(
-            abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier * self.instruments[s].margin_rate
-            for s, p in self.positions.items()
-        )
+        gross = sum(self.position_margin(s, p.qty) for s, p in self.positions.items())
         credit = self.hedge_credit({s: p.qty for s, p in self.positions.items()})
         return {"상계 전": gross, "헤지 상계": credit, "순증거금": gross - credit}
 
@@ -320,6 +352,8 @@ class OMS:
         self._log(order, "라우팅", f"{order.venue} 접수")
 
         self._match(order)
+        if order.status.is_open:
+            order.rested = True  # 남은 수량은 호가에 대기 → 이후 체결은 지정가로
         self._expire_if_ioc(order)
         self._evaluate_alerts()
         return order
@@ -356,7 +390,10 @@ class OMS:
         order.qty, order.limit_price = qty, price
         self._enrich(order)
         self._log(order, "정정", f"{old} → {qty:,}@{self._px(order.symbol, price)}")
+        order.rested = False  # 정정으로 즉시 체결되면 상대 호가에 체결
         self._match(order)
+        if order.status.is_open:
+            order.rested = True
         self._evaluate_alerts()
         return True, checks
 
@@ -394,7 +431,8 @@ class OMS:
         leaves = order.qty - order.filled_qty
         cap = order.limit_price if order.order_type is OrderType.LIMIT else None
         for price, qty in self.market.take_liquidity(order.symbol, order.side, leaves, cap):
-            self._fill(order, qty, price)
+            # 대기하던 지정가 주문은 시장이 그 가격을 지나갈 때 자기 지정가로 체결된다
+            self._fill(order, qty, order.limit_price if order.rested and cap is not None else price)
 
     def _fill(self, order: Order, qty: int, price: float) -> None:
         inst = self.instruments[order.symbol]

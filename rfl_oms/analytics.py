@@ -26,7 +26,8 @@ def position_frame(oms: "OMS") -> pd.DataFrame:
         if p.qty == 0:
             continue
         inst = oms.instruments[s]
-        n = p.qty * oms.market.mark(s) * inst.multiplier
+        # 옵션은 델타 환산 기초자산 명목으로 노출을 본다
+        n = p.qty * oms.exposure_per_unit(s) * (1 if inst.option is None or oms.market.option_greeks(s).delta >= 0 else -1)
         rows.append(
             {
                 "종목": s,
@@ -35,7 +36,7 @@ def position_frame(oms: "OMS") -> pd.DataFrame:
                 "수량": p.qty,
                 "순명목": n,
                 "총명목": abs(n),
-                "증거금": abs(n) * inst.margin_rate,
+                "증거금": oms.position_margin(s, p.qty),
             }
         )
     return pd.DataFrame(rows, columns=["종목", "종목명", "자산군", "수량", "순명목", "총명목", "증거금"])
@@ -66,7 +67,7 @@ def equity_beta_exposure(oms: "OMS") -> float:
     df = position_frame(oms)
     if df.empty:
         return 0.0
-    return float(df.loc[df["자산군"].isin(["주식", "주가지수선물"]), "순명목"].sum())
+    return float(df.loc[df["자산군"].isin(["주식", "주가지수선물", "주가지수옵션"]), "순명목"].sum())
 
 
 @dataclass
@@ -104,11 +105,15 @@ def value_at_risk(oms: "OMS", confidence: float = 0.99, lookback: int = 250) -> 
 DEFAULT_SCENARIOS: dict[str, dict[str, float]] = {
     "주가 급락 (−5%)": {"주식": -0.05, "주가지수선물": -0.05},
     "주가 급등 (+5%)": {"주식": 0.05, "주가지수선물": 0.05},
-    "원/달러 급등 (+3%)": {"통화선물": 0.03},
-    "금리 +50bp (국채선물 −1.3%)": {"금리선물": -0.013},
-    "금 급락 (−5%)": {"금 현물": -0.05},
+    "원/달러 급등 (+3%)": {"통화선물": 0.03, "외환 현물": 0.03},
+    "금리 +50bp (국채 −1.3%)": {"금리선물": -0.013, "채권 현물": -0.013},
+    "금 급락 (−5%)": {"금 현물": -0.05, "금 선물": -0.05},
     "선물 베이시스 확대 (선물 −1%)": {"주가지수선물": -0.01},
-    "복합 위기": {"주식": -0.08, "주가지수선물": -0.09, "통화선물": 0.05, "금리선물": 0.008, "금 현물": 0.03},
+    "변동성 급등 (옵션 +5%p)": {"옵션 변동성": 0.05},
+    "복합 위기": {
+        "주식": -0.08, "주가지수선물": -0.09, "통화선물": 0.05, "외환 현물": 0.05, "금리선물": 0.008,
+        "채권 현물": 0.008, "금 현물": 0.03, "금 선물": 0.03, "옵션 변동성": 0.10,
+    },
 }
 
 
@@ -117,9 +122,24 @@ def stress_test(oms: "OMS", scenarios: dict[str, dict[str, float]] | None = None
     df = position_frame(oms)
     equity = oms.equity()
     rows = []
+    from .options import black76, smile_vol
+    from .market import OPTION_RATE
+
     for name, shocks in scenarios.items():
         pnl = 0.0
         for _, r in df.iterrows():
+            inst = oms.instruments[r["종목"]]
+            if inst.option is not None:
+                # 옵션은 기초자산·변동성 충격을 넣어 가격을 다시 계산 (비선형 반영)
+                spec = inst.option
+                T = oms.market.option_years(spec)
+                F0 = oms.market.mark(spec.underlying)
+                F = F0 * (1 + shocks.get(oms.instruments[spec.underlying].asset_class, 0.0))
+                vol = smile_vol(oms.market.option_base_vol, F, spec.strike) + shocks.get("옵션 변동성", 0.0)
+                base = black76(F0, spec.strike, T, OPTION_RATE, smile_vol(oms.market.option_base_vol, F0, spec.strike), spec.kind).price
+                new = black76(F, spec.strike, T, OPTION_RATE, vol, spec.kind).price
+                pnl += (new - base) * r["수량"] * inst.multiplier  # 모형가끼리 비교 (호가 반올림 영향 제거)
+                continue
             shock = shocks.get(r["종목"], shocks.get(r["자산군"], 0.0))
             pnl += r["순명목"] * shock
         rows.append(

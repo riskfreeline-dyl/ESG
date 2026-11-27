@@ -14,7 +14,7 @@ from .models import Instrument, Order, OrderType
 @dataclass
 class RiskLimits:
     capital: float = 1_000_000_000  # 계좌 기본 자본 (원)
-    max_order_qty: int = 10_000  # 주문당 최대 수량
+    max_order_qty: int = 1_000_000  # 주문당 최대 수량 (외환은 달러, 채권은 액면 단위라 크게 둠 — 실질 통제는 명목금액 한도)
     max_order_notional: float = 500_000_000  # 주문당 최대 명목금액
     price_band_pct: float = 10.0  # 지정가와 현재가의 최대 괴리율 (%)
     max_position_notional: float = 1_000_000_000  # 종목별 최대 포지션 명목금액
@@ -123,7 +123,8 @@ def pre_trade_checks(
         results.append(
             CheckResult(
                 "가격 괴리율",
-                dev <= limits.price_band_pct,
+                # 저가 옵션처럼 호가단위가 큰 종목은 2틱 이내 괴리를 허용
+                dev <= limits.price_band_pct or abs(order.limit_price - mark) <= 2 * inst.tick_size + 1e-9,
                 f"현재가 대비 {dev:.2f}% (허용 {limits.price_band_pct:.1f}%)",
                 dev / limits.price_band_pct if limits.price_band_pct else None,
             )
