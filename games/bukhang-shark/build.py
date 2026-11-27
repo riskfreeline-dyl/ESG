@@ -17,7 +17,7 @@ head = (
     '<meta name="theme-color" content="#03243A">\n'
     '<meta property="og:type" content="website">\n'
     '<meta property="og:url" content="https://bukhang-shark.netlify.app/">\n'
-    '<meta property="og:image" content="https://bukhang-shark.netlify.app/og.jpg">\n'
+    '<meta property="og:image" content="https://bukhang-shark.netlify.app/og2.jpg">\n'
     '<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
     '<meta name="twitter:card" content="summary_large_image">\n'
 )
