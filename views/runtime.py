@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -12,7 +13,9 @@ import streamlit as st
 from rfl_oms import OMS, MarketSim
 from rfl_oms.storage import Store
 
-DEFAULT_DB = os.environ.get("RFL_OMS_DB", "data/rfl_oms.db")
+# 브라우저 실행(stlite/Pyodide)에서는 IndexedDB에 연결된 /mnt에 저장해 새로고침 후에도 유지한다
+IN_BROWSER = sys.platform == "emscripten"
+DEFAULT_DB = os.environ.get("RFL_OMS_DB", "/mnt/rfl_oms.db" if IN_BROWSER else "data/rfl_oms.db")
 
 
 class Runtime:

@@ -2,7 +2,7 @@
 
 - 작성일: 2026-11-27
 - 저장소: `riskfreeline-dyl/ESG`, 브랜치 `claude/festive-newton-9f091h`
-- 상태: 1~4단계 완료, 테스트 72개 통과, 브라우저에서 전 탭·전 역할 동작 확인
+- 상태: 1~4단계 완료, 테스트 73개 통과, 브라우저에서 전 탭·전 역할 동작 확인, 웹 배포 https://rfl-oms.netlify.app
 - 성격: **시뮬레이션 프로토타입**입니다. 시세와 체결은 모두 가상이며 실제 거래소·증권사와 연결되어 있지 않습니다.
 
 ## 목차
@@ -161,6 +161,16 @@
 | 헤지 증거금 상계 | 지수선물과 지수 구성종목 순노출이 반대 방향이면 헤지된 금액만큼 선물 증거금을 감면(기본 70%). 미체결 주문이 헤지를 깰 수 있으면 상계를 인정하지 않는 보수적 계산. 리스크 관리자가 사용 여부·감면율 설정 |
 | 관리 탭 | 사용자 추가·역할 변경·비활성화·비밀번호 재설정·잠금 해제, 역할별 권한표, 수수료 설정, DB 현황, 로그인 기록, 거래 데이터 초기화(사용자 유지, '초기화' 입력 확인) |
 
+### 4.5 웹 배포 — Netlify (서버 없이 브라우저에서 실행)
+
+| 항목 | 내용 |
+|---|---|
+| 주소 | https://rfl-oms.netlify.app |
+| 방식 | stlite 1.12.2(내장 Streamlit 1.65, Pyodide)로 같은 `app.py`·엔진을 브라우저 안에서 실행. `tools/build_web.py`가 `web/`을 만들고 Netlify가 배포 시 자동 실행 |
+| 저장 | 브라우저 IndexedDB(/mnt)에 SQLite 파일 저장 → 새로고침 후에도 유지. 접속자·브라우저마다 독립 장부 |
+| 호환 처리 | 브라우저 Python에는 OpenSSL 기반 `pbkdf2_hmac`이 없어 같은 결과를 내는 순수 파이썬 PBKDF2 사용(테스트로 일치 검증), SQLite WAL 미지원 시 기본 모드 |
+| 검증 | 실제 배포 주소에서 관리자 생성 → 사용자 추가 → 트레이더 주문·바스켓·차익 → 새로고침 후 데이터 유지 확인 |
+
 ---
 
 ## 5. 시스템 구조
@@ -181,7 +191,9 @@ rfl_oms/              주문 처리 엔진 (Streamlit에 의존하지 않음)
   auth.py             역할·권한, 비밀번호 해시·정책
   storage.py          SQLite 저장소 (장부 테이블 + 엔진 스냅샷, 사용자·로그인 기록)
 views/                화면 구성 요소 (로그인, 관리, 바스켓, 알고, 차익, 리스크, 공유 런타임, 공용 도우미)
-tests/                단위 테스트 72개
+tests/                단위 테스트 73개
+tools/build_web.py    Netlify용 웹 버전(web/) 생성기
+netlify.toml          Netlify 배포 설정
 tools/build_record.py 이 기록 문서를 다시 만드는 스크립트
 data/rfl_oms.db       실행 시 생기는 DB 파일 (저장소에는 올리지 않음)
 ```
@@ -202,7 +214,7 @@ streamlit run app.py          # 브라우저에서 http://localhost:8501
 # DB 위치 변경: RFL_OMS_DB=/경로/rfl_oms.db streamlit run app.py
 
 pip install pytest
-python -m pytest -q           # 72 passed
+python -m pytest -q           # 73 passed
 
 python tools/build_record.py  # 이 기록 문서 다시 만들기
 ```
@@ -264,15 +276,17 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 
 ### 수록 파일 목록
 
-- `.gitignore` (8줄)
-- `README.md` (109줄)
+- `.gitignore` (9줄)
+- `.netlify/state.json` (3줄)
+- `README.md` (118줄)
 - `app.py` (565줄)
+- `netlify.toml` (8줄)
 - `requirements.txt` (8줄)
 - `rfl_oms/__init__.py` (27줄)
 - `rfl_oms/algo.py` (253줄)
 - `rfl_oms/analytics.py` (134줄)
 - `rfl_oms/arbitrage.py` (311줄)
-- `rfl_oms/auth.py` (91줄)
+- `rfl_oms/auth.py` (123줄)
 - `rfl_oms/basket.py` (387줄)
 - `rfl_oms/engine.py` (483줄)
 - `rfl_oms/fees.py` (28줄)
@@ -280,13 +294,16 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 - `rfl_oms/market.py` (201줄)
 - `rfl_oms/models.py` (176줄)
 - `rfl_oms/risk.py` (172줄)
-- `rfl_oms/storage.py` (298줄)
+- `rfl_oms/storage.py` (301줄)
+- `run.sh` (8줄)
+- `run_windows.bat` (7줄)
 - `stockbasic` (1줄)
 - `tests/test_engine.py` (180줄)
 - `tests/test_phase2.py` (186줄)
 - `tests/test_phase3.py` (155줄)
-- `tests/test_phase4.py` (248줄)
+- `tests/test_phase4.py` (257줄)
 - `tools/build_record.py` (65줄)
+- `tools/build_web.py` (89줄)
 - `views/__init__.py` (1줄)
 - `views/admin_view.py` (145줄)
 - `views/algo_view.py` (165줄)
@@ -295,7 +312,7 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 - `views/basket_view.py` (214줄)
 - `views/common.py` (59줄)
 - `views/risk_view.py` (136줄)
-- `views/runtime.py` (49줄)
+- `views/runtime.py` (52줄)
 
 ### `.gitignore`
 
@@ -308,6 +325,15 @@ data/
 *.db
 *.db-wal
 *.db-shm
+web/
+```
+
+### `.netlify/state.json`
+
+```
+{
+  "siteId": "4d837020-690e-4a49-819b-7d02c2920245"
+}
 ```
 
 ### `README.md`
@@ -330,6 +356,15 @@ run_windows.bat          # Windows (더블클릭)
 - 상태는 SQLite `data/rfl_oms.db`에 저장되어 새로고침·재시작 후에도 유지됩니다. 위치 변경: `RFL_OMS_DB=/경로/파일.db streamlit run app.py`
 - 테스트: `pip install pytest && python -m pytest -q`
 - 전체 기록 문서 재생성: `python tools/build_record.py`
+
+## 웹 버전 (설치 없이 브라우저에서 바로 사용)
+
+- 주소: **https://rfl-oms.netlify.app**
+- stlite(브라우저 안에서 Python·Streamlit을 실행하는 기술)로 같은 코드를 서버 없이 실행합니다. 처음 접속 시 준비에 20초~1분 걸립니다.
+- 데이터는 **접속한 브라우저 안(IndexedDB)에만** 저장됩니다. 사람마다·브라우저마다 별도 장부이며 서로 공유되지 않습니다. 브라우저 데이터를 지우면 함께 지워집니다.
+- 처음 접속하면 그 브라우저용 관리자 계정을 만듭니다(다른 사람의 데이터에는 접근할 수 없음).
+- 다시 만들기: `python tools/build_web.py` → `web/` 폴더 생성(Netlify가 배포 때 자동 실행, 설정은 `netlify.toml`)
+- 팀이 하나의 장부를 함께 쓰려면 서버 버전(`streamlit run app.py`)을 서버에 띄워야 합니다.
 
 ## 1단계 범위
 
@@ -992,6 +1027,19 @@ _user = require_login()
 with engine(_user.username) as _oms:
     auto, interval = sidebar(_oms)
 st.fragment(main_view, run_every=interval if auto else None)(auto, interval)
+```
+
+### `netlify.toml`
+
+```
+[build]
+  publish = "web"
+  command = "python3 tools/build_web.py"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    Cache-Control = "no-cache"
 ```
 
 ### `requirements.txt`
@@ -1820,9 +1868,41 @@ class AuthError(Exception):
     pass
 
 
+def _pbkdf2_sha256_pure(password: bytes, salt: bytes, iterations: int) -> bytes:
+    """hashlib.pbkdf2_hmac('sha256', ...)와 같은 결과를 내는 순수 파이썬 구현.
+
+    브라우저 실행(Pyodide)처럼 OpenSSL 기반 pbkdf2_hmac이 없는 환경에서 쓴다 (RFC 8018, 출력 32바이트 1블록).
+    """
+    block = 64
+    if len(password) > block:
+        password = hashlib.sha256(password).digest()
+    password = password.ljust(block, b"\0")
+    inner = hashlib.sha256(password.translate(bytes(x ^ 0x36 for x in range(256))))
+    outer = hashlib.sha256(password.translate(bytes(x ^ 0x5C for x in range(256))))
+
+    def prf(msg: bytes) -> bytes:
+        i, o = inner.copy(), outer.copy()
+        i.update(msg)
+        o.update(i.digest())
+        return o.digest()
+
+    u = prf(salt + (1).to_bytes(4, "big"))
+    acc = int.from_bytes(u, "big")
+    for _ in range(iterations - 1):
+        u = prf(u)
+        acc ^= int.from_bytes(u, "big")
+    return acc.to_bytes(32, "big")
+
+
+def _pbkdf2(password: bytes, salt: bytes, iterations: int) -> bytes:
+    if hasattr(hashlib, "pbkdf2_hmac"):
+        return hashlib.pbkdf2_hmac("sha256", password, salt, iterations)
+    return _pbkdf2_sha256_pure(password, salt, iterations)
+
+
 def hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
     salt = salt or secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    digest = _pbkdf2(password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
     return digest.hex(), salt.hex()
 
 
@@ -3474,7 +3554,10 @@ class Store:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
-        self._conn.execute("PRAGMA journal_mode=WAL")
+        try:
+            self._conn.execute("PRAGMA journal_mode=WAL")  # 브라우저(Pyodide) 등 지원하지 않는 환경에서는 기본 모드
+        except sqlite3.DatabaseError:
+            pass
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._lock = threading.RLock()
         with self._lock:
@@ -3684,6 +3767,31 @@ class Store:
         with self._lock:
             self._conn.execute("UPDATE users SET failed_count=0, locked_until=NULL WHERE username=?", (username,))
         self.log_auth(username, "잠금 해제", f"변경자 {by}")
+```
+
+### `run.sh`
+
+```
+#!/usr/bin/env bash
+# RFL OMS 실행 (macOS / Linux). Python 3.10 이상 필요.
+set -e
+cd "$(dirname "$0")"
+if [ ! -d .venv ]; then python3 -m venv .venv; fi
+. .venv/bin/activate
+pip install -q -r requirements.txt
+streamlit run app.py
+```
+
+### `run_windows.bat`
+
+```
+@echo off
+REM RFL OMS 실행 (Windows). Python 3.10 이상 필요.
+cd /d "%~dp0"
+if not exist .venv python -m venv .venv
+call .venv\Scripts\activate.bat
+pip install -q -r requirements.txt
+streamlit run app.py
 ```
 
 ### `stockbasic`
@@ -4481,6 +4589,15 @@ def test_reset_keeps_users(store, oms):
     store.reset_trading()
     assert store.load() is None and store.has_users()
     assert store.query("SELECT COUNT(*) n FROM orders")[0]["n"] == 0
+
+
+def test_pure_python_pbkdf2_matches_hashlib():
+    import hashlib
+
+    from rfl_oms.auth import _pbkdf2_sha256_pure
+
+    for pw, salt in [(b"Admin1234", b"0123456789abcdef"), (b"x" * 100, b"salt"), (b"", b"")]:
+        assert _pbkdf2_sha256_pure(pw, salt, 500) == hashlib.pbkdf2_hmac("sha256", pw, salt, 500)
 ```
 
 ### `tools/build_record.py`
@@ -4551,6 +4668,100 @@ if __name__ == "__main__":
     bad = verify(doc)
     print(f"{OUT.relative_to(ROOT)}: {doc.count(chr(10))}줄, 파일 {len(tracked_files())}개, 불일치 {len(bad)}개")
     sys.exit(1 if bad else 0)
+```
+
+### `tools/build_web.py`
+
+```python
+"""Netlify 등 정적 호스팅용 웹 버전 생성기.
+
+stlite(브라우저 안에서 Streamlit을 실행하는 기술)로 app.py와 엔진을 그대로 브라우저에서 실행한다.
+서버가 필요 없고, 데이터는 접속한 브라우저의 IndexedDB에 사용자별로 따로 저장된다.
+
+실행: python tools/build_web.py   →  web/ 폴더 생성 (Netlify publish 디렉터리)
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "web"
+STLITE_VERSION = "1.12.2"  # 내장 Streamlit 1.65
+REQUIREMENTS = ["pandas", "plotly", "openpyxl"]
+
+SOURCES = ["app.py", *sorted(str(p.relative_to(ROOT)) for d in ("rfl_oms", "views") for p in (ROOT / d).glob("*.py"))]
+
+HTML = """<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>RFL OMS</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@{ver}/build/stlite.css" />
+  <style>
+    #boot {{ font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; max-width: 560px; margin: 18vh auto; padding: 0 16px; color: #333; }}
+    #boot h1 {{ font-size: 22px; margin: 0 0 8px; }}
+    #boot p {{ color: #666; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <div id="boot">
+    <h1>RFL OMS 불러오는 중…</h1>
+    <p>브라우저 안에서 Python을 준비하고 있습니다. 처음 접속 시 30초~1분 정도 걸릴 수 있습니다.<br/>
+    모든 시세와 체결은 시뮬레이션이며, 데이터는 이 브라우저에만 저장됩니다.</p>
+  </div>
+  <div id="root"></div>
+  <script type="module">
+    import {{ mount }} from "https://cdn.jsdelivr.net/npm/@stlite/browser@{ver}/build/stlite.js";
+    const files = {files};
+    mount(
+      {{
+        entrypoint: "app.py",
+        requirements: {reqs},
+        files: Object.fromEntries(Object.entries(files).map(([path, url]) => [path, {{ url }}])),
+        idbfsMountpoints: ["/mnt"],
+        streamlitConfig: {{ "client.toolbarMode": "viewer", "browser.gatherUsageStats": false }},
+      }},
+      document.getElementById("root"),
+    );
+    document.getElementById("boot").remove();
+  </script>
+</body>
+</html>
+"""
+
+NETLIFY_TOML = """[build]
+  publish = "web"
+  command = "python3 tools/build_web.py"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+"""
+
+
+def build() -> None:
+    if OUT.exists():
+        shutil.rmtree(OUT)
+    for src in SOURCES:
+        dst = OUT / "app" / src
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / src, dst)
+    files = {src: f"./app/{src}" for src in SOURCES}
+    (OUT / "index.html").write_text(
+        HTML.format(ver=STLITE_VERSION, files=json.dumps(files, indent=2), reqs=json.dumps(REQUIREMENTS)),
+        encoding="utf-8",
+    )
+    (ROOT / "netlify.toml").write_text(NETLIFY_TOML, encoding="utf-8")
+    print(f"web/ 생성: 파이썬 파일 {len(SOURCES)}개, stlite {STLITE_VERSION}")
+
+
+if __name__ == "__main__":
+    build()
 ```
 
 ### `views/__init__.py`
@@ -5613,6 +5824,7 @@ def risk_view(oms: OMS) -> None:
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -5622,7 +5834,9 @@ import streamlit as st
 from rfl_oms import OMS, MarketSim
 from rfl_oms.storage import Store
 
-DEFAULT_DB = os.environ.get("RFL_OMS_DB", "data/rfl_oms.db")
+# 브라우저 실행(stlite/Pyodide)에서는 IndexedDB에 연결된 /mnt에 저장해 새로고침 후에도 유지한다
+IN_BROWSER = sys.platform == "emscripten"
+DEFAULT_DB = os.environ.get("RFL_OMS_DB", "/mnt/rfl_oms.db" if IN_BROWSER else "data/rfl_oms.db")
 
 
 class Runtime:

@@ -86,7 +86,10 @@ class Store:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
-        self._conn.execute("PRAGMA journal_mode=WAL")
+        try:
+            self._conn.execute("PRAGMA journal_mode=WAL")  # 브라우저(Pyodide) 등 지원하지 않는 환경에서는 기본 모드
+        except sqlite3.DatabaseError:
+            pass
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._lock = threading.RLock()
         with self._lock:

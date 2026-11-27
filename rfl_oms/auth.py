@@ -64,9 +64,41 @@ class AuthError(Exception):
     pass
 
 
+def _pbkdf2_sha256_pure(password: bytes, salt: bytes, iterations: int) -> bytes:
+    """hashlib.pbkdf2_hmac('sha256', ...)와 같은 결과를 내는 순수 파이썬 구현.
+
+    브라우저 실행(Pyodide)처럼 OpenSSL 기반 pbkdf2_hmac이 없는 환경에서 쓴다 (RFC 8018, 출력 32바이트 1블록).
+    """
+    block = 64
+    if len(password) > block:
+        password = hashlib.sha256(password).digest()
+    password = password.ljust(block, b"\0")
+    inner = hashlib.sha256(password.translate(bytes(x ^ 0x36 for x in range(256))))
+    outer = hashlib.sha256(password.translate(bytes(x ^ 0x5C for x in range(256))))
+
+    def prf(msg: bytes) -> bytes:
+        i, o = inner.copy(), outer.copy()
+        i.update(msg)
+        o.update(i.digest())
+        return o.digest()
+
+    u = prf(salt + (1).to_bytes(4, "big"))
+    acc = int.from_bytes(u, "big")
+    for _ in range(iterations - 1):
+        u = prf(u)
+        acc ^= int.from_bytes(u, "big")
+    return acc.to_bytes(32, "big")
+
+
+def _pbkdf2(password: bytes, salt: bytes, iterations: int) -> bytes:
+    if hasattr(hashlib, "pbkdf2_hmac"):
+        return hashlib.pbkdf2_hmac("sha256", password, salt, iterations)
+    return _pbkdf2_sha256_pure(password, salt, iterations)
+
+
 def hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
     salt = salt or secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    digest = _pbkdf2(password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
     return digest.hex(), salt.hex()
 
 

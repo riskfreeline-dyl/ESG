@@ -246,3 +246,12 @@ def test_reset_keeps_users(store, oms):
     store.reset_trading()
     assert store.load() is None and store.has_users()
     assert store.query("SELECT COUNT(*) n FROM orders")[0]["n"] == 0
+
+
+def test_pure_python_pbkdf2_matches_hashlib():
+    import hashlib
+
+    from rfl_oms.auth import _pbkdf2_sha256_pure
+
+    for pw, salt in [(b"Admin1234", b"0123456789abcdef"), (b"x" * 100, b"salt"), (b"", b"")]:
+        assert _pbkdf2_sha256_pure(pw, salt, 500) == hashlib.pbkdf2_hmac("sha256", pw, salt, 500)

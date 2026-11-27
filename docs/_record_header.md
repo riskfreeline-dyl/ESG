@@ -2,7 +2,7 @@
 
 - 작성일: 2026-11-27
 - 저장소: `riskfreeline-dyl/ESG`, 브랜치 `claude/festive-newton-9f091h`
-- 상태: 1~4단계 완료, 테스트 72개 통과, 브라우저에서 전 탭·전 역할 동작 확인
+- 상태: 1~4단계 완료, 테스트 73개 통과, 브라우저에서 전 탭·전 역할 동작 확인, 웹 배포 https://rfl-oms.netlify.app
 - 성격: **시뮬레이션 프로토타입**입니다. 시세와 체결은 모두 가상이며 실제 거래소·증권사와 연결되어 있지 않습니다.
 
 ## 목차
@@ -161,6 +161,16 @@
 | 헤지 증거금 상계 | 지수선물과 지수 구성종목 순노출이 반대 방향이면 헤지된 금액만큼 선물 증거금을 감면(기본 70%). 미체결 주문이 헤지를 깰 수 있으면 상계를 인정하지 않는 보수적 계산. 리스크 관리자가 사용 여부·감면율 설정 |
 | 관리 탭 | 사용자 추가·역할 변경·비활성화·비밀번호 재설정·잠금 해제, 역할별 권한표, 수수료 설정, DB 현황, 로그인 기록, 거래 데이터 초기화(사용자 유지, '초기화' 입력 확인) |
 
+### 4.5 웹 배포 — Netlify (서버 없이 브라우저에서 실행)
+
+| 항목 | 내용 |
+|---|---|
+| 주소 | https://rfl-oms.netlify.app |
+| 방식 | stlite 1.12.2(내장 Streamlit 1.65, Pyodide)로 같은 `app.py`·엔진을 브라우저 안에서 실행. `tools/build_web.py`가 `web/`을 만들고 Netlify가 배포 시 자동 실행 |
+| 저장 | 브라우저 IndexedDB(/mnt)에 SQLite 파일 저장 → 새로고침 후에도 유지. 접속자·브라우저마다 독립 장부 |
+| 호환 처리 | 브라우저 Python에는 OpenSSL 기반 `pbkdf2_hmac`이 없어 같은 결과를 내는 순수 파이썬 PBKDF2 사용(테스트로 일치 검증), SQLite WAL 미지원 시 기본 모드 |
+| 검증 | 실제 배포 주소에서 관리자 생성 → 사용자 추가 → 트레이더 주문·바스켓·차익 → 새로고침 후 데이터 유지 확인 |
+
 ---
 
 ## 5. 시스템 구조
@@ -181,7 +191,9 @@ rfl_oms/              주문 처리 엔진 (Streamlit에 의존하지 않음)
   auth.py             역할·권한, 비밀번호 해시·정책
   storage.py          SQLite 저장소 (장부 테이블 + 엔진 스냅샷, 사용자·로그인 기록)
 views/                화면 구성 요소 (로그인, 관리, 바스켓, 알고, 차익, 리스크, 공유 런타임, 공용 도우미)
-tests/                단위 테스트 72개
+tests/                단위 테스트 73개
+tools/build_web.py    Netlify용 웹 버전(web/) 생성기
+netlify.toml          Netlify 배포 설정
 tools/build_record.py 이 기록 문서를 다시 만드는 스크립트
 data/rfl_oms.db       실행 시 생기는 DB 파일 (저장소에는 올리지 않음)
 ```
@@ -202,7 +214,7 @@ streamlit run app.py          # 브라우저에서 http://localhost:8501
 # DB 위치 변경: RFL_OMS_DB=/경로/rfl_oms.db streamlit run app.py
 
 pip install pytest
-python -m pytest -q           # 72 passed
+python -m pytest -q           # 73 passed
 
 python tools/build_record.py  # 이 기록 문서 다시 만들기
 ```

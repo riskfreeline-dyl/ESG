@@ -16,6 +16,15 @@ run_windows.bat          # Windows (더블클릭)
 - 테스트: `pip install pytest && python -m pytest -q`
 - 전체 기록 문서 재생성: `python tools/build_record.py`
 
+## 웹 버전 (설치 없이 브라우저에서 바로 사용)
+
+- 주소: **https://rfl-oms.netlify.app**
+- stlite(브라우저 안에서 Python·Streamlit을 실행하는 기술)로 같은 코드를 서버 없이 실행합니다. 처음 접속 시 준비에 20초~1분 걸립니다.
+- 데이터는 **접속한 브라우저 안(IndexedDB)에만** 저장됩니다. 사람마다·브라우저마다 별도 장부이며 서로 공유되지 않습니다. 브라우저 데이터를 지우면 함께 지워집니다.
+- 처음 접속하면 그 브라우저용 관리자 계정을 만듭니다(다른 사람의 데이터에는 접근할 수 없음).
+- 다시 만들기: `python tools/build_web.py` → `web/` 폴더 생성(Netlify가 배포 때 자동 실행, 설정은 `netlify.toml`)
+- 팀이 하나의 장부를 함께 쓰려면 서버 버전(`streamlit run app.py`)을 서버에 띄워야 합니다.
+
 ## 1단계 범위
 
 | 영역 | 내용 |
