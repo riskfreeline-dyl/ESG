@@ -1,6 +1,7 @@
 """RFL OMS — 기관용 주문관리시스템 1단계 (모의 체결)."""
 
 from .algo import AlgoStatus, AlgoType
+from .arbitrage import ArbDirection, ArbStatus
 from .basket import ExecMode, ExecParams
 from .engine import OMS
 from .market import DEFAULT_INSTRUMENTS, MarketSim
@@ -21,4 +22,6 @@ __all__ = [
     "AlgoStatus",
     "ExecMode",
     "ExecParams",
+    "ArbDirection",
+    "ArbStatus",
 ]

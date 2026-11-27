@@ -14,8 +14,10 @@ import streamlit as st
 
 from rfl_oms import OMS, AlertLevel, MarketSim, OrderType, RiskLimits, Side, TimeInForce
 from views.algo_view import algo_view
+from views.arb_view import arb_view
 from views.basket_view import basket_view
 from views.common import NUM, fmt_price, krw
+from views.risk_view import risk_view
 
 st.set_page_config(page_title="RFL OMS", page_icon="📈", layout="wide")
 
@@ -401,36 +403,6 @@ def positions_view(oms: OMS) -> None:
         st.caption("체결 내역이 없습니다.")
 
 
-def risk_view(oms: OMS) -> None:
-    warn = oms.limits.warn_ratio
-    for row in oms.utilization():
-        ratio = row["사용률"]
-        icon = "🔴" if ratio >= 1 else "🟠" if ratio >= warn else "🟢"
-        st.markdown(f"{icon} **{row['항목']}** — {row['사용']:,.0f} / {row['한도']:,.0f} ({ratio:.1%})")
-        st.progress(min(max(ratio, 0.0), 1.0))
-    lim = oms.limits
-    st.markdown("#### 적용 중인 한도")
-    st.dataframe(
-        pd.DataFrame(
-            [
-                ("계좌 자본", f"{lim.capital:,.0f}"),
-                ("주문당 최대 수량", f"{lim.max_order_qty:,}"),
-                ("주문당 최대 명목", f"{lim.max_order_notional:,.0f}"),
-                ("가격 괴리 허용", f"{lim.price_band_pct:.1f}%"),
-                ("종목별 포지션 한도", f"{lim.max_position_notional:,.0f}"),
-                ("총 노출 한도", f"{lim.max_gross_exposure:,.0f}"),
-                ("일일 손실 한도", f"{lim.max_daily_loss:,.0f}"),
-                ("경고 기준", f"{lim.warn_ratio:.0%}"),
-                ("거래 제한 종목", ", ".join(sorted(lim.restricted_symbols)) or "없음"),
-            ],
-            columns=["항목", "값"],
-        ),
-        hide_index=True,
-        width="stretch",
-    )
-    st.caption("노출과 증거금은 미체결 주문이 모두 체결된다고 가정한 최악의 경우로 계산합니다. 위험을 줄이는 주문은 한도를 넘어도 허용됩니다.")
-
-
 def alerts_view(oms: OMS) -> None:
     c1, c2 = st.columns([2, 1])
     with c1:
@@ -518,6 +490,7 @@ def main_view(auto: bool, interval: float) -> None:
             "주문 입력",
             "바스켓",
             "알고리즘",
+            "차익거래",
             "주문 블로터",
             "포지션·손익",
             "리스크",
@@ -532,14 +505,16 @@ def main_view(auto: bool, interval: float) -> None:
     with tabs[2]:
         algo_view(oms)
     with tabs[3]:
-        blotter(oms)
+        arb_view(oms)
     with tabs[4]:
-        positions_view(oms)
+        blotter(oms)
     with tabs[5]:
-        risk_view(oms)
+        positions_view(oms)
     with tabs[6]:
-        alerts_view(oms)
+        risk_view(oms)
     with tabs[7]:
+        alerts_view(oms)
+    with tabs[8]:
         audit_view(oms)
 
 

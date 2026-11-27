@@ -10,6 +10,7 @@ import copy
 from datetime import datetime
 
 from .algo import AlgoEngine
+from .arbitrage import ArbEngine
 from .basket import BasketManager
 from .market import MarketSim
 from .models import (
@@ -50,8 +51,12 @@ class OMS:
         self._alert_state: dict[str, AlertLevel] = {}
         self.algos = AlgoEngine(self)
         self.baskets = BasketManager(self)
+        self.arb = ArbEngine(self)
         # 시장이 한 틱 진행된 뒤, 미체결 주문 매칭 다음에 호출되는 처리기
-        self.tick_hooks = [self.algos.on_tick, self.baskets.on_tick]
+        self.tick_hooks = [self.algos.on_tick, self.baskets.on_tick, self.arb.on_tick]
+        # (틱, 실현손익, 미실현손익, 평가자산, 총노출)
+        self.pnl_history: list[tuple[int, float, float, float, float]] = []
+        self._record_pnl()
 
     # ================= 조회·지표 =================
     @property
@@ -344,6 +349,18 @@ class OMS:
                 hook()
             self._check_price_rules()
             self._evaluate_alerts()
+            self._record_pnl()
+
+    def _record_pnl(self) -> None:
+        realized = self.realized_pnl()
+        unrealized = sum(self.unrealized_pnl(s) for s in self.positions)
+        gross = sum(
+            abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier for s, p in self.positions.items()
+        )
+        self.pnl_history.append(
+            (self.market.tick_no, realized, unrealized, self.limits.capital + realized + unrealized, gross)
+        )
+        del self.pnl_history[:-1000]
 
     # ================= 알림 =================
     def add_price_rule(self, symbol: str, condition: str, price: float) -> PriceAlertRule:

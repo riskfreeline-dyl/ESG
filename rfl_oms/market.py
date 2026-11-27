@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .index import IndexDef, build_default_index
 from .models import Instrument, Side
 
 DEFAULT_INSTRUMENTS: tuple[Instrument, ...] = (
@@ -26,6 +27,9 @@ DEFAULT_INSTRUMENTS: tuple[Instrument, ...] = (
 )
 
 BOOK_LEVELS = 5
+EQUITY_MARKET_CORR = 0.6  # 주식 수익률 중 시장 공통요인 비중(상관계수 근사)
+BASIS_MEAN_REVERSION = 0.85  # 선물 괴리의 틱당 잔존 비율
+BASIS_VOL = 0.30  # 선물 괴리 충격 (지수 포인트)
 SESSION_TICKS = 120  # 시뮬레이션 1거래일 = 120틱
 
 
@@ -58,11 +62,26 @@ class MarketSim:
     - 각 호가 단계의 잔량은 틱마다 새로 생성되고, 같은 틱 안에서는 체결로 소진된다.
     """
 
-    def __init__(self, instruments=DEFAULT_INSTRUMENTS, seed: int | None = 7):
+    def __init__(
+        self,
+        instruments=DEFAULT_INSTRUMENTS,
+        seed: int | None = 7,
+        index_def: IndexDef | None = None,
+        futures_symbol: str = "K200F",
+    ):
         self.instruments: dict[str, Instrument] = {i.symbol: i for i in instruments}
         self.rng = np.random.default_rng(seed)
         self.tick_no = 0
         self._price = {s: i.start_price for s, i in self.instruments.items()}
+        # 지수선물을 구성종목 지수의 이론가 + 평균회귀 괴리로 움직인다
+        if index_def is None and futures_symbol in self.instruments:
+            fut = self.instruments[futures_symbol]
+            index_def = build_default_index(self._price, futures_symbol, fut.start_price, fut.multiplier)
+        self.index_def = index_def if index_def and index_def.constituents else None
+        self.basis_dev = 0.0  # 선물가 − 이론가 (포인트)
+        self._prev_close = dict(self._price)
+        if self.index_def:
+            self._link_futures()
         self._prev_close = dict(self._price)
         self._book: dict[str, dict[Side, list[list[float]]]] = {}
         self.history: dict[str, list[tuple[int, float]]] = {s: [] for s in self.instruments}
@@ -87,12 +106,37 @@ class MarketSim:
         self._price[symbol] = self.instruments[symbol].round_to_tick(price)
         self._rebuild_book(symbol)
 
+    def index_value(self) -> float | None:
+        return self.index_def.value(self.mark) if self.index_def else None
+
+    def fair_futures(self) -> float | None:
+        if not self.index_def:
+            return None
+        return self.index_def.fair_futures(self.index_value())
+
+    def _link_futures(self) -> None:
+        fsym = self.index_def.futures_symbol
+        inst = self.instruments[fsym]
+        # 기준가(매수1호가) = 이론가 + 괴리 − 반 틱 → 중간가가 이론가 + 괴리에 가깝게
+        self._price[fsym] = inst.round_to_tick(self.fair_futures() + self.basis_dev - inst.tick_size / 2)
+
     def step(self) -> None:
         self.tick_no += 1
+        mkt = self.rng.normal()
+        fsym = self.index_def.futures_symbol if self.index_def else None
         for s, inst in self.instruments.items():
-            shock = self.rng.normal(0.0, inst.volatility)
-            new_price = inst.round_to_tick(self._price[s] * math.exp(shock))
+            z = self.rng.normal()
+            if inst.asset_class == "주식":
+                rho = EQUITY_MARKET_CORR
+                z = rho * mkt + math.sqrt(1 - rho**2) * z
+            if s == fsym:
+                continue
+            new_price = inst.round_to_tick(self._price[s] * math.exp(z * inst.volatility))
             self._price[s] = max(new_price, inst.tick_size)
+        if fsym:
+            self.basis_dev = BASIS_MEAN_REVERSION * self.basis_dev + self.rng.normal(0.0, BASIS_VOL)
+            self._link_futures()
+        for s, inst in self.instruments.items():
             self._rebuild_book(s)
             vol = inst.base_liquidity * volume_profile(self.tick_no) * self.rng.lognormal(0.0, 0.3)
             self.volume[s] = max(int(vol), 1)
