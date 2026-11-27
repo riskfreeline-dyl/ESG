@@ -15,5 +15,5 @@
 |---|---|---|---|
 | 1 | 장터 주사위 | 보류 (v0.2 — 의뢰인 평가: "재미 하나도 없음") | `games/jangteo-dice/` |
 | 2 | 불장 라이더 | v0.1 — 의뢰인 평가: "별로" (이유 확인 필요) | `games/bull-rider/` |
-| 3 | RFL 그랜드 휠 | v0.1 — 의뢰인 평가: 좋음. rfl-cruise에 넣기 보류 (의뢰인이 Netlify 토큰 제공 거절 → 다시 묻지 말 것; 전체 덮어쓰기 금지) | `games/rfl-grand-wheel/` |
-| 4 | 부캉이의 대모험 (구 북항이) | v0.8 공개 — 주인공 이름 부캉이로 교체(장소명 '부산 북항'·'북항의 전설'은 유지), 북항 친수공원 환호 장면(시작 전체화면·큰 점수 때 작은 창, 25초 간격, tex/crowd1·2.jpg, voice/cheer.mp3·chant.mp3). **의뢰인 규칙: 허락 전에는 Netlify·GitHub 등 어디에도 올리지 말 것, 먼저 미리보기.** 공개 주소 https://bukhang-shark.netlify.app · 수정 후 `python3 build.py` → `site/` 폴더를 Netlify에 배포 | `games/bukhang-shark/` |
+| 3 | RFL 그랜드 휠 | v0.1 — 의뢰인 평가: 좋음. 휴대폰에서 SPIN 누르면 휠로 자동 스크롤(아티팩트 반영). rfl-cruise에 넣기 보류 (의뢰인이 Netlify 토큰 제공 거절 → 다시 묻지 말 것; 전체 덮어쓰기 금지) | `games/rfl-grand-wheel/` |
+| 4 | 부캉이의 대모험 (구 북항이) | v0.9 공개 — 환호 사진 6종(낮 crowd1·5·6 / 밤·불꽃 crowd2·3·4, 시간대 따라 번갈아) · 주인공 이름 부캉이로 교체(장소명 '부산 북항'·'북항의 전설'은 유지), 북항 친수공원 환호 장면(시작 전체화면·큰 점수 때 작은 창, 25초 간격, tex/crowd1·2.jpg, voice/cheer.mp3·chant.mp3). **의뢰인 규칙: 허락 전에는 Netlify·GitHub 등 어디에도 올리지 말 것, 먼저 미리보기.** 공개 주소 https://bukhang-shark.netlify.app · 수정 후 `python3 build.py` → `site/` 폴더를 Netlify에 배포 | `games/bukhang-shark/` |
