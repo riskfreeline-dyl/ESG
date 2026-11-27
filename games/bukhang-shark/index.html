@@ -61,6 +61,19 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 @keyframes bob { 50% { transform: translateY(1.6%) rotate(.4deg); } }
 @keyframes wl { to { background-position: 64px 0; } }
 @keyframes atPulse { to { transform: scale(1.08); } }
+.news { position: fixed; left: 0; right: 0; top: 0; z-index: 7; pointer-events: none; padding-top: env(safe-area-inset-top, 0px); background: linear-gradient(#0b1f4a, #0a1838); box-shadow: 0 6px 18px rgba(0,0,0,.45); border-bottom: 3px solid #e3262e; animation: newsIn .45s ease-out; }
+.news .nl { display: flex; align-items: center; gap: 8px; padding: 6px 12px 0; }
+.news .nl b { background: #e3262e; color: #fff; font-family: var(--display); font-size: 15px; padding: 2px 10px; border-radius: 4px; animation: blink 1s steps(2) infinite; }
+.news .nl i { font-style: normal; color: #ffd23f; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.news .nt { color: #fff; font-family: var(--display); font-size: clamp(17px, 4.6vw, 24px); line-height: 1.35; padding: 4px 12px 9px; word-break: keep-all; }
+@keyframes newsIn { from { transform: translateY(-100%); } }
+@keyframes blink { 50% { opacity: .55; } }
+.live { position: fixed; z-index: 6; pointer-events: none; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 128px); width: min(48vw, 360px); aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; border: 3px solid #e3262e; box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: newsIn .4s ease-out; }
+.live img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.live b { position: absolute; left: 8px; top: 8px; background: #e3262e; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 4px; font-family: var(--display); }
+.exitArrow { position: fixed; z-index: 5; pointer-events: none; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); color: #FFE46A; font-family: var(--display); text-shadow: 0 2px 0 rgba(0,0,0,.6), 0 0 12px rgba(255,200,0,.8); }
+.exitArrow i { font-style: normal; font-size: 44px; line-height: 1; display: block; }
+.exitArrow span { font-size: 16px; }
 .cheer { position: fixed; z-index: 5; pointer-events: none; overflow: hidden; opacity: 0; }
 .cheer img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cheer .ct { word-break: keep-all; position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-family: var(--display); color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 18px rgba(0,0,0,.5); padding: 10px 12px 14px; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.55)); }
@@ -208,6 +221,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <div class="pops" id="pops"></div>
 <div class="talk" id="talk" aria-live="polite"></div>
 <div class="above" id="above" aria-hidden="true"><img id="aboveImg" alt=""><div class="wl"></div><div class="at" id="aboveTxt">와아아아! 부캉이다!</div></div>
+<div class="news" id="news" hidden><div class="nl"><b>속보</b><i>LIVE ● 북항TV</i></div><div class="nt" id="newsTxt"></div></div>
+<div class="exitArrow" id="exitArrow" hidden><i>➜</i><span>탈출구</span></div>
+<div class="live" id="live" hidden><img id="liveImg" alt="부산 북항에서 안전 그물을 치는 구조대"><b>LIVE 북항 현장</b></div>
 <div class="cheer" id="cheer" hidden><img id="cheerImg" alt="부산 북항 친수공원에서 부캉이를 응원하는 사람들"><div class="ct" id="cheerTxt"></div></div>
 
 <div class="overlay" id="oTitle">
@@ -734,7 +750,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     }
   }
   function bossUpdate(dt) {
-    if (!boss.on) { if (G.state === 'play' && G.tier >= 2 && G.t > Math.max(boss.next, 20)) bossStart(); return; }
+    if (!boss.on) { if (G.state === 'play' && G.tier >= 2 && G.t > Math.max(boss.next, 20) && !rescue.on) bossStart(); return; }
     boss.pt += dt; boss.hitCd = Math.max(0, boss.hitCd - dt);
     const to = tmp.copy(G.pos).sub(boss.pos); const dist = to.length(); let speed = 7, want = null;
     if (boss.phase === 'enter' || boss.phase === 'circle') {
@@ -880,7 +896,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     for (let k = 0; k < 10; k++) { p.set(rand(-75, 75), rand(yMin, yMax), rand(-75, 75)); if (!farFrom || p.distanceTo(farFrom) > 30) break; }
   }
   function resetGame() {
-    surfReset();
+    surfReset(); rescueReset();
     Object.assign(G, { t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 3, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false, yaw: 0, pitch: 0, eaten: 0, tier: 0, shake: 0, slow: 0 });
     G.pos.set(0, 14, 0);
     schools[0].c.set(6, 14, 14); schools[1].c.set(-8, 13, 18); schools[2].c.set(12, 15, 22);   // food right in front at the start
@@ -938,11 +954,11 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   let voiceOn = true, koVoice = null, talkUntil = 0, voiceT = 0; const said = {};
   const hasTTS = 'speechSynthesis' in window;
   // recorded cute voice lines (ElevenLabs via Higgsfield); device speech is only the fallback
-  const VOICE = {"부캉아, 출발! 작은 물고기부터 냠냠 먹어 봐!": "voice/v00.mp3", "부캉아, 배고파요! 얼른 먹자!": "voice/v01.mp3", "하트가 하나 남았어요. 조심조심!": "voice/v02.mp3", "큰일이다! 범고래 대장이 나타났어!": "voice/v03.mp3", "범고래가 돌진해! 옆으로 피해!": "voice/v04.mp3", "지금이야! 범고래를 콱 물어!": "voice/v05.mp3", "해냈다! 범고래 대장을 이겼어!": "voice/v06.mp3", "광란 모드다! 다 먹어 버려!": "voice/v07.mp3", "냠냠! 10콤보! 최고야!": "voice/v08.mp3", "와! 꼬마 부캉이가 됐다!": "voice/v09.mp3", "와! 청년 부캉이가 됐다!": "voice/v10.mp3", "와! 대장 부캉이가 됐다!": "voice/v11.mp3", "와! 북항의 전설이 됐다!": "voice/v12.mp3", "부캉아, 앞에 꽃게!": "voice/v13.mp3", "부캉아, 뒤에 꽃게!": "voice/v14.mp3", "부캉아, 옆에 꽃게!": "voice/v15.mp3", "부캉아, 앞에 갈치!": "voice/v16.mp3", "부캉아, 뒤에 갈치!": "voice/v17.mp3", "부캉아, 옆에 갈치!": "voice/v18.mp3", "부캉아, 앞에 방어!": "voice/v19.mp3", "부캉아, 뒤에 방어!": "voice/v20.mp3", "부캉아, 옆에 방어!": "voice/v21.mp3", "부캉아, 앞에 참다랑어!": "voice/v22.mp3", "부캉아, 옆에 참다랑어!": "voice/v23.mp3", "부캉아, 앞에 대왕문어!": "voice/v24.mp3", "부캉아, 뒤에 대왕문어!": "voice/v25.mp3", "부캉아, 옆에 대왕문어!": "voice/v26.mp3", "앞에 부산 어묵 있다! 먹으러 가자!": "voice/v27.mp3", "뒤에 부산 어묵 있다! 먹으러 가자!": "voice/v28.mp3", "옆에 부산 어묵 있다! 먹으러 가자!": "voice/v29.mp3", "앞에 해파리 조심!": "voice/v30.mp3", "뒤에 해파리 조심!": "voice/v31.mp3", "옆에 해파리 조심!": "voice/v32.mp3", "앞에 그물 조심해!": "voice/v33.mp3", "뒤에 그물 조심해!": "voice/v34.mp3", "옆에 그물 조심해!": "voice/v35.mp3", "부캉아, 뒤에 참다랑어!": "voice/v36.mp3", "부캉아, 위로 올라가 봐! 사람들이 응원해!": "voice/v40.mp3", "와! 수만 명이 부캉이를 응원해요!": "voice/v41.mp3"};
+  const VOICE = {"부캉아, 출발! 작은 물고기부터 냠냠 먹어 봐!": "voice/v00.mp3", "부캉아, 배고파요! 얼른 먹자!": "voice/v01.mp3", "하트가 하나 남았어요. 조심조심!": "voice/v02.mp3", "큰일이다! 범고래 대장이 나타났어!": "voice/v03.mp3", "범고래가 돌진해! 옆으로 피해!": "voice/v04.mp3", "지금이야! 범고래를 콱 물어!": "voice/v05.mp3", "해냈다! 범고래 대장을 이겼어!": "voice/v06.mp3", "광란 모드다! 다 먹어 버려!": "voice/v07.mp3", "냠냠! 10콤보! 최고야!": "voice/v08.mp3", "와! 꼬마 부캉이가 됐다!": "voice/v09.mp3", "와! 청년 부캉이가 됐다!": "voice/v10.mp3", "와! 대장 부캉이가 됐다!": "voice/v11.mp3", "와! 북항의 전설이 됐다!": "voice/v12.mp3", "부캉아, 앞에 꽃게!": "voice/v13.mp3", "부캉아, 뒤에 꽃게!": "voice/v14.mp3", "부캉아, 옆에 꽃게!": "voice/v15.mp3", "부캉아, 앞에 갈치!": "voice/v16.mp3", "부캉아, 뒤에 갈치!": "voice/v17.mp3", "부캉아, 옆에 갈치!": "voice/v18.mp3", "부캉아, 앞에 방어!": "voice/v19.mp3", "부캉아, 뒤에 방어!": "voice/v20.mp3", "부캉아, 옆에 방어!": "voice/v21.mp3", "부캉아, 앞에 참다랑어!": "voice/v22.mp3", "부캉아, 옆에 참다랑어!": "voice/v23.mp3", "부캉아, 앞에 대왕문어!": "voice/v24.mp3", "부캉아, 뒤에 대왕문어!": "voice/v25.mp3", "부캉아, 옆에 대왕문어!": "voice/v26.mp3", "앞에 부산 어묵 있다! 먹으러 가자!": "voice/v27.mp3", "뒤에 부산 어묵 있다! 먹으러 가자!": "voice/v28.mp3", "옆에 부산 어묵 있다! 먹으러 가자!": "voice/v29.mp3", "앞에 해파리 조심!": "voice/v30.mp3", "뒤에 해파리 조심!": "voice/v31.mp3", "옆에 해파리 조심!": "voice/v32.mp3", "앞에 그물 조심해!": "voice/v33.mp3", "뒤에 그물 조심해!": "voice/v34.mp3", "옆에 그물 조심해!": "voice/v35.mp3", "부캉아, 뒤에 참다랑어!": "voice/v36.mp3", "부캉아, 위로 올라가 봐! 사람들이 응원해!": "voice/v40.mp3", "와! 수만 명이 부캉이를 응원해요!": "voice/v41.mp3", "큰일이다! 구조대가 그물을 치고 있어!": "voice/v42.mp3", "그물 틈으로 빠져나가자! 반짝이는 쪽이야!": "voice/v43.mp3", "휴, 탈출 성공! 부산 바다가 제일 좋아!": "voice/v44.mp3"};
   const vbuf = {}; let curVoice = null;
   function loadVoices() {
     if (!A) return;
-    [...Object.values(VOICE), 'voice/cheer.mp3', 'voice/chant.mp3', 'voice/roar.mp3'].forEach(u => {
+    [...Object.values(VOICE), 'voice/cheer.mp3', 'voice/chant.mp3', 'voice/roar.mp3', 'voice/siren.mp3', 'voice/news.mp3', 'voice/v45.mp3', 'voice/v46.mp3'].forEach(u => {
       if (vbuf[u] !== undefined) return; vbuf[u] = null;
       fetch(u).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
         .then(b => new Promise((ok, no) => A.decodeAudioData(b, ok, no))).then(d => { vbuf[u] = d; }).catch(() => {});
@@ -1001,10 +1017,10 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     if (!sfxOn || !A || !vbuf[u]) return;
     const src = A.createBufferSource(), g = A.createGain(); g.gain.value = gain; src.buffer = vbuf[u]; src.connect(g).connect(A.destination); src.start(A.currentTime + delay);
   }
-  function cheer(text, full) {
+  function cheer(text, full, img) {
     if (G.state !== 'play') return;
     if (!full && G.t < cheerCd) return; cheerCd = G.t + 25;
-    const el = $('cheer'); $('cheerImg').src = pickCheerImg(); $('cheerTxt').textContent = text;
+    const el = $('cheer'); $('cheerImg').src = img || pickCheerImg(); $('cheerTxt').textContent = text;
     el.className = 'cheer ' + (full ? 'full' : 'mini'); el.hidden = false; void el.offsetWidth; el.classList.add('show');
     playClip('voice/cheer.mp3', .55); if (voiceOn) playClip('voice/chant.mp3', .8, .25);
     clearTimeout(cheerTimer); cheerTimer = setTimeout(() => { el.hidden = true; el.classList.remove('show'); }, full ? 2650 : 2850);
@@ -1068,7 +1084,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   function surfaceTick(dt, playing) {
     if (playing) {
       surfEv.next -= dt;
-      if (!surfEv.on && surfEv.next <= 0 && !boss.on) {
+      if (!surfEv.on && surfEv.next <= 0 && !boss.on && !rescue.on) {
         surfEv.on = true; surfEv.t = 13; surfEv.bonus = false;
         const h = new Date().getHours(); $('aboveImg').src = (h >= 18 || h < 5) ? SURF_NIGHT : SURF_DAY;
         talk('부캉아, 위로 올라가 봐! 사람들이 응원해!', 'surf', 30, true);
@@ -1091,6 +1107,93 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       const src = A.createBufferSource(), g = A.createGain(); g.gain.value = 0; src.buffer = vbuf['voice/roar.mp3']; src.loop = true; src.connect(g).connect(A.destination); src.start(); roar = g;
     }
     if (roar) roar.gain.setTargetAtTime(sfxOn ? surfEv.k * .75 : 0, A.currentTime, .15);
+  }
+  // ---------- 부캉이 구조작전: rescuers set a safety net to herd the shark out to sea; it always slips out at the last moment ----------
+  const rescueNetTex = canvasTex(128, (g, S) => { g.clearRect(0, 0, S, S); g.strokeStyle = 'rgba(255,170,70,.95)'; g.lineWidth = 4; for (let i = 0; i <= S; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, S); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke(); } });
+  rescueNetTex.wrapS = rescueNetTex.wrapT = T.RepeatWrapping;
+  const RH = SURF + 4, RGAP = .45;
+  const rescue = { on: false, phase: '', t: 0, next: 70, C: new T.Vector3(), r: 26, gap: 0, player: false, timers: [] };
+  const rNet = new T.Mesh(new T.CylinderGeometry(1, 1, 1, 48, 1, true, 0, Math.PI * 2 - RGAP * 2), new T.MeshBasicMaterial({ map: rescueNetTex, color: 0xffc080, transparent: true, opacity: .95, side: T.BackSide, depthWrite: false, fog: true }));
+  rNet.visible = false; scene.add(rNet);
+  const rFloats = []; for (let i = 0; i < 28; i++) { const m = new T.Mesh(new T.SphereGeometry(.55, 10, 8), new T.MeshStandardMaterial({ color: i % 2 ? 0xffd23f : 0xff6a1a, emissive: 0x552200, emissiveIntensity: .4 })); m.visible = false; scene.add(m); rFloats.push(m); }
+  const rGlow = new T.Sprite(new T.SpriteMaterial({ map: dot, color: 0xffe46a, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false })); rGlow.visible = false; scene.add(rGlow);
+  const rPosts = [0, 1].map(() => { const m = new T.Mesh(new T.CylinderGeometry(.35, .35, RH, 8), new T.MeshBasicMaterial({ color: 0xffe46a, transparent: true, opacity: .8, blending: T.AdditiveBlending, depthWrite: false })); m.visible = false; scene.add(m); return m; });
+  const rBoats = [0xd8262e, 0xf4f4f4, 0x1d2f6f].map((col, i) => {
+    const g = new T.Group(); const hull = new T.Mesh(new T.BoxGeometry(4, 1.6, 10), new T.MeshStandardMaterial({ color: col, roughness: .6 })); g.add(hull);
+    const cab = new T.Mesh(new T.BoxGeometry(3, 1.6, 3.5), new T.MeshStandardMaterial({ color: 0xffffff })); cab.position.set(0, 1.4, -1); g.add(cab);
+    const lr = new T.Sprite(new T.SpriteMaterial({ map: dot, color: 0xff2020, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false })); lr.position.set(-.8, 2.6, -1); lr.scale.set(3, 3, 1);
+    const lb = lr.clone(); lb.material = lr.material.clone(); lb.material.color.set(0x2060ff); lb.position.x = .8; g.add(lr, lb); g.userData = { lr, lb };
+    g.visible = false; scene.add(g); return g;
+  });
+  let siren = null;
+  function news(text, sec) { $('newsTxt').textContent = text; const n = $('news'); n.hidden = false; n.style.animation = 'none'; void n.offsetWidth; n.style.animation = ''; clearTimeout(news.tm); news.tm = setTimeout(() => n.hidden = true, sec * 1000); }
+  function rLater(ms, fn) { rescue.timers.push(setTimeout(() => { if (G.state === 'play') fn(); }, ms)); }
+  function rescueHide() { $('exitArrow').hidden = true; rNet.visible = rGlow.visible = false; rFloats.forEach(m => m.visible = false); rPosts.forEach(m => m.visible = false); rBoats.forEach(b => b.visible = false); $('live').hidden = true; }
+  function rescueReset() { rescue.on = false; rescue.next = 70; rescue.timers.forEach(clearTimeout); rescue.timers = []; rescueHide(); $('news').hidden = true; }
+  function rescueStart() {
+    Object.assign(rescue, { on: true, phase: 'news', t: 0, r: 26, player: false });
+    rescue.C.set(G.pos.x, 0, G.pos.z);
+    rescue.gap = Math.hypot(G.pos.x, G.pos.z) > 12 ? Math.atan2(-G.pos.x, -G.pos.z) : rand(0, Math.PI * 2);   // the gap faces the harbor: the way home
+    rNet.rotation.y = rescue.gap + RGAP; rNet.visible = true; rFloats.forEach(m => m.visible = true); rBoats.forEach(b => b.visible = true); rPosts.forEach(m => m.visible = true); rGlow.visible = true;
+    cheerCd = G.t + 45;
+    news('부산 북항에 상어 "부캉이" 출현! 소방·경찰·구조대, 안전 그물 설치 중', 4.5);
+    $('liveImg').src = 'tex/rescue_live.jpg'; $('live').hidden = false; rLater(4800, () => $('live').hidden = true);
+    playClip('voice/news.mp3', .6); talk('큰일이다! 구조대가 그물을 치고 있어!', 'rescue1', 60, true);
+    rLater(4600, () => talk('그물 틈으로 빠져나가자! 반짝이는 쪽이야!', 'rescue2', 60, true));
+  }
+  function rescueEscape(byPlayer) {
+    rescue.phase = 'free'; rescue.t = 0;
+    const pts = byPlayer ? 500 : 300; G.score += pts;
+    popAt(G.pos, byPlayer ? '멋진 탈출! +' + pts : '아슬아슬 탈출! +' + pts, '#FFD23F', 34); sparkle(G.pos, 40, [0xffd23f, 0xffffff, 0xff6a1a], 9);
+    cheer('탈출 성공! 시민들 환호 🎉', true, 'tex/rescue_fail.jpg');
+    rLater(900, () => talk('휴, 탈출 성공! 부산 바다가 제일 좋아!', 'rescue3', 60, true));
+    rLater(3400, () => { if (voiceOn) playClip('voice/v45.mp3', .9); popAt(G.pos, '구조대: "아이고~ 또 놓쳤네 ㅎㅎ"', '#ffffff', 24); });
+    rLater(6600, () => { news('오늘도 부캉이 구조작전 실패… 부캉이, 부산바다에 정이 든 듯', 9); playClip('voice/news.mp3', .5); if (voiceOn) playClip('voice/v46.mp3', .9, .8); });
+  }
+  function rescueTick(dt, playing) {
+    if (siren) siren.gain.setTargetAtTime(sfxOn && rescue.on && rescue.phase !== 'free' ? .35 : 0, A.currentTime, .4);
+    else if (A && vbuf['voice/siren.mp3']) { const src = A.createBufferSource(), g = A.createGain(); g.gain.value = 0; src.buffer = vbuf['voice/siren.mp3']; src.loop = true; src.connect(g).connect(A.destination); src.start(); siren = g; }
+    if (!playing) { if (rescue.on) { rescue.on = false; rescueHide(); } return; }
+    if (!rescue.on) { rescue.next -= dt; if (rescue.next <= 0 && !boss.on && !surfEv.on && G.t > 40) rescueStart(); return; }
+    rescue.t += dt; G.hunger = Math.min(100, G.hunger + dt * (1 + G.size * .3));   // no starving while busy escaping
+    const R = rescue, gx = Math.sin(R.gap), gz = Math.cos(R.gap);
+    if (R.phase === 'news' && R.t > 3.5) { R.phase = 'herd'; R.t = 0; }
+    if (R.phase === 'herd') {
+      R.r = lerp(26, 10, Math.min(1, R.t / 14));
+      R.C.x = clamp(R.C.x - gx * dt * 1.1, -80, 80); R.C.z = clamp(R.C.z - gz * dt * 1.1, -80, 80);   // drifting out to sea
+      if (R.t > 14) { R.phase = 'auto'; R.t = 0; popAt(G.pos, '마지막 순간!!', '#ff5e7e', 36); }
+      if (Math.floor(R.t / 3) !== Math.floor((R.t - dt) / 3)) popAt(rGlow.position, '탈출구!', '#FFE46A', 30);
+    }
+    let rise = 1;
+    if (R.phase === 'news') rise = Math.min(1, R.t / 2.5);
+    if (R.phase === 'free') { rise = Math.max(0, 1 - R.t / 1.6); R.C.y -= dt * 18; if (R.t > 2.2) { R.on = false; rescueHide(); R.next = rand(110, 150); return; } }
+    // place the net, floats, gap markers and boats
+    const sink = R.phase === 'free' ? -R.t * 20 : 0;
+    rNet.scale.set(R.r, RH * Math.max(.02, rise), R.r); rNet.position.set(R.C.x, (RH * rise) / 2 - 2 + (SURF + 2 - RH * rise) + sink, R.C.z);
+    rescueNetTex.repeat.set(R.r * 1.6, RH / 4);
+    rFloats.forEach((m, i) => { const a = R.gap + RGAP + (i / (rFloats.length - 1)) * (Math.PI * 2 - RGAP * 2); m.position.set(R.C.x + Math.sin(a) * R.r, SURF - .4 + Math.sin(G.t * 2 + i) * .15, R.C.z + Math.cos(a) * R.r); });
+    rPosts.forEach((m, i) => { const a = R.gap + (i ? RGAP : -RGAP); m.position.set(R.C.x + Math.sin(a) * R.r, SURF - RH / 2 + 2 + sink, R.C.z + Math.cos(a) * R.r); m.material.opacity = .5 + Math.sin(G.t * 6) * .3; });
+    rGlow.position.set(R.C.x + gx * R.r, G.pos.y, R.C.z + gz * R.r); const gs = 6 + Math.sin(G.t * 5) * 1.5; rGlow.scale.set(gs, gs, 1); rGlow.visible = R.phase !== 'free';
+    { const ea = $('exitArrow'), show = R.phase === 'herd' || R.phase === 'auto'; ea.hidden = !show;   // on-screen arrow toward the gap (BackSide net: the camera-side wall never blocks the view)
+      if (show) { v3.copy(rGlow.position).project(cam); let sx = (v3.x + 1) / 2 * innerWidth, sy = (1 - v3.y) / 2 * innerHeight; if (v3.z > 1) { sx = innerWidth - sx; sy = innerHeight - sy; }
+        const ang = Math.atan2(sy - innerHeight / 2, sx - innerWidth / 2);
+        sx = clamp(sx, 50, innerWidth - 50); sy = clamp(sy, 200, innerHeight - 190);
+        ea.style.left = sx + 'px'; ea.style.top = sy + 'px'; ea.querySelector('i').style.transform = 'rotate(' + ang + 'rad)'; } }
+    rBoats.forEach((b, i) => { const a = R.gap + Math.PI + (i - 1) * 1.3; b.position.set(R.C.x + Math.sin(a) * (R.r + 3), SURF - .8, R.C.z + Math.cos(a) * (R.r + 3)); b.rotation.y = a + Math.PI / 2; const on = Math.floor(G.t * 4 + i) % 2; b.userData.lr.visible = !!on; b.userData.lb.visible = !on; });
+  }
+  function rescueConstrain(dt) {
+    const R = rescue; if (!R.on || R.phase === 'free') return;
+    const dx = G.pos.x - R.C.x, dz = G.pos.z - R.C.z, d = Math.hypot(dx, dz) || .001;
+    let df = Math.atan2(dx, dz) - R.gap; df = Math.atan2(Math.sin(df), Math.cos(df));
+    if (R.phase === 'auto') {   // the last-second dash out through the gap
+      const ex = R.C.x + Math.sin(R.gap) * (R.r + 5), ez = R.C.z + Math.cos(R.gap) * (R.r + 5);
+      G.yaw = Math.atan2(ex - G.pos.x, ez - G.pos.z); G.pos.x = lerp(G.pos.x, ex, Math.min(1, dt * 2.2)); G.pos.z = lerp(G.pos.z, ez, Math.min(1, dt * 2.2));
+      if (Math.random() < .6) bubbles(G.pos, 2, .4 * G.size);
+    } else {
+      const m = 1 + G.size;
+      if (Math.abs(df) > RGAP && d > R.r - m) { G.pos.x = R.C.x + dx / d * (R.r - m); G.pos.z = R.C.z + dz / d * (R.r - m); }
+    }
+    if (Math.abs(df) <= RGAP + .15 && d > R.r + 1.5 && R.phase !== 'news') rescueEscape(R.phase === 'herd');
   }
   function update(dt) {
     G.t += dt;
@@ -1132,6 +1235,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     G.stamina = clamp(G.stamina + (canBoost ? -.45 : .18) * dt, 0, 1);
     const speed = (4.6 + G.size * 1) * (steering || canBoost || !playing ? 1 : .55) * (canBoost ? 1.6 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
     G.pos.addScaledVector(fwd, speed * dt);
+    rescueConstrain(dt);
     if (playing && surfEv.on) G.pos.y = lerp(G.pos.y, SURF - 2, Math.min(1, dt * .7));   // float up quickly for the crowd
     G.pos.y = clamp(G.pos.y, floor, SURF - 2);
     // containers: slide over them
@@ -1234,6 +1338,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     }
     if (playing) { bossUpdate(dt); voiceScan(dt); }
     surfaceTick(dt, playing);
+    rescueTick(dt, playing);
     // --- jellyfish: drift and pulse; they sting unless you are in frenzy
     jellies.forEach(j => {
       j.ph += dt; j.p.y += Math.sin(j.ph * .8) * dt * .9; j.p.x += Math.sin(j.ph * .13) * dt * .6;
@@ -1385,6 +1490,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   loadModels((n, total) => { $('bStart').textContent = '실사 바다 생물 부르는 중… ' + n + '/' + total; },
     () => { applyModels(); loadPhotoTextures(); $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!'; });
   requestAnimationFrame(frame);
-  window.__shark = { G, fish, surfEv, start, SPECIES, eomukState, joy, sim: (sec) => { for (let k = 0; k < sec * 30; k++) { U.time.value = G.t; update(1 / 30); updateCamera(1 / 30); cam.updateMatrixWorld(); } } };
+  window.__shark = { G, fish, surfEv, rescue, rescueStart, start, SPECIES, eomukState, joy, sim: (sec) => { for (let k = 0; k < sec * 30; k++) { U.time.value = G.t; update(1 / 30); updateCamera(1 / 30); cam.updateMatrixWorld(); } } };
 })();
 </script>
