@@ -52,6 +52,15 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 .stam i { display: block; height: 100%; background: var(--sun); }
 .joy { position: fixed; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; border: 3px solid rgba(255,255,255,.45); background: rgba(57,225,255,.12); pointer-events: none; z-index: 2; }
 .joy i { display: none; position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFFFFF, var(--aqua)); box-shadow: 0 0 18px var(--aqua); }
+.above { position: fixed; left: 0; right: 0; top: 0; height: 48vh; z-index: 2; pointer-events: none; opacity: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 72%, rgba(0,0,0,.6) 86%, transparent); mask-image: linear-gradient(#000 72%, rgba(0,0,0,.6) 86%, transparent); }
+.above img { position: absolute; left: -4%; top: -4%; width: 108%; height: 108%; object-fit: cover; object-position: center 45%; animation: bob 3.2s ease-in-out infinite; }
+.above .wl { position: absolute; left: 0; right: 0; bottom: 14%; height: 18px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.0) 0 18px, rgba(255,255,255,.55) 18px 40px, rgba(255,255,255,0) 40px 64px); filter: blur(3px); animation: wl 2.4s linear infinite; }
+.above .at { position: absolute; left: 0; right: 0; bottom: 24%; text-align: center; font-family: var(--display); font-size: clamp(26px, 7vw, 46px); color: #fff; word-break: keep-all;
+  text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.6); animation: atPulse .7s ease-in-out infinite alternate; }
+@keyframes bob { 50% { transform: translateY(1.6%) rotate(.4deg); } }
+@keyframes wl { to { background-position: 64px 0; } }
+@keyframes atPulse { to { transform: scale(1.08); } }
 .cheer { position: fixed; z-index: 5; pointer-events: none; overflow: hidden; opacity: 0; }
 .cheer img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cheer .ct { word-break: keep-all; position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-family: var(--display); color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 18px rgba(0,0,0,.5); padding: 10px 12px 14px; background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.55)); }
@@ -198,6 +207,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <div class="hint" id="hint" hidden>👆 가고 싶은 곳을 손가락으로 누르고 있으면 부캉이가 그쪽으로 헤엄쳐요</div>
 <div class="pops" id="pops"></div>
 <div class="talk" id="talk" aria-live="polite"></div>
+<div class="above" id="above" aria-hidden="true"><img id="aboveImg" alt=""><div class="wl"></div><div class="at" id="aboveTxt">와아아아! 부캉이다!</div></div>
 <div class="cheer" id="cheer" hidden><img id="cheerImg" alt="부산 북항 친수공원에서 부캉이를 응원하는 사람들"><div class="ct" id="cheerTxt"></div></div>
 
 <div class="overlay" id="oTitle">
@@ -870,6 +880,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     for (let k = 0; k < 10; k++) { p.set(rand(-75, 75), rand(yMin, yMax), rand(-75, 75)); if (!farFrom || p.distanceTo(farFrom) > 30) break; }
   }
   function resetGame() {
+    surfReset();
     Object.assign(G, { t: 0, score: 0, xp: 0, size: 1, shownSize: 1, hunger: 100, hearts: 3, inv: 3, combo: 0, comboT: 0, frenzy: 0, stamina: 1, boosting: false, yaw: 0, pitch: 0, eaten: 0, tier: 0, shake: 0, slow: 0 });
     G.pos.set(0, 14, 0);
     schools[0].c.set(6, 14, 14); schools[1].c.set(-8, 13, 18); schools[2].c.set(12, 15, 22);   // food right in front at the start
@@ -927,11 +938,11 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   let voiceOn = true, koVoice = null, talkUntil = 0, voiceT = 0; const said = {};
   const hasTTS = 'speechSynthesis' in window;
   // recorded cute voice lines (ElevenLabs via Higgsfield); device speech is only the fallback
-  const VOICE = {"부캉아, 출발! 작은 물고기부터 냠냠 먹어 봐!": "voice/v00.mp3", "부캉아, 배고파요! 얼른 먹자!": "voice/v01.mp3", "하트가 하나 남았어요. 조심조심!": "voice/v02.mp3", "큰일이다! 범고래 대장이 나타났어!": "voice/v03.mp3", "범고래가 돌진해! 옆으로 피해!": "voice/v04.mp3", "지금이야! 범고래를 콱 물어!": "voice/v05.mp3", "해냈다! 범고래 대장을 이겼어!": "voice/v06.mp3", "광란 모드다! 다 먹어 버려!": "voice/v07.mp3", "냠냠! 10콤보! 최고야!": "voice/v08.mp3", "와! 꼬마 부캉이가 됐다!": "voice/v09.mp3", "와! 청년 부캉이가 됐다!": "voice/v10.mp3", "와! 대장 부캉이가 됐다!": "voice/v11.mp3", "와! 북항의 전설이 됐다!": "voice/v12.mp3", "부캉아, 앞에 꽃게!": "voice/v13.mp3", "부캉아, 뒤에 꽃게!": "voice/v14.mp3", "부캉아, 옆에 꽃게!": "voice/v15.mp3", "부캉아, 앞에 갈치!": "voice/v16.mp3", "부캉아, 뒤에 갈치!": "voice/v17.mp3", "부캉아, 옆에 갈치!": "voice/v18.mp3", "부캉아, 앞에 방어!": "voice/v19.mp3", "부캉아, 뒤에 방어!": "voice/v20.mp3", "부캉아, 옆에 방어!": "voice/v21.mp3", "부캉아, 앞에 참다랑어!": "voice/v22.mp3", "부캉아, 옆에 참다랑어!": "voice/v23.mp3", "부캉아, 앞에 대왕문어!": "voice/v24.mp3", "부캉아, 뒤에 대왕문어!": "voice/v25.mp3", "부캉아, 옆에 대왕문어!": "voice/v26.mp3", "앞에 부산 어묵 있다! 먹으러 가자!": "voice/v27.mp3", "뒤에 부산 어묵 있다! 먹으러 가자!": "voice/v28.mp3", "옆에 부산 어묵 있다! 먹으러 가자!": "voice/v29.mp3", "앞에 해파리 조심!": "voice/v30.mp3", "뒤에 해파리 조심!": "voice/v31.mp3", "옆에 해파리 조심!": "voice/v32.mp3", "앞에 그물 조심해!": "voice/v33.mp3", "뒤에 그물 조심해!": "voice/v34.mp3", "옆에 그물 조심해!": "voice/v35.mp3", "부캉아, 뒤에 참다랑어!": "voice/v36.mp3"};
+  const VOICE = {"부캉아, 출발! 작은 물고기부터 냠냠 먹어 봐!": "voice/v00.mp3", "부캉아, 배고파요! 얼른 먹자!": "voice/v01.mp3", "하트가 하나 남았어요. 조심조심!": "voice/v02.mp3", "큰일이다! 범고래 대장이 나타났어!": "voice/v03.mp3", "범고래가 돌진해! 옆으로 피해!": "voice/v04.mp3", "지금이야! 범고래를 콱 물어!": "voice/v05.mp3", "해냈다! 범고래 대장을 이겼어!": "voice/v06.mp3", "광란 모드다! 다 먹어 버려!": "voice/v07.mp3", "냠냠! 10콤보! 최고야!": "voice/v08.mp3", "와! 꼬마 부캉이가 됐다!": "voice/v09.mp3", "와! 청년 부캉이가 됐다!": "voice/v10.mp3", "와! 대장 부캉이가 됐다!": "voice/v11.mp3", "와! 북항의 전설이 됐다!": "voice/v12.mp3", "부캉아, 앞에 꽃게!": "voice/v13.mp3", "부캉아, 뒤에 꽃게!": "voice/v14.mp3", "부캉아, 옆에 꽃게!": "voice/v15.mp3", "부캉아, 앞에 갈치!": "voice/v16.mp3", "부캉아, 뒤에 갈치!": "voice/v17.mp3", "부캉아, 옆에 갈치!": "voice/v18.mp3", "부캉아, 앞에 방어!": "voice/v19.mp3", "부캉아, 뒤에 방어!": "voice/v20.mp3", "부캉아, 옆에 방어!": "voice/v21.mp3", "부캉아, 앞에 참다랑어!": "voice/v22.mp3", "부캉아, 옆에 참다랑어!": "voice/v23.mp3", "부캉아, 앞에 대왕문어!": "voice/v24.mp3", "부캉아, 뒤에 대왕문어!": "voice/v25.mp3", "부캉아, 옆에 대왕문어!": "voice/v26.mp3", "앞에 부산 어묵 있다! 먹으러 가자!": "voice/v27.mp3", "뒤에 부산 어묵 있다! 먹으러 가자!": "voice/v28.mp3", "옆에 부산 어묵 있다! 먹으러 가자!": "voice/v29.mp3", "앞에 해파리 조심!": "voice/v30.mp3", "뒤에 해파리 조심!": "voice/v31.mp3", "옆에 해파리 조심!": "voice/v32.mp3", "앞에 그물 조심해!": "voice/v33.mp3", "뒤에 그물 조심해!": "voice/v34.mp3", "옆에 그물 조심해!": "voice/v35.mp3", "부캉아, 뒤에 참다랑어!": "voice/v36.mp3", "부캉아, 위로 올라가 봐! 사람들이 응원해!": "voice/v40.mp3", "와! 수만 명이 부캉이를 응원해요!": "voice/v41.mp3"};
   const vbuf = {}; let curVoice = null;
   function loadVoices() {
     if (!A) return;
-    [...Object.values(VOICE), 'voice/cheer.mp3', 'voice/chant.mp3'].forEach(u => {
+    [...Object.values(VOICE), 'voice/cheer.mp3', 'voice/chant.mp3', 'voice/roar.mp3'].forEach(u => {
       if (vbuf[u] !== undefined) return; vbuf[u] = null;
       fetch(u).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
         .then(b => new Promise((ok, no) => A.decodeAudioData(b, ok, no))).then(d => { vbuf[u] = d; }).catch(() => {});
@@ -1048,6 +1059,39 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 
   // ---------- update ----------
   const camRight = new T.Vector3(), camFwd = new T.Vector3(), fwd = new T.Vector3(), mouthP = new T.Vector3(), tmp = new T.Vector3(), M4 = new T.Matrix4(), Q = new T.Quaternion(), SC = new T.Vector3(), UP = new T.Vector3(0, 1, 0), ZERO = new T.Vector3();
+  // ---------- surfacing: rise near the surface and see tens of thousands cheering on the shore and the bridge ----------
+  const SURF_DAY = 'tex/surface_day.jpg', SURF_NIGHT = 'tex/surface_night.jpg';
+  [SURF_DAY, SURF_NIGHT].forEach(u => { const i = new Image(); i.src = u; });
+  const surfEv = { on: false, t: 0, next: 22, bonus: false, k: 0 }; let roar = null;
+  const SURF_TXT = ['와아아아! 부캉이다!', '부캉! 부캉! 부캉!', '부캉아 최고야!', '북항이 들썩들썩!'];
+  function surfReset() { surfEv.on = false; surfEv.next = 22; surfEv.bonus = false; }
+  function surfaceTick(dt, playing) {
+    if (playing) {
+      surfEv.next -= dt;
+      if (!surfEv.on && surfEv.next <= 0 && !boss.on) {
+        surfEv.on = true; surfEv.t = 13; surfEv.bonus = false;
+        const h = new Date().getHours(); $('aboveImg').src = (h >= 18 || h < 5) ? SURF_NIGHT : SURF_DAY;
+        talk('부캉아, 위로 올라가 봐! 사람들이 응원해!', 'surf', 30, true);
+      }
+      if (surfEv.on) { surfEv.t -= dt; if (surfEv.t <= 0 || boss.on) { surfEv.on = false; surfEv.next = rand(50, 70); } }
+    }
+    const near = playing ? clamp((G.pos.y - (SURF - 9)) / 5.5, 0, 1) : 0;
+    if (near > .05 && !$('aboveImg').src) $('aboveImg').src = SURF_DAY;
+    surfEv.k = lerp(surfEv.k, near, Math.min(1, dt * 3));
+    $('above').style.opacity = surfEv.k.toFixed(3);
+    if (playing && surfEv.k > .65 && !surfEv.bonus && (surfEv.on || G.t > (surfEv.cd || 0))) {
+      surfEv.bonus = true; surfEv.cd = G.t + 30; if (surfEv.on) surfEv.t = Math.min(surfEv.t, 5);
+      $('aboveTxt').textContent = SURF_TXT[Math.floor(Math.random() * SURF_TXT.length)];
+      const pts = 300; G.score += pts; popAt(G.pos, '관중 환호 보너스 +' + pts, '#FFD23F', 32); sparkle(G.pos, 30, [0xffd23f, 0xffffff, 0x39e1ff], 8);
+      playClip('voice/cheer.mp3', .5); if (voiceOn) playClip('voice/chant.mp3', .7, .3);
+      setTimeout(() => talk('와! 수만 명이 부캉이를 응원해요!', 'surf2', 30, true), 900);
+    }
+    if (surfEv.k < .1 && !surfEv.on) surfEv.bonus = false;
+    if (!roar && A && vbuf['voice/roar.mp3']) {
+      const src = A.createBufferSource(), g = A.createGain(); g.gain.value = 0; src.buffer = vbuf['voice/roar.mp3']; src.loop = true; src.connect(g).connect(A.destination); src.start(); roar = g;
+    }
+    if (roar) roar.gain.setTargetAtTime(sfxOn ? surfEv.k * .75 : 0, A.currentTime, .15);
+  }
   function update(dt) {
     G.t += dt;
     const playing = G.state === 'play';
@@ -1078,6 +1122,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       if (!f.alive || (f.sp.size >= G.size * .95 && G.frenzy <= 0)) continue;
       const dxz = Math.hypot(f.p.x - G.pos.x, f.p.z - G.pos.z); if (dxz < 18 && dxz < bestD) { bestD = dxz; ty = f.p.y; }
     }
+    if (playing && surfEv.on) ty = SURF - 2;   // surfacing show: glide up to see the crowd
     G.pitch = lerp(G.pitch, clamp((ty - G.pos.y) * .12, -.45, .45), Math.min(1, dt * 2));
     G.pos.x = clamp(G.pos.x, -BOUND - 8, BOUND + 8); G.pos.z = clamp(G.pos.z, -BOUND - 8, BOUND + 8);
     const floor = seabedH(G.pos.x, G.pos.z) + 1.2 * G.size;
@@ -1087,6 +1132,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
     G.stamina = clamp(G.stamina + (canBoost ? -.45 : .18) * dt, 0, 1);
     const speed = (4.6 + G.size * 1) * (steering || canBoost || !playing ? 1 : .55) * (canBoost ? 1.6 : 1) * (G.frenzy > 0 ? 1.35 : 1) * (G.slow > 0 ? .45 : 1) * (playing ? 1 : .8);
     G.pos.addScaledVector(fwd, speed * dt);
+    if (playing && surfEv.on) G.pos.y = lerp(G.pos.y, SURF - 2, Math.min(1, dt * .7));   // float up quickly for the crowd
     G.pos.y = clamp(G.pos.y, floor, SURF - 2);
     // containers: slide over them
     for (const o of obstacles) { const dx = G.pos.x - o.x, dz = G.pos.z - o.z, d = Math.hypot(dx, dz); if (d < o.r && G.pos.y < o.top + G.size) G.pos.y = lerp(G.pos.y, o.top + G.size, Math.min(1, dt * 6)); }
@@ -1187,6 +1233,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       }
     }
     if (playing) { bossUpdate(dt); voiceScan(dt); }
+    surfaceTick(dt, playing);
     // --- jellyfish: drift and pulse; they sting unless you are in frenzy
     jellies.forEach(j => {
       j.ph += dt; j.p.y += Math.sin(j.ph * .8) * dt * .9; j.p.x += Math.sin(j.ph * .13) * dt * .6;
@@ -1338,6 +1385,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   loadModels((n, total) => { $('bStart').textContent = '실사 바다 생물 부르는 중… ' + n + '/' + total; },
     () => { applyModels(); loadPhotoTextures(); $('bStart').disabled = false; $('bStart').textContent = '바다로 출발!'; });
   requestAnimationFrame(frame);
-  window.__shark = { G, fish, start, SPECIES, eomukState, joy, sim: (sec) => { for (let k = 0; k < sec * 30; k++) { U.time.value = G.t; update(1 / 30); updateCamera(1 / 30); cam.updateMatrixWorld(); } } };
+  window.__shark = { G, fish, surfEv, start, SPECIES, eomukState, joy, sim: (sec) => { for (let k = 0; k < sec * 30; k++) { U.time.value = G.t; update(1 / 30); updateCamera(1 / 30); cam.updateMatrixWorld(); } } };
 })();
 </script>
