@@ -1,7 +1,8 @@
-"""RFL OMS 1단계 — Streamlit 화면.
+"""RFL OMS — Streamlit 화면.
 
 실행: streamlit run app.py
 모든 시세와 체결은 시뮬레이션이며 실제 시장과 연결되어 있지 않습니다.
+상태는 SQLite(기본 data/rfl_oms.db, 환경변수 RFL_OMS_DB로 변경)에 저장되어 새로고침·재시작 후에도 유지됩니다.
 """
 
 from __future__ import annotations
@@ -12,29 +13,27 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from rfl_oms import OMS, AlertLevel, MarketSim, OrderType, RiskLimits, Side, TimeInForce
+from rfl_oms import OMS, AlertLevel, OrderType, RiskLimits, Side, TimeInForce
+from rfl_oms.auth import Perm
+from views.admin_view import admin_view
 from views.algo_view import algo_view
 from views.arb_view import arb_view
+from views.auth_view import account_sidebar, require_login
 from views.basket_view import basket_view
-from views.common import NUM, fmt_price, krw
+from views.common import NUM, can, can_manage, current_user, fmt_price, krw, need
 from views.risk_view import risk_view
+from views.runtime import engine, runtime
 
 st.set_page_config(page_title="RFL OMS", page_icon="📈", layout="wide")
 
 LEVEL_ICON = {AlertLevel.INFO: "🔵", AlertLevel.WARNING: "🟠", AlertLevel.CRITICAL: "🔴"}
 
 
-def get_oms() -> OMS:
-    if "oms" not in st.session_state:
-        st.session_state.oms = OMS(market=MarketSim(seed=None))
-        st.session_state.last_auto_step = time.time()
-    return st.session_state.oms
-
-
 # ============================== 사이드바 ==============================
 def sidebar(oms: OMS) -> tuple[bool, float]:
     st.sidebar.title("RFL OMS")
-    st.sidebar.caption("1단계 · 모의 체결 환경")
+    st.sidebar.caption("모의 체결 환경")
+    account_sidebar(current_user())
 
     st.sidebar.subheader("시장 시뮬레이션")
     c1, c2 = st.sidebar.columns(2)
@@ -48,17 +47,25 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
 
     st.sidebar.subheader("거래 통제")
     kill = st.sidebar.toggle(
-        "킬 스위치 (거래 중지)", value=oms.kill_switch, help="켜면 미체결 주문을 모두 취소하고 신규 주문을 막습니다."
+        "킬 스위치 (거래 중지)",
+        value=oms.kill_switch,
+        disabled=not can(Perm.KILL_SWITCH),
+        help="켜면 미체결 주문을 모두 취소하고 신규 주문을 막습니다." if can(Perm.KILL_SWITCH) else need(Perm.KILL_SWITCH),
     )
-    if kill != oms.kill_switch:
+    if kill != oms.kill_switch and can(Perm.KILL_SWITCH):
         oms.set_kill_switch(kill)
-    if st.sidebar.button("미체결·알고 전체 취소", width="stretch"):
+    if st.sidebar.button(
+        "미체결·알고 전체 취소", width="stretch", disabled=not can(Perm.CANCEL_ANY), help=None if can(Perm.CANCEL_ANY) else need(Perm.CANCEL_ANY)
+    ):
         a = oms.algos.cancel_all("전체 취소")
         n = oms.cancel_all()
         st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소")
 
     st.sidebar.subheader("리스크 한도")
     lim = oms.limits
+    if not can(Perm.SET_LIMITS):
+        st.sidebar.caption(need(Perm.SET_LIMITS) + ". 현재 한도는 리스크 탭에서 볼 수 있습니다.")
+        return auto, interval
     with st.sidebar.form("limits"):
         capital = st.number_input("계좌 자본(원)", min_value=0.0, value=float(lim.capital), step=1e8, format="%.0f")
         max_qty = st.number_input("주문당 최대 수량", min_value=1, value=int(lim.max_order_qty), step=100)
@@ -82,8 +89,10 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
             default=sorted(lim.restricted_symbols),
             format_func=lambda s: f"{s} {oms.instruments[s].name}",
         )
+        offset_on = st.checkbox("헤지 증거금 상계 (지수선물 ↔ 구성종목)", value=lim.margin_offset_enabled)
+        offset_pct = st.slider("헤지된 선물 증거금 감면율(%)", 0, 100, int(lim.margin_offset_pct), 5)
         if st.form_submit_button("한도 적용", width="stretch"):
-            oms.limits = RiskLimits(
+            oms.set_limits(RiskLimits(
                 capital=capital,
                 max_order_qty=int(max_qty),
                 max_order_notional=max_notional,
@@ -93,13 +102,10 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
                 max_daily_loss=max_loss,
                 warn_ratio=warn,
                 restricted_symbols=frozenset(restricted),
-            )
-            oms._evaluate_alerts()
+                margin_offset_enabled=offset_on,
+                margin_offset_pct=float(offset_pct),
+            ))
             st.success("한도를 적용했습니다")
-
-    if st.sidebar.button("세션 초기화", type="secondary", width="stretch"):
-        del st.session_state["oms"]
-        st.rerun()
     return auto, interval
 
 
@@ -109,9 +115,16 @@ def header_metrics(oms: OMS) -> None:
     exp = oms.exposure()
     cols = st.columns(6)
     cols[0].metric("평가자산", krw(oms.equity()))
-    cols[1].metric("일일 손익", krw(pnl), delta=f"{pnl / oms.limits.capital:.2%}" if oms.limits.capital else None)
-    cols[2].metric("실현 손익", krw(oms.realized_pnl()))
-    cols[3].metric("증거금(체결 기준)", krw(oms.margin_used()))
+    cols[1].metric(
+        "일일 순손익", krw(pnl), delta=f"{pnl / oms.limits.capital:.2%}" if oms.limits.capital else None,
+        help="실현 + 미실현 − 수수료·세금",
+    )
+    cols[2].metric("수수료·세금", krw(oms.total_fees()))
+    mb = oms.margin_breakdown()
+    cols[3].metric(
+        "순증거금(체결 기준)", krw(mb["순증거금"]),
+        help=f"상계 전 {mb['상계 전']:,.0f} − 헤지 상계 {mb['헤지 상계']:,.0f}",
+    )
     cols[4].metric("총 노출(미체결 포함)", krw(exp.gross))
     n_algos = sum(1 for a in oms.algos.algos.values() if a.status.is_active)
     cols[5].metric("미체결 · 실행중 알고", f"{len(oms.open_orders())} · {n_algos}")
@@ -222,12 +235,15 @@ def order_entry(oms: OMS) -> None:
             tag = st.text_input("전략 태그 (선택)", "")
             b1, b2 = st.columns(2)
             do_preview = b1.form_submit_button("사전 점검", width="stretch")
-            do_submit = b2.form_submit_button("주문 제출", type="primary", width="stretch")
+            do_submit = b2.form_submit_button(
+                "주문 제출", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+                help=None if can(Perm.TRADE) else need(Perm.TRADE),
+            )
 
         limit_px = inst.round_to_tick(price) if otype is OrderType.LIMIT else None
         if do_preview:
             st.session_state.last_checks = ("미리보기", oms.preview(symbol, side, otype, int(qty), limit_px, tif))
-        if do_submit:
+        if do_submit and can(Perm.TRADE):
             checks = oms.preview(symbol, side, otype, int(qty), limit_px, tif)
             order = oms.submit(symbol, side, otype, int(qty), limit_px, tif, strategy_tag=tag)
             st.session_state.last_checks = (f"{order.order_id} → {order.status.value}", checks)
@@ -268,6 +284,7 @@ def orders_frame(oms: OMS, orders) -> pd.DataFrame:
                 "평균체결가": round(o.avg_fill_price, 4) if o.filled_qty else None,
                 "상태": o.status.value,
                 "전략": o.strategy_tag,
+                "주문자": o.trader,
                 "거부 사유": o.reject_reason,
             }
             for o in reversed(list(orders))
@@ -301,9 +318,12 @@ def blotter(oms: OMS) -> None:
         st.info("표시할 주문이 없습니다.")
 
     st.markdown("#### 정정 · 취소")
-    open_orders = oms.open_orders()
+    open_orders = [o for o in oms.open_orders() if can_manage(o.trader)]
     if not open_orders:
-        st.caption("미체결 주문이 없습니다.")
+        st.caption(
+            "정정·취소할 수 있는 미체결 주문이 없습니다."
+            + ("" if can(Perm.CANCEL_ANY) else " (트레이더는 자기 주문만, 리스크 관리자는 모든 주문을 취소할 수 있습니다)")
+        )
     else:
         oid = st.selectbox(
             "대상 주문",
@@ -328,7 +348,10 @@ def blotter(oms: OMS) -> None:
         )
         c3.write("")
         c4.write("")
-        if c3.button("정정", width="stretch"):
+        if c3.button(
+            "정정", width="stretch", disabled=not (can(Perm.TRADE) and o.trader == current_user().username),
+            help="정정은 주문을 낸 트레이더만 할 수 있습니다",
+        ):
             ok, res = oms.amend(oid, int(new_qty), inst.round_to_tick(new_px))
             if ok:
                 st.success(f"{oid} 정정 완료 ({o.status.value})")
@@ -343,7 +366,9 @@ def blotter(oms: OMS) -> None:
         sel = st.selectbox("주문 선택", list(reversed(oms.orders)), key="lifecycle_sel")
         events = oms.orders[sel].events
         st.dataframe(
-            pd.DataFrame([{"시각": e.ts.strftime("%H:%M:%S.%f")[:-3], "단계": e.event, "내용": e.detail} for e in events]),
+            pd.DataFrame(
+                [{"시각": e.ts.strftime("%H:%M:%S.%f")[:-3], "단계": e.event, "내용": e.detail, "행위자": e.actor} for e in events]
+            ),
             hide_index=True,
             width="stretch",
         )
@@ -352,7 +377,7 @@ def blotter(oms: OMS) -> None:
 def positions_view(oms: OMS) -> None:
     rows = []
     for s, p in oms.positions.items():
-        if p.qty == 0 and p.realized_pnl == 0:
+        if p.qty == 0 and p.realized_pnl == 0 and p.fees == 0:
             continue
         inst = oms.instruments[s]
         mark = oms.market.mark(s)
@@ -366,7 +391,9 @@ def positions_view(oms: OMS) -> None:
                 "평가금액": notional,
                 "미실현손익": round(oms.unrealized_pnl(s)),
                 "실현손익": round(p.realized_pnl),
-                "증거금": round(notional * inst.margin_rate),
+                "수수료·세금": round(p.fees),
+                "순손익": round(p.realized_pnl + oms.unrealized_pnl(s) - p.fees),
+                "증거금(상계 전)": round(notional * inst.margin_rate),
             }
         )
     if rows:
@@ -374,7 +401,7 @@ def positions_view(oms: OMS) -> None:
             pd.DataFrame(rows),
             hide_index=True,
             width="stretch",
-            column_config={k: NUM for k in ["수량", "평가금액", "미실현손익", "실현손익", "증거금"]},
+            column_config={k: NUM for k in ["수량", "평가금액", "미실현손익", "실현손익", "수수료·세금", "순손익", "증거금(상계 전)"]},
         )
     else:
         st.info("보유 포지션이 없습니다.")
@@ -391,13 +418,14 @@ def positions_view(oms: OMS) -> None:
                         "구분": f.side.value,
                         "수량": f.qty,
                         "가격": f.price,
+                        "비용": round(f.fee),
                     }
                     for f in reversed(oms.fills)
                 ]
             ),
             hide_index=True,
             width="stretch",
-            column_config={"수량": NUM},
+            column_config={"수량": NUM, "비용": NUM},
         )
     else:
         st.caption("체결 내역이 없습니다.")
@@ -453,14 +481,29 @@ def alerts_view(oms: OMS) -> None:
 def audit_view(oms: OMS) -> None:
     df = pd.DataFrame(
         [
-            {"시각": e.ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], "주문번호": e.order_id, "단계": e.event, "내용": e.detail}
+            {
+                "시각": e.ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                "주문번호": e.order_id,
+                "단계": e.event,
+                "내용": e.detail,
+                "행위자": e.actor,
+            }
             for e in reversed(oms.audit)
         ]
     )
     if df.empty:
         st.info("기록된 이벤트가 없습니다.")
         return
-    st.dataframe(df, hide_index=True, width="stretch")
+    c1, c2 = st.columns(2)
+    actors = c1.multiselect("행위자", sorted(df["행위자"].unique()))
+    sys_only = c2.checkbox("시스템 이벤트만 (한도·수수료 변경, 킬 스위치)")
+    view = df
+    if actors:
+        view = view[view["행위자"].isin(actors)]
+    if sys_only:
+        view = view[view["주문번호"] == "-"]
+    st.dataframe(view, hide_index=True, width="stretch")
+    st.caption("감사 로그는 DB의 audit 테이블에 추가만 되며 화면에서 수정·삭제할 수 없습니다. 로그인 기록은 관리 탭에 있습니다.")
     c1, c2 = st.columns(2)
     c1.download_button(
         "감사 로그 CSV", df.to_csv(index=False).encode("utf-8-sig"), "rfl_oms_audit.csv", "text/csv", width="stretch"
@@ -475,29 +518,24 @@ def audit_view(oms: OMS) -> None:
 
 
 def main_view(auto: bool, interval: float) -> None:
-    oms = get_oms()
-    if auto and time.time() - st.session_state.last_auto_step >= interval * 0.9:
-        oms.step(1)
-        st.session_state.last_auto_step = time.time()
+    user = current_user()
+    rt = runtime()
+    with engine(user.username) as oms:
+        if auto and time.time() - rt.last_auto_step >= interval * 0.9:
+            oms.step(1)
+            rt.last_auto_step = time.time()
+        _main_body(oms)
 
+
+def _main_body(oms: OMS) -> None:
     st.title("RFL OMS")
     st.caption("주문관리 · 사전 리스크 점검 · 한도 알림 — 시세와 체결은 모두 시뮬레이션입니다.")
     header_metrics(oms)
     market_watch(oms)
 
-    tabs = st.tabs(
-        [
-            "주문 입력",
-            "바스켓",
-            "알고리즘",
-            "차익거래",
-            "주문 블로터",
-            "포지션·손익",
-            "리스크",
-            "알림",
-            "감사 로그",
-        ]
-    )
+    names = ["주문 입력", "바스켓", "알고리즘", "차익거래", "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그"]
+    show_admin = can(Perm.MANAGE_USERS) or can(Perm.SET_FEES)
+    tabs = st.tabs(names + (["관리"] if show_admin else []))
     with tabs[0]:
         order_entry(oms)
     with tabs[1]:
@@ -516,8 +554,12 @@ def main_view(auto: bool, interval: float) -> None:
         alerts_view(oms)
     with tabs[8]:
         audit_view(oms)
+    if show_admin:
+        with tabs[9]:
+            admin_view(oms)
 
 
-oms = get_oms()
-auto, interval = sidebar(oms)
+_user = require_login()
+with engine(_user.username) as _oms:
+    auto, interval = sidebar(_oms)
 st.fragment(main_view, run_every=interval if auto else None)(auto, interval)

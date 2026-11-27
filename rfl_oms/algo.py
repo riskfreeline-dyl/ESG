@@ -56,6 +56,7 @@ class AlgoOrder:
     limit_price: float | None
     arrival_price: float
     strategy_tag: str = ""
+    actor: str = ""  # 알고를 시작한 사용자 (자식 주문의 행위자)
     status: AlgoStatus = AlgoStatus.RUNNING
     halt_reason: str = ""
     child_ids: list[str] = field(default_factory=list)
@@ -144,6 +145,7 @@ class AlgoEngine:
             limit_price=limit_price,
             arrival_price=self.oms.market.mark(symbol),
             strategy_tag=strategy_tag,
+            actor=self.oms.actor,
         )
         # 부모 주문 전체 수량으로 사전 점검 (시장가로 전량 체결된다고 가정)
         checks = self.oms.preview(symbol, side, OrderType.MARKET, int(qty))
@@ -232,15 +234,16 @@ class AlgoEngine:
             if algo.side is Side.SELL and price < algo.limit_price:
                 return
         algo.in_flight = want
-        child = self.oms.submit(
-            algo.symbol,
-            algo.side,
-            OrderType.LIMIT,
-            want,
-            price,
-            TimeInForce.IOC,
-            strategy_tag=algo.algo_id,
-        )
+        with self.oms.acting(algo.actor):
+            child = self.oms.submit(
+                algo.symbol,
+                algo.side,
+                OrderType.LIMIT,
+                want,
+                price,
+                TimeInForce.IOC,
+                strategy_tag=algo.algo_id,
+            )
         algo.in_flight = 0
         algo.child_ids.append(child.order_id)
         if child.status is OrderStatus.REJECTED:

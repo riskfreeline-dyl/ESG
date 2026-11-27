@@ -8,7 +8,9 @@ import streamlit as st
 
 from rfl_oms import OMS, ArbDirection, ExecMode
 
-from .common import NUM, krw
+from rfl_oms.auth import Perm
+
+from .common import NUM, can, can_manage, current_user, krw, need
 
 
 def settings_panel(oms: OMS) -> None:
@@ -90,9 +92,12 @@ def positions_table(oms: OMS) -> None:
                 "진입 괴리(pt)": round(p.entry.mispricing, 3),
                 "청산 괴리(pt)": round(p.exit.mispricing, 3) if p.exit else None,
                 "손익(비용 전)": round(arb.pnl(p)),
+                "비용": round(arb.fees(p)),
+                "순손익": round(arb.pnl_net(p)),
                 "선물 명목": round(fut),
                 "현물 명목": round(stock),
                 "헤지 잔차": round(fut + stock),
+                "진입자": p.owner,
                 "메모": p.note,
             }
         )
@@ -100,9 +105,9 @@ def positions_table(oms: OMS) -> None:
         pd.DataFrame(rows),
         hide_index=True,
         width="stretch",
-        column_config={k: NUM for k in ["손익(비용 전)", "선물 명목", "현물 명목", "헤지 잔차"]},
+        column_config={k: NUM for k in ["손익(비용 전)", "비용", "순손익", "선물 명목", "현물 명목", "헤지 잔차"]},
     )
-    open_ids = [p.arb_id for p in arb.open_positions()]
+    open_ids = [p.arb_id for p in arb.open_positions() if can_manage(p.owner.removesuffix("(자동)"))]
     if open_ids:
         c = st.columns([2, 1, 1])
         sel = c[0].selectbox("청산할 포지션", open_ids, label_visibility="collapsed")
@@ -163,20 +168,31 @@ def arb_view(oms: OMS) -> None:
     s = arb.settings
     c = st.columns([1, 1.2, 1.2, 1.4])
     s.contracts = int(c[0].number_input("계약 수", 1, 100, s.contracts))
+    trade_ok = can(Perm.TRADE)
+    tip = None if trade_ok else need(Perm.TRADE)
     hot_sell = snap.sell_edge >= s.entry_edge_pts
     hot_buy = snap.buy_edge >= s.entry_edge_pts
     c[1].write("")
     if c[1].button("매도차익 진입" + (" 🔥" if hot_sell else ""), width="stretch", type="primary" if hot_sell else "secondary",
-                   help="선물 매도 + 현물 바스켓 매수"):
+                   help=tip or "선물 매도 + 현물 바스켓 매수", disabled=not trade_ok):
         pos, problems = arb.enter(ArbDirection.SELL_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[2].write("")
     if c[2].button("매수차익 진입" + (" 🔥" if hot_buy else ""), width="stretch", type="primary" if hot_buy else "secondary",
-                   help="선물 매수 + 현물 바스켓 매도(대차 매도 가정)"):
+                   help=tip or "선물 매수 + 현물 바스켓 매도(대차 매도 가정)", disabled=not trade_ok):
         pos, problems = arb.enter(ArbDirection.BUY_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[3].write("")
-    s.auto = c[3].toggle("자동 차익 (진입·청산)", value=s.auto, help="시장이 진행될 때 기준을 넘으면 자동 진입, 괴리가 수렴하면 자동 청산")
+    auto = c[3].toggle(
+        "자동 차익 (진입·청산)", value=s.auto, disabled=not trade_ok,
+        help=tip or "시장이 진행될 때 기준을 넘으면 자동 진입, 괴리가 수렴하면 자동 청산. 자동 주문은 켠 사용자 이름으로 기록됩니다",
+    )
+    if trade_ok and auto != s.auto:
+        s.auto = auto
+        s.auto_owner = current_user().username
+        oms.system_event("자동 차익", "켜짐" if auto else "꺼짐")
+    if s.auto:
+        c[3].caption(f"자동 실행자: {s.auto_owner}")
 
     st.markdown("#### 차익 포지션")
     positions_table(oms)

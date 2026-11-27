@@ -22,6 +22,8 @@ class RiskLimits:
     max_daily_loss: float = 50_000_000  # 일일 손실 한도
     warn_ratio: float = 0.8  # 한도 대비 이 비율 이상이면 경고 알림
     restricted_symbols: frozenset[str] = field(default_factory=frozenset)
+    margin_offset_enabled: bool = True  # 지수선물 ↔ 구성종목 헤지 증거금 상계
+    margin_offset_pct: float = 70.0  # 헤지된 선물 증거금 감면율 (%)
 
 
 @dataclass
@@ -31,7 +33,9 @@ class Exposure:
     symbol_qty: dict[str, int]
     symbol_notional: dict[str, float]
     gross: float
-    margin: float
+    margin: float  # 상계 후 순증거금
+    margin_gross: float = 0.0  # 상계 전 증거금
+    hedge_credit: float = 0.0  # 헤지 상계액
 
 
 @dataclass

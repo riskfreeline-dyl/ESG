@@ -57,6 +57,7 @@ class ArbSettings:
     contracts: int = 1
     stock_mode: ExecMode = ExecMode.MARKET
     auto: bool = False
+    auto_owner: str = "자동차익"  # 자동 차익을 켠 사용자 (자동 주문의 행위자)
     max_open: int = 3
 
 
@@ -114,6 +115,7 @@ class ArbPosition:
     closed_tick: int | None = None
     exit: ArbSnapshot | None = None
     note: str = ""
+    owner: str = ""  # 진입한 사용자
 
 
 class ArbEngine:
@@ -176,6 +178,14 @@ class ArbEngine:
             total += q * self.oms.market.mark(sym) * self.oms.instruments[sym].multiplier
         return total
 
+    def fees(self, pos: ArbPosition) -> float:
+        ids = {o.order_id for o in self._orders(pos)}
+        return sum(f.fee for f in self.oms.fills if f.order_id in ids)
+
+    def pnl_net(self, pos: ArbPosition) -> float:
+        """비용 차감 후 손익."""
+        return self.pnl(pos) - self.fees(pos)
+
     def hedge(self, pos: ArbPosition) -> tuple[float, float]:
         """(선물 명목, 현물 명목) — 부호 포함. 합이 0에 가까울수록 완전 헤지."""
         fsym = self.index_def.futures_symbol
@@ -213,7 +223,7 @@ class ArbEngine:
             return None, problems
         self._seq += 1
         snap = self.snapshot()
-        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap)
+        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
         self.positions[pos.arb_id] = pos
         fsym = self.index_def.futures_symbol
         fut = self.oms.submit(fsym, direction.futures_side, OrderType.MARKET, contracts, strategy_tag=pos.arb_id)
@@ -281,6 +291,10 @@ class ArbEngine:
         del self.history[:-500]
         if not self.settings.auto or self.oms.kill_switch:
             return
+        with self.oms.acting(f"{self.settings.auto_owner}(자동)"):
+            self._auto(snap)
+
+    def _auto(self, snap: ArbSnapshot) -> None:
         exit_band = self.settings.exit_mispricing_pts
         for pos in self.open_positions():
             if pos.status is not ArbStatus.OPEN:

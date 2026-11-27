@@ -36,6 +36,7 @@ def limits_table(oms: OMS) -> None:
                 ("일일 손실 한도", f"{lim.max_daily_loss:,.0f}"),
                 ("경고 기준", f"{lim.warn_ratio:.0%}"),
                 ("거래 제한 종목", ", ".join(sorted(lim.restricted_symbols)) or "없음"),
+                ("헤지 증거금 상계", f"{'사용' if lim.margin_offset_enabled else '미사용'} · 감면율 {lim.margin_offset_pct:.0f}%"),
             ],
             columns=["항목", "값"],
         ),
@@ -85,6 +86,14 @@ def risk_view(oms: OMS) -> None:
     m[3].metric("주가 방향 순노출", krw(beta), help="주식 + 지수선물 순명목 (차익 포지션은 서로 상쇄)")
     loss_room = oms.limits.max_daily_loss + min(oms.daily_pnl(), 0)
     m[4].metric("남은 손실 여력", krw(loss_room))
+    mb = oms.margin_breakdown()
+    exp = oms.exposure()
+    m2 = st.columns(5)
+    m2[0].metric("증거금 (상계 전)", krw(mb["상계 전"]))
+    m2[1].metric("헤지 상계", krw(mb["헤지 상계"]), help="지수선물과 구성종목이 반대 방향일 때 헤지된 선물 증거금 감면")
+    m2[2].metric("순증거금", krw(mb["순증거금"]))
+    m2[3].metric("미체결 포함 순증거금", krw(exp.margin), help="미체결이 헤지를 깨는 경우까지 고려한 보수적 상계")
+    m2[4].metric("누적 수수료·세금", krw(oms.total_fees()))
     if var99.historical and var99.historical > loss_room:
         st.warning("1일 VaR 99%가 남은 손실 여력보다 큽니다. 포지션 축소를 검토하세요.", icon="⚠️")
 

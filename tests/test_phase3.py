@@ -79,7 +79,8 @@ def test_arb_pnl_matches_positions(oms):
     pos, _ = oms.arb.enter(ArbDirection.BUY_ARB, 1)
     oms.step(3)
     # 이 계좌의 유일한 거래이므로 계좌 손익과 같아야 한다
-    assert oms.arb.pnl(pos) == pytest.approx(oms.daily_pnl())
+    assert oms.arb.pnl_net(pos) == pytest.approx(oms.daily_pnl())
+    assert oms.arb.fees(pos) > 0
 
 
 def test_arb_rejected_when_any_leg_fails_precheck(oms):

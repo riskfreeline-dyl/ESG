@@ -1,8 +1,8 @@
-# RFL OMS 전체 기록 — WinEdge 분석부터 1·2·3단계 구현과 전체 소스코드까지
+# RFL OMS 전체 기록 — WinEdge 분석부터 1~4단계 구현과 전체 소스코드까지
 
 - 작성일: 2026-11-27
 - 저장소: `riskfreeline-dyl/ESG`, 브랜치 `claude/festive-newton-9f091h`
-- 상태: 1·2·3단계 완료, 테스트 53개 통과, 브라우저에서 전 탭 동작 확인
+- 상태: 1~4단계 완료, 테스트 72개 통과, 브라우저에서 전 탭·전 역할 동작 확인
 - 성격: **시뮬레이션 프로토타입**입니다. 시세와 체결은 모두 가상이며 실제 거래소·증권사와 연결되어 있지 않습니다.
 
 ## 목차
@@ -10,7 +10,7 @@
 1. 배경과 진행 원칙
 2. WinEdge 공개 페이지 분석
 3. WinEdge 기능 ↔ RFL OMS 구현 대응표
-4. 단계별 구현 내역 (1·2·3단계)
+4. 단계별 구현 내역 (1~4단계)
 5. 시스템 구조
 6. 실행·테스트 방법
 7. 가정값, 한계, 다음 단계
@@ -32,7 +32,7 @@
 3. UI·데이터 모델·코드를 **처음부터 독자적으로** 설계·구현
 4. 실제 거래 연동 없이 동작을 검증할 수 있도록 시장·체결은 시뮬레이션으로 구성
 
-**진행 순서:** 공개 페이지 분석 → 1단계(OMS·사전 리스크) → 2단계(바스켓·알고 주문) → 3단계(지수 차익거래·리스크 대시보드). 기술 스택은 사용자 선택에 따라 Python + Streamlit.
+**진행 순서:** 공개 페이지 분석 → 1단계(OMS·사전 리스크) → 2단계(바스켓·알고 주문) → 3단계(지수 차익거래·리스크 대시보드) → 4단계(DB 저장·로그인과 권한·거래비용과 헤지 증거금 상계). 기술 스택은 사용자 선택에 따라 Python + Streamlit.
 
 ---
 
@@ -85,9 +85,9 @@
 | WinEdge 공개 기능 | RFL OMS 구현 | 단계 | 상태 |
 |---|---|---|---|
 | 포지션·노출 실시간 모니터링 | 포지션·손익 탭, 한도 사용률, 자산군별 노출 차트 | 1·3 | 구현 |
-| 사전 리스크 점검·증거금 산출 | 10개 항목 사전 점검, 최악 노출 기준 증거금 | 1 | 구현 |
+| 사전 리스크 점검·증거금 산출 | 10개 항목 사전 점검, 최악 노출 기준 증거금, 지수선물↔구성종목 헤지 상계 | 1·4 | 구현 |
 | 맞춤 알림·한도 | 한도 설정, 경고/위험 알림, 가격 알림 | 1 | 구현 |
-| 컴플라이언스 점검 | 거래 제한 종목, 킬 스위치, 감사 로그 | 1 | 일부 (규정 엔진은 없음) |
+| 컴플라이언스 점검 | 거래 제한 종목, 킬 스위치, 행위자가 기록되는 감사 로그, 역할별 권한·업무 분리 | 1·4 | 일부 (규정 엔진은 없음) |
 | 주문 라이프사이클 (생성~체결) | 생성→검증→보강→라우팅→체결, 정정·취소, IOC | 1 | 구현 |
 | 워크플로우 구성 | 전략 태그, 실행 방식 선택 | 1·2 | 일부 |
 | 바스켓 구성 (엑셀·템플릿·비중·명목) | 표 편집, 엑셀/CSV 업로드, 수량/비중 방식, 템플릿 | 2 | 구현 |
@@ -148,6 +148,19 @@
 | 포지션 | 포지션별 손익(비용 전), 선물·현물 명목과 헤지 잔차, 개별·전체 청산 |
 | 리스크 대시보드 | 1일 VaR(과거 시뮬레이션·모수, 95/99%), 주가 방향 순노출, 남은 손실 여력, 손익 추이, 자산군별 매수/매도/순노출, 스트레스 테스트 7종, 상위 집중 포지션 |
 
+### 4.4 4단계 — 사용 기반: DB 저장, 로그인·권한, 거래비용·헤지 증거금 상계
+
+| 영역 | 내용 |
+|---|---|
+| DB 저장 | SQLite. 조회용 장부 테이블(users, auth_log, orders, fills, positions, audit, alerts)과 엔진 스냅샷(state)을 하나의 트랜잭션으로 저장. 새로고침·서버 재시작 후 알고·바스켓·차익·시장까지 그대로 이어서 동작 |
+| 공유 장부 | 모든 브라우저 세션이 하나의 엔진·DB를 공유하고, 동시 수정은 잠금으로 직렬화. 화면을 그릴 때마다 변경분 저장(주문은 변경된 것만, 체결·감사·알림은 추가분만) |
+| 로그인 | 비밀번호 PBKDF2-HMAC-SHA256(솔트, 20만 회) 해시 저장. 기본 계정·기본 비밀번호 없음(첫 실행 시 관리자 생성). 8자 이상·문자+숫자. 연속 5회 실패 시 15분 잠금. 로그인·실패·잠금·계정 변경 기록 |
+| 역할·권한 | 트레이더: 주문 실행, 자기 주문·알고·바스켓만 정정·취소. 리스크 관리자: 한도 변경, 킬 스위치, 모든 주문 취소, 수수료 설정(주문 불가). 관리자: 사용자 관리, 수수료 설정, 킬 스위치, 시스템 초기화(주문 불가). 마지막 관리자는 해제 불가 |
+| 행위자 기록 | 모든 주문·이벤트에 사용자 기록. 알고 자식 주문·바스켓 재전송은 시작한 사용자, 자동 차익은 켠 사용자 이름(자동)으로 기록. 한도·수수료 변경, 킬 스위치는 변경 전후 값과 함께 시스템 이벤트로 기록 |
+| 거래비용 | 체결마다 수수료·세금 계산(주식 수수료 1bp, 매도세 15bp, 금 2bp, 선물 0.3bp — 모두 조정 가능한 가정값). 일일 손익·평가자산·손실 한도는 비용 차감 후 순손익 기준. 차익 포지션도 비용·순손익 표시 |
+| 헤지 증거금 상계 | 지수선물과 지수 구성종목 순노출이 반대 방향이면 헤지된 금액만큼 선물 증거금을 감면(기본 70%). 미체결 주문이 헤지를 깰 수 있으면 상계를 인정하지 않는 보수적 계산. 리스크 관리자가 사용 여부·감면율 설정 |
+| 관리 탭 | 사용자 추가·역할 변경·비활성화·비밀번호 재설정·잠금 해제, 역할별 권한표, 수수료 설정, DB 현황, 로그인 기록, 거래 데이터 초기화(사용자 유지, '초기화' 입력 확인) |
+
 ---
 
 ## 5. 시스템 구조
@@ -164,11 +177,18 @@ rfl_oms/              주문 처리 엔진 (Streamlit에 의존하지 않음)
   index.py            시뮬레이션 지수와 선물 이론가
   arbitrage.py        지수 차익거래 엔진
   analytics.py        VaR, 스트레스 테스트, 노출 분해
-views/                화면 구성 요소 (바스켓, 알고, 차익, 리스크, 공용 도우미)
-tests/                엔진 단위 테스트 53개
+  fees.py             거래비용 (수수료·세금)
+  auth.py             역할·권한, 비밀번호 해시·정책
+  storage.py          SQLite 저장소 (장부 테이블 + 엔진 스냅샷, 사용자·로그인 기록)
+views/                화면 구성 요소 (로그인, 관리, 바스켓, 알고, 차익, 리스크, 공유 런타임, 공용 도우미)
+tests/                단위 테스트 72개
+tools/build_record.py 이 기록 문서를 다시 만드는 스크립트
+data/rfl_oms.db       실행 시 생기는 DB 파일 (저장소에는 올리지 않음)
 ```
 
 **틱 처리 순서:** 시장 1틱 진행 → 미체결 주문 매칭 → 알고 엔진 → 바스켓 자동 재전송 → 차익 엔진 → 가격 알림 → 한도 알림 → 손익 기록
+
+**화면 한 번 그릴 때:** 로그인 확인(DB에서 계정 재조회) → 공유 잠금 획득 → 행위자 지정 → 처리 → DB 저장 → 잠금 해제
 
 **설계 원칙:** 엔진(`rfl_oms/`)과 화면(`app.py`, `views/`)을 분리해, 이후 API 서버나 실제 주문 게이트웨이(FIX, 증권사 API)로 옮길 때 시장·체결 계층만 교체하면 되도록 했습니다.
 
@@ -179,12 +199,15 @@ tests/                엔진 단위 테스트 53개
 ```bash
 pip install -r requirements.txt
 streamlit run app.py          # 브라우저에서 http://localhost:8501
+# DB 위치 변경: RFL_OMS_DB=/경로/rfl_oms.db streamlit run app.py
 
 pip install pytest
-python -m pytest -q           # 53 passed
+python -m pytest -q           # 72 passed
+
+python tools/build_record.py  # 이 기록 문서 다시 만들기
 ```
 
-사용 흐름: 사이드바에서 "1틱/10틱 진행" 또는 "자동 진행"으로 시장을 움직이며 각 탭에서 주문·바스켓·알고·차익을 실행합니다.
+사용 흐름: 첫 실행 시 관리자 계정을 만들고, 관리 탭에서 트레이더·리스크 관리자 계정을 추가합니다. 사이드바에서 "1틱/10틱 진행" 또는 "자동 진행"으로 시장을 움직이며 각 탭에서 주문·바스켓·알고·차익을 실행합니다.
 
 ---
 
@@ -193,22 +216,26 @@ python -m pytest -q           # 53 passed
 ### 7.1 주요 가정값 (모두 시뮬레이션용, 화면에서 조정 가능)
 
 - 계좌 자본 10억 원, 주문당 최대 1만 주·5억 원, 가격 괴리 10%, 종목별 포지션 10억 원, 총 노출 30억 원, 일일 손실 5천만 원, 경고 기준 80%
-- 차익 비용: 주식 수수료 편도 1bp, 주식 매도세 15bp, 선물 수수료 편도 0.3bp, 슬리피지 편도 2bp (실제 세율·수수료로 바꿔야 함)
+- 체결 비용(4단계): 주식 수수료 1bp, 주식 매도세 15bp, 금 현물 2bp, 선물 0.3bp (관리 탭에서 변경)
+- 차익 진입 판단용 비용: 주식 수수료 편도 1bp, 주식 매도세 15bp, 선물 수수료 편도 0.3bp, 슬리피지 편도 2bp (실제 세율·수수료로 바꿔야 함)
+- 헤지 증거금 상계: 지수 구성종목만 대상, 헤지된 선물 증거금 70% 감면
 - 이론가: 무위험 금리 3.5%, 배당수익률 1.5%, 만기까지 30일
 - 종목 시작 가격은 시뮬레이션 값이며 실제 시세가 아님
 
 ### 7.2 한계
 
-- 모든 데이터는 세션 메모리에만 있어 세션 초기화 시 사라짐
-- 증거금은 종목별 단순 합산 (헤지 상계 없음, 보수적)
-- 차익 손익은 거래비용 반영 전, 매수차익의 현물 매도는 대차 가능 가정
-- 실제 시세·주문 연동 없음, 1인용 Streamlit 화면
+- 엔진 스냅샷은 pickle 형식이라 이 프로그램이 만든 DB 파일만 사용해야 함. 엔진 구조가 바뀌면(STATE_VERSION) 이전 스냅샷은 복원하지 않고 새로 시작 (장부 테이블은 남음)
+- 모든 사용자가 하나의 계좌 장부를 공유하고 요청을 직렬로 처리 → 소규모 팀용. 대규모 동시 사용은 웹 서비스 전환 필요
+- 헤지 상계는 지수선물↔구성종목 한 쌍만, 바스켓과 지수의 구성 차이(베이시스 위험)는 반영하지 않음
+- 매수차익의 현물 매도는 대차 가능 가정, 차익 진입 판단 비용은 실제 체결 비용과 별도 설정
+- 실제 시세·주문 연동 없음. 시장 시뮬레이션 진행 버튼은 모든 역할이 사용 가능
+- HTTPS·SSO·비밀번호 만료 등 운영 보안은 배포 단계에서 추가 필요
 - 마이크로초급 저지연은 C/C++ 전용 엔진과 코로케이션 인프라가 필요해 이 구조의 범위 밖
 - 실제 운용 전 금융투자업 인가, 전자금융 관련 의무, 거래소·증권사 연결 승인 등 법률·컴플라이언스 검토 필요
 
 ### 7.3 다음 단계 후보 (권장 순서)
 
-1. 데이터베이스 저장, 로그인·권한(트레이더 / 리스크 관리자 / 관리자), 증거금 상계·비용 반영
+1. (완료) 데이터베이스 저장, 로그인·권한, 증거금 상계·비용 반영
 2. 증권사 Open API 모의투자 계좌로 실시간 시세·주문 연동
 3. 마켓메이킹·유동성 공급, 페어 트레이딩, 통화·채권·금 차익, 옵션
 4. 다중 사용자 웹 서비스(FastAPI + React) 전환, Docker 패키징·배포
@@ -219,6 +246,8 @@ python -m pytest -q           # 53 passed
 
 | 커밋 | 날짜 | 내용 |
 |---|---|---|
+| (이번) | 2026-11-27 | 4단계: DB 저장, 로그인·권한, 거래비용·헤지 증거금 상계 |
+| adba50d | 2026-11-27 | 전체 기록 문서 추가 |
 | 47d2713 | 2026-11-27 | 3단계: 지수 차익거래 모니터와 리스크 대시보드 |
 | 533930c | 2026-11-26 | 2단계: 바스켓 주문과 TWAP/VWAP/POV 알고 |
 | 8e019a9 | 2026-11-26 | 1단계: 모의 체결 OMS와 사전 리스크 점검 |
@@ -235,30 +264,38 @@ python -m pytest -q           # 53 passed
 
 ### 수록 파일 목록
 
-- `.gitignore` (4줄)
-- `README.md` (77줄)
-- `app.py` (523줄)
+- `.gitignore` (8줄)
+- `README.md` (108줄)
+- `app.py` (565줄)
 - `requirements.txt` (8줄)
 - `rfl_oms/__init__.py` (27줄)
-- `rfl_oms/algo.py` (250줄)
+- `rfl_oms/algo.py` (253줄)
 - `rfl_oms/analytics.py` (134줄)
-- `rfl_oms/arbitrage.py` (297줄)
-- `rfl_oms/basket.py` (383줄)
-- `rfl_oms/engine.py` (407줄)
+- `rfl_oms/arbitrage.py` (311줄)
+- `rfl_oms/auth.py` (91줄)
+- `rfl_oms/basket.py` (387줄)
+- `rfl_oms/engine.py` (483줄)
+- `rfl_oms/fees.py` (28줄)
 - `rfl_oms/index.py` (54줄)
 - `rfl_oms/market.py` (201줄)
-- `rfl_oms/models.py` (172줄)
-- `rfl_oms/risk.py` (168줄)
+- `rfl_oms/models.py` (176줄)
+- `rfl_oms/risk.py` (172줄)
+- `rfl_oms/storage.py` (298줄)
 - `stockbasic` (1줄)
 - `tests/test_engine.py` (180줄)
 - `tests/test_phase2.py` (186줄)
-- `tests/test_phase3.py` (154줄)
+- `tests/test_phase3.py` (155줄)
+- `tests/test_phase4.py` (248줄)
+- `tools/build_record.py` (65줄)
 - `views/__init__.py` (1줄)
-- `views/algo_view.py` (158줄)
-- `views/arb_view.py` (185줄)
-- `views/basket_view.py` (204줄)
-- `views/common.py` (26줄)
-- `views/risk_view.py` (127줄)
+- `views/admin_view.py` (145줄)
+- `views/algo_view.py` (165줄)
+- `views/arb_view.py` (201줄)
+- `views/auth_view.py` (91줄)
+- `views/basket_view.py` (214줄)
+- `views/common.py` (59줄)
+- `views/risk_view.py` (136줄)
+- `views/runtime.py` (49줄)
 
 ### `.gitignore`
 
@@ -267,12 +304,16 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .streamlit/secrets.toml
+data/
+*.db
+*.db-wal
+*.db-shm
 ```
 
 ### `README.md`
 
 ````markdown
-# RFL OMS — 1·2·3단계 (모의 체결)
+# RFL OMS — 1~4단계 (모의 체결)
 
 기관·전문 트레이더용 주문관리시스템(OMS) 프로토타입입니다.
 **시세와 체결은 모두 시뮬레이션**이며 실제 거래소나 증권사와 연결되지 않습니다.
@@ -284,7 +325,10 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-테스트: `pip install pytest && python -m pytest -q`
+- 첫 실행 시 **관리자 계정을 직접 만듭니다** (기본 계정·기본 비밀번호 없음). 이후 관리 탭에서 트레이더·리스크 관리자 계정을 추가하세요.
+- 상태는 SQLite `data/rfl_oms.db`에 저장되어 새로고침·재시작 후에도 유지됩니다. 위치 변경: `RFL_OMS_DB=/경로/파일.db streamlit run app.py`
+- 테스트: `pip install pytest && python -m pytest -q`
+- 전체 기록 문서 재생성: `python tools/build_record.py`
 
 ## 1단계 범위
 
@@ -325,6 +369,30 @@ streamlit run app.py
 | 포지션 | 포지션별 손익(비용 전), 선물·현물 명목과 헤지 잔차, 개별·전체 청산 |
 | 리스크 대시보드 | 1일 VaR(과거 시뮬레이션·모수, 95/99%), 주가 방향 순노출, 남은 손실 여력, 손익 추이, 자산군별 매수/매도/순노출, 스트레스 테스트 7종, 상위 집중 포지션 |
 
+## 4단계 범위 (사용 기반)
+
+| 영역 | 내용 |
+|---|---|
+| DB 저장 | 주문·체결·포지션·감사로그·알림·사용자·로그인 기록을 SQLite 테이블로 저장. 엔진 스냅샷도 함께 저장해 알고·바스켓·차익·시장까지 그대로 복원 |
+| 공유 장부 | 모든 사용자가 하나의 계좌 장부를 공유, 동시 수정은 잠금으로 직렬화 |
+| 로그인 | PBKDF2 해시(솔트, 20만 회), 8자 이상·문자+숫자, 5회 실패 시 15분 잠금, 로그인 기록 |
+| 역할 | 트레이더(주문, 자기 주문 정정·취소) / 리스크 관리자(한도, 킬 스위치, 모든 주문 취소, 수수료) / 관리자(사용자 관리, 수수료, 킬 스위치, 초기화). 트레이더 외에는 주문 불가 |
+| 감사 | 모든 주문·이벤트에 행위자 기록, 한도·수수료 변경과 킬 스위치는 전후 값과 함께 기록 |
+| 거래비용 | 체결마다 수수료·세금 계산, 일일 손익·손실 한도는 비용 차감 후 순손익 기준 |
+| 헤지 증거금 상계 | 지수선물 ↔ 구성종목 반대 포지션의 선물 증거금 감면(기본 70%), 미체결이 헤지를 깨면 미인정 |
+
+| 권한 | 트레이더 | 리스크 관리자 | 관리자 |
+|---|:-:|:-:|:-:|
+| 조회 | ✅ | ✅ | ✅ |
+| 주문 실행 (일반·바스켓·알고·차익) | ✅ | | |
+| 자기 주문 정정·취소 | ✅ | | |
+| 모든 주문 취소 | | ✅ | |
+| 리스크 한도·헤지 상계 설정 | | ✅ | |
+| 킬 스위치 | | ✅ | ✅ |
+| 수수료 설정 | | ✅ | ✅ |
+| 사용자 관리 | | | ✅ |
+| 거래 데이터 초기화 | | | ✅ |
+
 ## 구조
 
 ```
@@ -338,7 +406,11 @@ rfl_oms/basket.py    바스켓 구성·실행·모니터링
 rfl_oms/index.py     시뮬레이션 지수와 선물 이론가
 rfl_oms/arbitrage.py 지수 차익거래 엔진
 rfl_oms/analytics.py VaR, 스트레스 테스트, 노출 분해
-views/               바스켓·알고·차익·리스크 화면
+rfl_oms/fees.py      거래비용
+rfl_oms/auth.py      역할·권한, 비밀번호 해시
+rfl_oms/storage.py   SQLite 저장소
+views/               로그인·관리·바스켓·알고·차익·리스크 화면, 공유 런타임
+tools/               기록 문서 생성기
 tests/               엔진 단위 테스트
 ```
 
@@ -346,18 +418,19 @@ tests/               엔진 단위 테스트
 
 ## 한계와 다음 단계 후보
 
-- 모든 상태는 세션 메모리에만 있음 → 데이터베이스 저장, 사용자·권한 관리
-- 증거금은 종목별 단순 합산(헤지 상계 없음), 거래비용은 손익에 반영하지 않음
+- 엔진 스냅샷은 pickle 형식 → 이 프로그램이 만든 DB 파일만 사용할 것
+- 하나의 공유 장부를 직렬 처리하는 소규모 팀용 구조, HTTPS·SSO 등 운영 보안은 배포 단계에서 추가
 - 실제 시세·주문 연동(FIX, 증권사 API)은 엔진(`rfl_oms/`)을 그대로 두고 시장·체결 계층만 교체하는 구조
 ````
 
 ### `app.py`
 
 ```python
-"""RFL OMS 1단계 — Streamlit 화면.
+"""RFL OMS — Streamlit 화면.
 
 실행: streamlit run app.py
 모든 시세와 체결은 시뮬레이션이며 실제 시장과 연결되어 있지 않습니다.
+상태는 SQLite(기본 data/rfl_oms.db, 환경변수 RFL_OMS_DB로 변경)에 저장되어 새로고침·재시작 후에도 유지됩니다.
 """
 
 from __future__ import annotations
@@ -368,29 +441,27 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from rfl_oms import OMS, AlertLevel, MarketSim, OrderType, RiskLimits, Side, TimeInForce
+from rfl_oms import OMS, AlertLevel, OrderType, RiskLimits, Side, TimeInForce
+from rfl_oms.auth import Perm
+from views.admin_view import admin_view
 from views.algo_view import algo_view
 from views.arb_view import arb_view
+from views.auth_view import account_sidebar, require_login
 from views.basket_view import basket_view
-from views.common import NUM, fmt_price, krw
+from views.common import NUM, can, can_manage, current_user, fmt_price, krw, need
 from views.risk_view import risk_view
+from views.runtime import engine, runtime
 
 st.set_page_config(page_title="RFL OMS", page_icon="📈", layout="wide")
 
 LEVEL_ICON = {AlertLevel.INFO: "🔵", AlertLevel.WARNING: "🟠", AlertLevel.CRITICAL: "🔴"}
 
 
-def get_oms() -> OMS:
-    if "oms" not in st.session_state:
-        st.session_state.oms = OMS(market=MarketSim(seed=None))
-        st.session_state.last_auto_step = time.time()
-    return st.session_state.oms
-
-
 # ============================== 사이드바 ==============================
 def sidebar(oms: OMS) -> tuple[bool, float]:
     st.sidebar.title("RFL OMS")
-    st.sidebar.caption("1단계 · 모의 체결 환경")
+    st.sidebar.caption("모의 체결 환경")
+    account_sidebar(current_user())
 
     st.sidebar.subheader("시장 시뮬레이션")
     c1, c2 = st.sidebar.columns(2)
@@ -404,17 +475,25 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
 
     st.sidebar.subheader("거래 통제")
     kill = st.sidebar.toggle(
-        "킬 스위치 (거래 중지)", value=oms.kill_switch, help="켜면 미체결 주문을 모두 취소하고 신규 주문을 막습니다."
+        "킬 스위치 (거래 중지)",
+        value=oms.kill_switch,
+        disabled=not can(Perm.KILL_SWITCH),
+        help="켜면 미체결 주문을 모두 취소하고 신규 주문을 막습니다." if can(Perm.KILL_SWITCH) else need(Perm.KILL_SWITCH),
     )
-    if kill != oms.kill_switch:
+    if kill != oms.kill_switch and can(Perm.KILL_SWITCH):
         oms.set_kill_switch(kill)
-    if st.sidebar.button("미체결·알고 전체 취소", width="stretch"):
+    if st.sidebar.button(
+        "미체결·알고 전체 취소", width="stretch", disabled=not can(Perm.CANCEL_ANY), help=None if can(Perm.CANCEL_ANY) else need(Perm.CANCEL_ANY)
+    ):
         a = oms.algos.cancel_all("전체 취소")
         n = oms.cancel_all()
         st.sidebar.success(f"주문 {n}건 · 알고 {a}건 취소")
 
     st.sidebar.subheader("리스크 한도")
     lim = oms.limits
+    if not can(Perm.SET_LIMITS):
+        st.sidebar.caption(need(Perm.SET_LIMITS) + ". 현재 한도는 리스크 탭에서 볼 수 있습니다.")
+        return auto, interval
     with st.sidebar.form("limits"):
         capital = st.number_input("계좌 자본(원)", min_value=0.0, value=float(lim.capital), step=1e8, format="%.0f")
         max_qty = st.number_input("주문당 최대 수량", min_value=1, value=int(lim.max_order_qty), step=100)
@@ -438,8 +517,10 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
             default=sorted(lim.restricted_symbols),
             format_func=lambda s: f"{s} {oms.instruments[s].name}",
         )
+        offset_on = st.checkbox("헤지 증거금 상계 (지수선물 ↔ 구성종목)", value=lim.margin_offset_enabled)
+        offset_pct = st.slider("헤지된 선물 증거금 감면율(%)", 0, 100, int(lim.margin_offset_pct), 5)
         if st.form_submit_button("한도 적용", width="stretch"):
-            oms.limits = RiskLimits(
+            oms.set_limits(RiskLimits(
                 capital=capital,
                 max_order_qty=int(max_qty),
                 max_order_notional=max_notional,
@@ -449,13 +530,10 @@ def sidebar(oms: OMS) -> tuple[bool, float]:
                 max_daily_loss=max_loss,
                 warn_ratio=warn,
                 restricted_symbols=frozenset(restricted),
-            )
-            oms._evaluate_alerts()
+                margin_offset_enabled=offset_on,
+                margin_offset_pct=float(offset_pct),
+            ))
             st.success("한도를 적용했습니다")
-
-    if st.sidebar.button("세션 초기화", type="secondary", width="stretch"):
-        del st.session_state["oms"]
-        st.rerun()
     return auto, interval
 
 
@@ -465,9 +543,16 @@ def header_metrics(oms: OMS) -> None:
     exp = oms.exposure()
     cols = st.columns(6)
     cols[0].metric("평가자산", krw(oms.equity()))
-    cols[1].metric("일일 손익", krw(pnl), delta=f"{pnl / oms.limits.capital:.2%}" if oms.limits.capital else None)
-    cols[2].metric("실현 손익", krw(oms.realized_pnl()))
-    cols[3].metric("증거금(체결 기준)", krw(oms.margin_used()))
+    cols[1].metric(
+        "일일 순손익", krw(pnl), delta=f"{pnl / oms.limits.capital:.2%}" if oms.limits.capital else None,
+        help="실현 + 미실현 − 수수료·세금",
+    )
+    cols[2].metric("수수료·세금", krw(oms.total_fees()))
+    mb = oms.margin_breakdown()
+    cols[3].metric(
+        "순증거금(체결 기준)", krw(mb["순증거금"]),
+        help=f"상계 전 {mb['상계 전']:,.0f} − 헤지 상계 {mb['헤지 상계']:,.0f}",
+    )
     cols[4].metric("총 노출(미체결 포함)", krw(exp.gross))
     n_algos = sum(1 for a in oms.algos.algos.values() if a.status.is_active)
     cols[5].metric("미체결 · 실행중 알고", f"{len(oms.open_orders())} · {n_algos}")
@@ -578,12 +663,15 @@ def order_entry(oms: OMS) -> None:
             tag = st.text_input("전략 태그 (선택)", "")
             b1, b2 = st.columns(2)
             do_preview = b1.form_submit_button("사전 점검", width="stretch")
-            do_submit = b2.form_submit_button("주문 제출", type="primary", width="stretch")
+            do_submit = b2.form_submit_button(
+                "주문 제출", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+                help=None if can(Perm.TRADE) else need(Perm.TRADE),
+            )
 
         limit_px = inst.round_to_tick(price) if otype is OrderType.LIMIT else None
         if do_preview:
             st.session_state.last_checks = ("미리보기", oms.preview(symbol, side, otype, int(qty), limit_px, tif))
-        if do_submit:
+        if do_submit and can(Perm.TRADE):
             checks = oms.preview(symbol, side, otype, int(qty), limit_px, tif)
             order = oms.submit(symbol, side, otype, int(qty), limit_px, tif, strategy_tag=tag)
             st.session_state.last_checks = (f"{order.order_id} → {order.status.value}", checks)
@@ -624,6 +712,7 @@ def orders_frame(oms: OMS, orders) -> pd.DataFrame:
                 "평균체결가": round(o.avg_fill_price, 4) if o.filled_qty else None,
                 "상태": o.status.value,
                 "전략": o.strategy_tag,
+                "주문자": o.trader,
                 "거부 사유": o.reject_reason,
             }
             for o in reversed(list(orders))
@@ -657,9 +746,12 @@ def blotter(oms: OMS) -> None:
         st.info("표시할 주문이 없습니다.")
 
     st.markdown("#### 정정 · 취소")
-    open_orders = oms.open_orders()
+    open_orders = [o for o in oms.open_orders() if can_manage(o.trader)]
     if not open_orders:
-        st.caption("미체결 주문이 없습니다.")
+        st.caption(
+            "정정·취소할 수 있는 미체결 주문이 없습니다."
+            + ("" if can(Perm.CANCEL_ANY) else " (트레이더는 자기 주문만, 리스크 관리자는 모든 주문을 취소할 수 있습니다)")
+        )
     else:
         oid = st.selectbox(
             "대상 주문",
@@ -684,7 +776,10 @@ def blotter(oms: OMS) -> None:
         )
         c3.write("")
         c4.write("")
-        if c3.button("정정", width="stretch"):
+        if c3.button(
+            "정정", width="stretch", disabled=not (can(Perm.TRADE) and o.trader == current_user().username),
+            help="정정은 주문을 낸 트레이더만 할 수 있습니다",
+        ):
             ok, res = oms.amend(oid, int(new_qty), inst.round_to_tick(new_px))
             if ok:
                 st.success(f"{oid} 정정 완료 ({o.status.value})")
@@ -699,7 +794,9 @@ def blotter(oms: OMS) -> None:
         sel = st.selectbox("주문 선택", list(reversed(oms.orders)), key="lifecycle_sel")
         events = oms.orders[sel].events
         st.dataframe(
-            pd.DataFrame([{"시각": e.ts.strftime("%H:%M:%S.%f")[:-3], "단계": e.event, "내용": e.detail} for e in events]),
+            pd.DataFrame(
+                [{"시각": e.ts.strftime("%H:%M:%S.%f")[:-3], "단계": e.event, "내용": e.detail, "행위자": e.actor} for e in events]
+            ),
             hide_index=True,
             width="stretch",
         )
@@ -708,7 +805,7 @@ def blotter(oms: OMS) -> None:
 def positions_view(oms: OMS) -> None:
     rows = []
     for s, p in oms.positions.items():
-        if p.qty == 0 and p.realized_pnl == 0:
+        if p.qty == 0 and p.realized_pnl == 0 and p.fees == 0:
             continue
         inst = oms.instruments[s]
         mark = oms.market.mark(s)
@@ -722,7 +819,9 @@ def positions_view(oms: OMS) -> None:
                 "평가금액": notional,
                 "미실현손익": round(oms.unrealized_pnl(s)),
                 "실현손익": round(p.realized_pnl),
-                "증거금": round(notional * inst.margin_rate),
+                "수수료·세금": round(p.fees),
+                "순손익": round(p.realized_pnl + oms.unrealized_pnl(s) - p.fees),
+                "증거금(상계 전)": round(notional * inst.margin_rate),
             }
         )
     if rows:
@@ -730,7 +829,7 @@ def positions_view(oms: OMS) -> None:
             pd.DataFrame(rows),
             hide_index=True,
             width="stretch",
-            column_config={k: NUM for k in ["수량", "평가금액", "미실현손익", "실현손익", "증거금"]},
+            column_config={k: NUM for k in ["수량", "평가금액", "미실현손익", "실현손익", "수수료·세금", "순손익", "증거금(상계 전)"]},
         )
     else:
         st.info("보유 포지션이 없습니다.")
@@ -747,13 +846,14 @@ def positions_view(oms: OMS) -> None:
                         "구분": f.side.value,
                         "수량": f.qty,
                         "가격": f.price,
+                        "비용": round(f.fee),
                     }
                     for f in reversed(oms.fills)
                 ]
             ),
             hide_index=True,
             width="stretch",
-            column_config={"수량": NUM},
+            column_config={"수량": NUM, "비용": NUM},
         )
     else:
         st.caption("체결 내역이 없습니다.")
@@ -809,14 +909,29 @@ def alerts_view(oms: OMS) -> None:
 def audit_view(oms: OMS) -> None:
     df = pd.DataFrame(
         [
-            {"시각": e.ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3], "주문번호": e.order_id, "단계": e.event, "내용": e.detail}
+            {
+                "시각": e.ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                "주문번호": e.order_id,
+                "단계": e.event,
+                "내용": e.detail,
+                "행위자": e.actor,
+            }
             for e in reversed(oms.audit)
         ]
     )
     if df.empty:
         st.info("기록된 이벤트가 없습니다.")
         return
-    st.dataframe(df, hide_index=True, width="stretch")
+    c1, c2 = st.columns(2)
+    actors = c1.multiselect("행위자", sorted(df["행위자"].unique()))
+    sys_only = c2.checkbox("시스템 이벤트만 (한도·수수료 변경, 킬 스위치)")
+    view = df
+    if actors:
+        view = view[view["행위자"].isin(actors)]
+    if sys_only:
+        view = view[view["주문번호"] == "-"]
+    st.dataframe(view, hide_index=True, width="stretch")
+    st.caption("감사 로그는 DB의 audit 테이블에 추가만 되며 화면에서 수정·삭제할 수 없습니다. 로그인 기록은 관리 탭에 있습니다.")
     c1, c2 = st.columns(2)
     c1.download_button(
         "감사 로그 CSV", df.to_csv(index=False).encode("utf-8-sig"), "rfl_oms_audit.csv", "text/csv", width="stretch"
@@ -831,29 +946,24 @@ def audit_view(oms: OMS) -> None:
 
 
 def main_view(auto: bool, interval: float) -> None:
-    oms = get_oms()
-    if auto and time.time() - st.session_state.last_auto_step >= interval * 0.9:
-        oms.step(1)
-        st.session_state.last_auto_step = time.time()
+    user = current_user()
+    rt = runtime()
+    with engine(user.username) as oms:
+        if auto and time.time() - rt.last_auto_step >= interval * 0.9:
+            oms.step(1)
+            rt.last_auto_step = time.time()
+        _main_body(oms)
 
+
+def _main_body(oms: OMS) -> None:
     st.title("RFL OMS")
     st.caption("주문관리 · 사전 리스크 점검 · 한도 알림 — 시세와 체결은 모두 시뮬레이션입니다.")
     header_metrics(oms)
     market_watch(oms)
 
-    tabs = st.tabs(
-        [
-            "주문 입력",
-            "바스켓",
-            "알고리즘",
-            "차익거래",
-            "주문 블로터",
-            "포지션·손익",
-            "리스크",
-            "알림",
-            "감사 로그",
-        ]
-    )
+    names = ["주문 입력", "바스켓", "알고리즘", "차익거래", "주문 블로터", "포지션·손익", "리스크", "알림", "감사 로그"]
+    show_admin = can(Perm.MANAGE_USERS) or can(Perm.SET_FEES)
+    tabs = st.tabs(names + (["관리"] if show_admin else []))
     with tabs[0]:
         order_entry(oms)
     with tabs[1]:
@@ -872,10 +982,14 @@ def main_view(auto: bool, interval: float) -> None:
         alerts_view(oms)
     with tabs[8]:
         audit_view(oms)
+    if show_admin:
+        with tabs[9]:
+            admin_view(oms)
 
 
-oms = get_oms()
-auto, interval = sidebar(oms)
+_user = require_login()
+with engine(_user.username) as _oms:
+    auto, interval = sidebar(_oms)
 st.fragment(main_view, run_every=interval if auto else None)(auto, interval)
 ```
 
@@ -985,6 +1099,7 @@ class AlgoOrder:
     limit_price: float | None
     arrival_price: float
     strategy_tag: str = ""
+    actor: str = ""  # 알고를 시작한 사용자 (자식 주문의 행위자)
     status: AlgoStatus = AlgoStatus.RUNNING
     halt_reason: str = ""
     child_ids: list[str] = field(default_factory=list)
@@ -1073,6 +1188,7 @@ class AlgoEngine:
             limit_price=limit_price,
             arrival_price=self.oms.market.mark(symbol),
             strategy_tag=strategy_tag,
+            actor=self.oms.actor,
         )
         # 부모 주문 전체 수량으로 사전 점검 (시장가로 전량 체결된다고 가정)
         checks = self.oms.preview(symbol, side, OrderType.MARKET, int(qty))
@@ -1161,15 +1277,16 @@ class AlgoEngine:
             if algo.side is Side.SELL and price < algo.limit_price:
                 return
         algo.in_flight = want
-        child = self.oms.submit(
-            algo.symbol,
-            algo.side,
-            OrderType.LIMIT,
-            want,
-            price,
-            TimeInForce.IOC,
-            strategy_tag=algo.algo_id,
-        )
+        with self.oms.acting(algo.actor):
+            child = self.oms.submit(
+                algo.symbol,
+                algo.side,
+                OrderType.LIMIT,
+                want,
+                price,
+                TimeInForce.IOC,
+                strategy_tag=algo.algo_id,
+            )
         algo.in_flight = 0
         algo.child_ids.append(child.order_id)
         if child.status is OrderStatus.REJECTED:
@@ -1379,6 +1496,7 @@ class ArbSettings:
     contracts: int = 1
     stock_mode: ExecMode = ExecMode.MARKET
     auto: bool = False
+    auto_owner: str = "자동차익"  # 자동 차익을 켠 사용자 (자동 주문의 행위자)
     max_open: int = 3
 
 
@@ -1436,6 +1554,7 @@ class ArbPosition:
     closed_tick: int | None = None
     exit: ArbSnapshot | None = None
     note: str = ""
+    owner: str = ""  # 진입한 사용자
 
 
 class ArbEngine:
@@ -1498,6 +1617,14 @@ class ArbEngine:
             total += q * self.oms.market.mark(sym) * self.oms.instruments[sym].multiplier
         return total
 
+    def fees(self, pos: ArbPosition) -> float:
+        ids = {o.order_id for o in self._orders(pos)}
+        return sum(f.fee for f in self.oms.fills if f.order_id in ids)
+
+    def pnl_net(self, pos: ArbPosition) -> float:
+        """비용 차감 후 손익."""
+        return self.pnl(pos) - self.fees(pos)
+
     def hedge(self, pos: ArbPosition) -> tuple[float, float]:
         """(선물 명목, 현물 명목) — 부호 포함. 합이 0에 가까울수록 완전 헤지."""
         fsym = self.index_def.futures_symbol
@@ -1535,7 +1662,7 @@ class ArbEngine:
             return None, problems
         self._seq += 1
         snap = self.snapshot()
-        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap)
+        pos = ArbPosition(f"X{self._seq:03d}", direction, contracts, snap.tick, snap, owner=self.oms.actor)
         self.positions[pos.arb_id] = pos
         fsym = self.index_def.futures_symbol
         fut = self.oms.submit(fsym, direction.futures_side, OrderType.MARKET, contracts, strategy_tag=pos.arb_id)
@@ -1603,6 +1730,10 @@ class ArbEngine:
         del self.history[:-500]
         if not self.settings.auto or self.oms.kill_switch:
             return
+        with self.oms.acting(f"{self.settings.auto_owner}(자동)"):
+            self._auto(snap)
+
+    def _auto(self, snap: ArbSnapshot) -> None:
         exit_band = self.settings.exit_mispricing_pts
         for pos in self.open_positions():
             if pos.status is not ArbStatus.OPEN:
@@ -1617,6 +1748,102 @@ class ArbEngine:
             self.enter(ArbDirection.SELL_ARB)
         elif snap.buy_edge >= self.settings.entry_edge_pts:
             self.enter(ArbDirection.BUY_ARB)
+```
+
+### `rfl_oms/auth.py`
+
+```python
+"""사용자·역할·권한.
+
+- 비밀번호는 PBKDF2-HMAC-SHA256(솔트, 20만 회)으로 해시해 저장하고 평문은 저장하지 않는다.
+- 기본 계정·기본 비밀번호는 없다. 사용자가 없으면 첫 관리자 계정을 만들게 한다.
+- 로그인 연속 5회 실패 시 15분 잠금.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import secrets
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+
+
+class Role(str, Enum):
+    TRADER = "트레이더"
+    RISK = "리스크 관리자"
+    ADMIN = "관리자"
+
+
+class Perm(str, Enum):
+    VIEW = "조회"
+    TRADE = "주문 실행"
+    CANCEL_ANY = "모든 주문 취소·정정"
+    SET_LIMITS = "리스크 한도 변경"
+    KILL_SWITCH = "킬 스위치"
+    MANAGE_USERS = "사용자 관리"
+    SET_FEES = "수수료 설정"
+    RESET_SYSTEM = "시스템 초기화"
+
+
+# 업무 분리: 주문을 내는 사람(트레이더)과 한도를 정하는 사람(리스크 관리자)을 나눈다.
+ROLE_PERMS: dict[Role, frozenset[Perm]] = {
+    Role.TRADER: frozenset({Perm.VIEW, Perm.TRADE}),
+    Role.RISK: frozenset({Perm.VIEW, Perm.CANCEL_ANY, Perm.SET_LIMITS, Perm.KILL_SWITCH, Perm.SET_FEES}),
+    Role.ADMIN: frozenset({Perm.VIEW, Perm.MANAGE_USERS, Perm.SET_FEES, Perm.KILL_SWITCH, Perm.RESET_SYSTEM}),
+}
+
+PBKDF2_ITERATIONS = 200_000
+MAX_FAILED = 5
+LOCK_MINUTES = 15
+MIN_PASSWORD_LEN = 8
+
+
+@dataclass
+class User:
+    username: str
+    display_name: str
+    role: Role
+    active: bool = True
+
+    def can(self, perm: Perm) -> bool:
+        return self.active and perm in ROLE_PERMS[self.role]
+
+    @property
+    def label(self) -> str:
+        return f"{self.display_name}({self.username})"
+
+
+class AuthError(Exception):
+    pass
+
+
+def hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    return digest.hex(), salt.hex()
+
+
+def verify_password(password: str, pw_hash: str, salt_hex: str) -> bool:
+    digest, _ = hash_password(password, bytes.fromhex(salt_hex))
+    return hmac.compare_digest(digest, pw_hash)
+
+
+def validate_new_password(password: str) -> None:
+    if len(password) < MIN_PASSWORD_LEN:
+        raise AuthError(f"비밀번호는 {MIN_PASSWORD_LEN}자 이상이어야 합니다")
+    if password.isdigit() or password.isalpha():
+        raise AuthError("비밀번호에 문자와 숫자를 함께 사용하세요")
+
+
+def validate_username(username: str) -> None:
+    if not username or not username.replace("_", "").replace(".", "").isalnum() or len(username) > 32:
+        raise AuthError("아이디는 영문·숫자·밑줄·마침표로 32자 이내여야 합니다")
+
+
+def lock_until(now: datetime | None = None) -> datetime:
+    return (now or datetime.now()) + timedelta(minutes=LOCK_MINUTES)
 ```
 
 ### `rfl_oms/basket.py`
@@ -1683,6 +1910,7 @@ class Basket:
     params: ExecParams
     created_at: datetime
     canceled: bool = False
+    actor: str = ""  # 바스켓을 실행한 사용자
 
 
 SIDE_ALIASES = {
@@ -1802,7 +2030,9 @@ class BasketManager:
     # ================= 실행 =================
     def execute(self, name: str, lines: list[BasketLine], params: ExecParams) -> Basket:
         self._seq += 1
-        basket = Basket(f"B{self._seq:04d}", name or f"바스켓 {self._seq}", lines, params, datetime.now())
+        basket = Basket(
+            f"B{self._seq:04d}", name or f"바스켓 {self._seq}", lines, params, datetime.now(), actor=self.oms.actor
+        )
         self.baskets[basket.basket_id] = basket
         for ln in lines:
             self._send(basket, ln, ln.qty)
@@ -1989,7 +2219,8 @@ class BasketManager:
                 rest = ln.qty - filled - self.line_working(ln)
                 if rest > 0:
                     ln.retries += 1
-                    self._send(b, ln, rest)
+                    with self.oms.acting(b.actor):
+                        self._send(b, ln, rest)
                     if ln.error:
                         self.oms._alert(
                             AlertLevel.WARNING, "바스켓 재전송 거부", f"{b.basket_id} {ln.symbol} — {ln.error}"
@@ -2019,11 +2250,13 @@ def sample_template() -> pd.DataFrame:
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 from datetime import datetime
 
 from .algo import AlgoEngine
 from .arbitrage import ArbEngine
 from .basket import BasketManager
+from .fees import FeeSchedule
 from .market import MarketSim
 from .models import (
     Alert,
@@ -2050,7 +2283,10 @@ class OMS:
     ):
         self.market = market or MarketSim()
         self.limits = limits or RiskLimits()
+        self.fees = FeeSchedule()
         self.account = account
+        self.actor = ""  # 현재 행위자 (acting() 문맥으로 지정)
+        self._dirty_orders: set[str] = set()  # 저장소에 아직 반영하지 않은 주문
         self.orders: dict[str, Order] = {}
         self.fills: list[Fill] = []
         self.positions: dict[str, Position] = {s: Position(s) for s in self.market.instruments}
@@ -2086,10 +2322,49 @@ class OMS:
         return (self.market.mark(symbol) - pos.avg_price) * pos.qty * inst.multiplier
 
     def realized_pnl(self) -> float:
+        """실현손익 (비용 차감 전)."""
         return sum(p.realized_pnl for p in self.positions.values())
 
+    def total_fees(self) -> float:
+        return sum(p.fees for p in self.positions.values())
+
     def daily_pnl(self) -> float:
-        return self.realized_pnl() + sum(self.unrealized_pnl(s) for s in self.positions)
+        """순손익 = 실현 + 미실현 − 수수료·세금. 손실 한도와 평가자산의 기준."""
+        return self.realized_pnl() + sum(self.unrealized_pnl(s) for s in self.positions) - self.total_fees()
+
+    # ================= 행위자·시스템 이벤트 =================
+    @contextmanager
+    def acting(self, actor: str):
+        """이 문맥 안에서 생긴 주문·이벤트에 행위자를 기록한다."""
+        prev, self.actor = self.actor, actor
+        try:
+            yield self
+        finally:
+            self.actor = prev
+
+    def system_event(self, event: str, detail: str = "") -> None:
+        self.audit.append(OrderEvent(datetime.now(), "-", event, detail, self.actor))
+
+    def set_limits(self, limits: RiskLimits) -> None:
+        old, self.limits = self.limits, limits
+        changes = [
+            f"{k}: {getattr(old, k)} → {getattr(limits, k)}"
+            for k in limits.__dataclass_fields__
+            if getattr(old, k) != getattr(limits, k)
+        ]
+        if changes:
+            self.system_event("한도 변경", "; ".join(changes))
+        self._evaluate_alerts()
+
+    def set_fees(self, fees: FeeSchedule) -> None:
+        old, self.fees = self.fees, fees
+        changes = [
+            f"{k}: {getattr(old, k)} → {getattr(fees, k)}"
+            for k in fees.__dataclass_fields__
+            if getattr(old, k) != getattr(fees, k)
+        ]
+        if changes:
+            self.system_event("수수료 변경", "; ".join(changes))
 
     def equity(self) -> float:
         return self.limits.capital + self.daily_pnl()
@@ -2118,14 +2393,39 @@ class OMS:
             qty[s], notional[s] = worst, n
             gross += n
             margin += n * inst.margin_rate
-        return Exposure(qty, notional, gross, margin)
+        # 헤지 상계는 보수적으로: 현재 포지션, 매수 전량 체결, 매도 전량 체결 중 가장 작은 상계만 인정
+        pos_now = {s: p.qty for s, p in self.positions.items()}
+        all_buys = {s: pos_now[s] + buys[s] for s in pos_now}
+        all_sells = {s: pos_now[s] - sells[s] for s in pos_now}
+        credit = min(self.hedge_credit(pos_now), self.hedge_credit(all_buys), self.hedge_credit(all_sells))
+        return Exposure(qty, notional, gross, margin - credit, margin, credit)
+
+    def hedge_credit(self, signed_qty: dict[str, int]) -> float:
+        """지수선물과 구성종목 순노출이 반대 방향이면, 헤지된 금액만큼 선물 증거금을 감면한다."""
+        idx = self.market.index_def
+        if idx is None or not self.limits.margin_offset_enabled:
+            return 0.0
+        fsym = idx.futures_symbol
+        finst = self.instruments[fsym]
+        fut = signed_qty.get(fsym, 0) * self.market.mark(fsym) * finst.multiplier
+        stock = sum(signed_qty.get(s, 0) * self.market.mark(s) for s in idx.constituents)
+        if fut * stock >= 0:
+            return 0.0
+        hedged = min(abs(fut), abs(stock))
+        return hedged * finst.margin_rate * self.limits.margin_offset_pct / 100
+
+    def margin_breakdown(self) -> dict[str, float]:
+        """체결된 포지션 기준 증거금: 상계 전, 상계액, 순증거금."""
+        gross = sum(
+            abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier * self.instruments[s].margin_rate
+            for s, p in self.positions.items()
+        )
+        credit = self.hedge_credit({s: p.qty for s, p in self.positions.items()})
+        return {"상계 전": gross, "헤지 상계": credit, "순증거금": gross - credit}
 
     def margin_used(self) -> float:
-        """체결된 포지션 기준 증거금."""
-        total = 0.0
-        for s, inst in self.instruments.items():
-            total += abs(self.positions[s].qty) * self.market.mark(s) * inst.multiplier * inst.margin_rate
-        return total
+        """체결된 포지션 기준 순증거금 (헤지 상계 반영)."""
+        return self.margin_breakdown()["순증거금"]
 
     def utilization(self) -> list[dict]:
         """한도별 사용률 (알림과 대시보드 공용)."""
@@ -2153,9 +2453,10 @@ class OMS:
 
     # ================= 주문 =================
     def _log(self, order: Order, event: str, detail: str = "") -> None:
-        ev = OrderEvent(datetime.now(), order.order_id, event, detail)
+        ev = OrderEvent(datetime.now(), order.order_id, event, detail, self.actor)
         order.events.append(ev)
         self.audit.append(ev)
+        self._dirty_orders.add(order.order_id)
 
     def _alert(self, level: AlertLevel, category: str, message: str) -> None:
         self.alerts.append(Alert(datetime.now(), level, category, message))
@@ -2186,6 +2487,7 @@ class OMS:
             tif=TimeInForce.IOC if order_type is OrderType.MARKET else tif,
             created_at=datetime.now(),
             strategy_tag=strategy_tag,
+            trader=self.actor,
         )
 
     def _enrich(self, order: Order) -> None:
@@ -2318,6 +2620,7 @@ class OMS:
         if on == self.kill_switch:
             return
         self.kill_switch = on
+        self.system_event("킬 스위치", "켜짐 (거래 중지)" if on else "꺼짐 (거래 재개)")
         if on:
             a = self.algos.cancel_all("킬 스위치")
             n = self.cancel_all("킬 스위치")
@@ -2339,11 +2642,15 @@ class OMS:
     def _fill(self, order: Order, qty: int, price: float) -> None:
         inst = self.instruments[order.symbol]
         order.apply_fill(qty, price)
-        realized = self.positions[order.symbol].apply_fill(order.side, qty, price, inst.multiplier)
-        fill = Fill(order.order_id, order.symbol, order.side, qty, price, datetime.now())
+        pos = self.positions[order.symbol]
+        realized = pos.apply_fill(order.side, qty, price, inst.multiplier)
+        fee = self.fees.fee(inst, order.side, qty, price)
+        pos.fees += fee
+        fill = Fill(order.order_id, order.symbol, order.side, qty, price, datetime.now(), fee)
         self.fills.append(fill)
         label = "전량체결" if order.status is OrderStatus.FILLED else "부분체결"
         extra = f", 실현손익 {realized:,.0f}" if realized else ""
+        extra += f", 비용 {fee:,.0f}" if fee else ""
         self._log(order, label, f"{qty:,}@{self._px(order.symbol, price)} (누적 {order.filled_qty:,}/{order.qty:,}){extra}")
 
     def _expire_if_ioc(self, order: Order) -> None:
@@ -2364,7 +2671,7 @@ class OMS:
             self._record_pnl()
 
     def _record_pnl(self) -> None:
-        realized = self.realized_pnl()
+        realized = self.realized_pnl() - self.total_fees()  # 비용 차감 후 실현
         unrealized = sum(self.unrealized_pnl(s) for s in self.positions)
         gross = sum(
             abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier for s, p in self.positions.items()
@@ -2417,6 +2724,39 @@ class OMS:
                     f"{row['항목']} 사용률 {ratio:.0%} ({row['사용']:,.0f} / {row['한도']:,.0f}){suffix}",
                 )
             self._alert_state[row["key"]] = level
+```
+
+### `rfl_oms/fees.py`
+
+```python
+"""거래비용: 체결마다 수수료와 세금을 계산한다 (모두 조정 가능한 가정값)."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .models import Instrument, Side
+
+
+@dataclass
+class FeeSchedule:
+    enabled: bool = True
+    equity_commission_bps: float = 1.0  # 주식 매매수수료 (매수·매도 각각)
+    equity_sell_tax_bps: float = 15.0  # 주식 매도 거래세 (시뮬레이션 가정값)
+    gold_commission_bps: float = 2.0  # 금 현물 수수료
+    futures_commission_bps: float = 0.3  # 선물 수수료
+
+    def rate_bps(self, inst: Instrument, side: Side) -> float:
+        if inst.asset_class == "주식":
+            return self.equity_commission_bps + (self.equity_sell_tax_bps if side is Side.SELL else 0.0)
+        if inst.asset_class == "금 현물":
+            return self.gold_commission_bps
+        return self.futures_commission_bps
+
+    def fee(self, inst: Instrument, side: Side, qty: int, price: float) -> float:
+        if not self.enabled:
+            return 0.0
+        return qty * price * inst.multiplier * self.rate_bps(inst, side) / 1e4
 ```
 
 ### `rfl_oms/index.py`
@@ -2763,9 +3103,10 @@ class Instrument:
 @dataclass
 class OrderEvent:
     ts: datetime
-    order_id: str
+    order_id: str  # 시스템 이벤트(한도 변경, 킬 스위치 등)는 "-"
     event: str
     detail: str = ""
+    actor: str = ""  # 행위자 (로그인 사용자 또는 시스템)
 
 
 @dataclass
@@ -2776,6 +3117,7 @@ class Fill:
     qty: int
     price: float
     ts: datetime
+    fee: float = 0.0  # 수수료 + 세금 (원)
 
 
 @dataclass
@@ -2797,6 +3139,7 @@ class Order:
     est_margin: float = 0.0
     reject_reason: str = ""
     strategy_tag: str = ""
+    trader: str = ""  # 주문을 낸 사용자
     events: list[OrderEvent] = field(default_factory=list)
 
     @property
@@ -2819,7 +3162,8 @@ class Position:
     symbol: str
     qty: int = 0
     avg_price: float = 0.0
-    realized_pnl: float = 0.0
+    realized_pnl: float = 0.0  # 비용 차감 전
+    fees: float = 0.0  # 누적 수수료 + 세금
 
     def apply_fill(self, side: Side, qty: int, price: float, multiplier: float) -> float:
         """평균단가 방식으로 체결을 반영하고, 이번 체결로 실현된 손익을 돌려준다."""
@@ -2888,6 +3232,8 @@ class RiskLimits:
     max_daily_loss: float = 50_000_000  # 일일 손실 한도
     warn_ratio: float = 0.8  # 한도 대비 이 비율 이상이면 경고 알림
     restricted_symbols: frozenset[str] = field(default_factory=frozenset)
+    margin_offset_enabled: bool = True  # 지수선물 ↔ 구성종목 헤지 증거금 상계
+    margin_offset_pct: float = 70.0  # 헤지된 선물 증거금 감면율 (%)
 
 
 @dataclass
@@ -2897,7 +3243,9 @@ class Exposure:
     symbol_qty: dict[str, int]
     symbol_notional: dict[str, float]
     gross: float
-    margin: float
+    margin: float  # 상계 후 순증거금
+    margin_gross: float = 0.0  # 상계 전 증거금
+    hedge_credit: float = 0.0  # 헤지 상계액
 
 
 @dataclass
@@ -3032,6 +3380,309 @@ def pre_trade_checks(
         )
     )
     return results
+```
+
+### `rfl_oms/storage.py`
+
+```python
+"""SQLite 저장소.
+
+두 층으로 저장한다.
+1) 조회용 장부 테이블: users, auth_log, orders, fills, positions, audit, alerts
+   — 외부 도구(SQL)로 그대로 조회·검증할 수 있다.
+2) 엔진 스냅샷(state 테이블): 시장·알고·바스켓·차익 상태까지 정확히 복원하기 위한 직렬화 데이터.
+
+스냅샷은 pickle 형식이므로 이 프로그램이 만든 DB 파일만 사용해야 한다(외부에서 받은 DB를 열지 말 것).
+"""
+
+from __future__ import annotations
+
+import pickle
+import sqlite3
+import threading
+from datetime import datetime
+from pathlib import Path
+
+from .auth import (
+    MAX_FAILED,
+    AuthError,
+    Role,
+    User,
+    hash_password,
+    lock_until,
+    validate_new_password,
+    validate_username,
+    verify_password,
+)
+from .engine import OMS
+
+STATE_VERSION = 4  # 엔진 구조가 바뀌면 올린다 (다른 버전 스냅샷은 복원하지 않음)
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    pw_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL, username TEXT, event TEXT NOT NULL, detail TEXT
+);
+CREATE TABLE IF NOT EXISTS orders (
+    order_id TEXT PRIMARY KEY,
+    created_at TEXT, symbol TEXT, side TEXT, order_type TEXT, tif TEXT,
+    qty INTEGER, limit_price REAL, status TEXT, filled_qty INTEGER, avg_fill_price REAL,
+    trader TEXT, strategy_tag TEXT, venue TEXT, reject_reason TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS fills (
+    seq INTEGER PRIMARY KEY,
+    ts TEXT, order_id TEXT, symbol TEXT, side TEXT, qty INTEGER, price REAL, fee REAL
+);
+CREATE TABLE IF NOT EXISTS positions (
+    symbol TEXT PRIMARY KEY,
+    qty INTEGER, avg_price REAL, realized_pnl REAL, fees REAL, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS audit (
+    seq INTEGER PRIMARY KEY,
+    ts TEXT, order_id TEXT, event TEXT, detail TEXT, actor TEXT
+);
+CREATE TABLE IF NOT EXISTS alerts (
+    seq INTEGER PRIMARY KEY,
+    ts TEXT, level TEXT, category TEXT, message TEXT
+);
+CREATE TABLE IF NOT EXISTS state (
+    key TEXT PRIMARY KEY, value BLOB, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_order ON audit(order_id);
+CREATE INDEX IF NOT EXISTS idx_fills_order ON fills(order_id);
+"""
+
+
+def _ts(dt: datetime | None) -> str | None:
+    return dt.isoformat(timespec="milliseconds") if dt else None
+
+
+class Store:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA foreign_keys=ON")
+        self._lock = threading.RLock()
+        with self._lock:
+            self._conn.executescript(SCHEMA)
+
+    def close(self) -> None:
+        self._conn.close()
+
+    def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+        with self._lock:
+            cur = self._conn.execute(sql, params)
+            cur.row_factory = sqlite3.Row
+            return cur.fetchall()
+
+    # ============================ 엔진 저장·복원 ============================
+    def _count(self, table: str) -> int:
+        return self._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608 (내부 상수 테이블명)
+
+    def save(self, oms: OMS) -> None:
+        """장부 테이블에 새 변경분을 반영하고 엔진 스냅샷을 갱신한다 (하나의 트랜잭션)."""
+        now = _ts(datetime.now())
+        with self._lock:
+            c = self._conn
+            c.execute("BEGIN IMMEDIATE")
+            try:
+                dirty = [oms.orders[i] for i in sorted(oms._dirty_orders) if i in oms.orders]
+                c.executemany(
+                    """INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT(order_id) DO UPDATE SET
+                         qty=excluded.qty, limit_price=excluded.limit_price, status=excluded.status,
+                         filled_qty=excluded.filled_qty, avg_fill_price=excluded.avg_fill_price,
+                         venue=excluded.venue, reject_reason=excluded.reject_reason, updated_at=excluded.updated_at""",
+                    [
+                        (
+                            o.order_id, _ts(o.created_at), o.symbol, o.side.value, o.order_type.value, o.tif.value,
+                            o.qty, o.limit_price, o.status.value, o.filled_qty, o.avg_fill_price,
+                            o.trader, o.strategy_tag, o.venue, o.reject_reason, now,
+                        )
+                        for o in dirty
+                    ],
+                )
+                n = self._count("fills")
+                c.executemany(
+                    "INSERT INTO fills VALUES (?,?,?,?,?,?,?,?)",
+                    [
+                        (n + k + 1, _ts(f.ts), f.order_id, f.symbol, f.side.value, f.qty, f.price, f.fee)
+                        for k, f in enumerate(oms.fills[n:])
+                    ],
+                )
+                n = self._count("audit")
+                c.executemany(
+                    "INSERT INTO audit VALUES (?,?,?,?,?,?)",
+                    [
+                        (n + k + 1, _ts(e.ts), e.order_id, e.event, e.detail, e.actor)
+                        for k, e in enumerate(oms.audit[n:])
+                    ],
+                )
+                n = self._count("alerts")
+                c.executemany(
+                    "INSERT INTO alerts VALUES (?,?,?,?,?)",
+                    [
+                        (n + k + 1, _ts(a.ts), a.level.value, a.category, a.message)
+                        for k, a in enumerate(oms.alerts[n:])
+                    ],
+                )
+                c.execute("DELETE FROM positions")
+                c.executemany(
+                    "INSERT INTO positions VALUES (?,?,?,?,?,?)",
+                    [
+                        (p.symbol, p.qty, p.avg_price, p.realized_pnl, p.fees, now)
+                        for p in oms.positions.values()
+                        if p.qty or p.realized_pnl or p.fees
+                    ],
+                )
+                oms._dirty_orders.clear()
+                blob = pickle.dumps(oms, protocol=pickle.HIGHEST_PROTOCOL)
+                c.execute(
+                    "INSERT INTO state VALUES ('oms', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+                    (blob, now),
+                )
+                c.execute(
+                    "INSERT INTO state VALUES ('version', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+                    (str(STATE_VERSION), now),
+                )
+                c.execute("COMMIT")
+            except Exception:
+                c.execute("ROLLBACK")
+                raise
+
+    def load(self) -> OMS | None:
+        """저장된 엔진을 복원한다. 없거나 버전이 다르면 None."""
+        with self._lock:
+            ver = self._conn.execute("SELECT value FROM state WHERE key='version'").fetchone()
+            row = self._conn.execute("SELECT value FROM state WHERE key='oms'").fetchone()
+        if not row or not ver or str(ver[0]) != str(STATE_VERSION):
+            return None
+        return pickle.loads(row[0])  # noqa: S301 (이 프로그램이 만든 로컬 DB만 사용)
+
+    def reset_trading(self) -> None:
+        """거래 데이터만 지운다 (사용자·로그인 기록은 유지)."""
+        with self._lock:
+            self._conn.executescript(
+                "BEGIN; DELETE FROM orders; DELETE FROM fills; DELETE FROM positions; "
+                "DELETE FROM audit; DELETE FROM alerts; DELETE FROM state; COMMIT;"
+            )
+
+    # ============================ 사용자 ============================
+    def has_users(self) -> bool:
+        with self._lock:
+            return self._conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None
+
+    def log_auth(self, username: str | None, event: str, detail: str = "") -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO auth_log (ts, username, event, detail) VALUES (?,?,?,?)",
+                (_ts(datetime.now()), username, event, detail),
+            )
+
+    def create_user(self, username: str, display_name: str, role: Role, password: str, by: str = "") -> User:
+        username = username.strip()
+        validate_username(username)
+        validate_new_password(password)
+        if not display_name.strip():
+            raise AuthError("이름을 입력하세요")
+        pw_hash, salt = hash_password(password)
+        with self._lock:
+            try:
+                self._conn.execute(
+                    "INSERT INTO users (username, display_name, role, pw_hash, salt, created_at) VALUES (?,?,?,?,?,?)",
+                    (username, display_name.strip(), role.value, pw_hash, salt, _ts(datetime.now())),
+                )
+            except sqlite3.IntegrityError as e:
+                raise AuthError("이미 있는 아이디입니다") from e
+        self.log_auth(username, "계정 생성", f"역할 {role.value}, 생성자 {by or '초기 설정'}")
+        return User(username, display_name.strip(), role)
+
+    def _row_to_user(self, r) -> User:
+        return User(r["username"], r["display_name"], Role(r["role"]), bool(r["active"]))
+
+    def get_user(self, username: str) -> User | None:
+        rows = self.query("SELECT * FROM users WHERE username=?", (username,))
+        return self._row_to_user(rows[0]) if rows else None
+
+    def list_users(self) -> list[sqlite3.Row]:
+        return self.query(
+            "SELECT username, display_name, role, active, failed_count, locked_until, created_at FROM users ORDER BY created_at"
+        )
+
+    def authenticate(self, username: str, password: str) -> User:
+        """성공하면 User, 실패하면 AuthError. 실패 횟수와 잠금을 관리한다."""
+        rows = self.query("SELECT * FROM users WHERE username=?", (username.strip(),))
+        if not rows:
+            self.log_auth(username, "로그인 실패", "없는 아이디")
+            raise AuthError("아이디 또는 비밀번호가 올바르지 않습니다")
+        r = rows[0]
+        now = datetime.now()
+        if r["locked_until"] and datetime.fromisoformat(r["locked_until"]) > now:
+            self.log_auth(username, "로그인 거부", "잠긴 계정")
+            raise AuthError("로그인 실패가 반복되어 잠긴 계정입니다. 잠시 후 다시 시도하거나 관리자에게 문의하세요")
+        if not r["active"]:
+            self.log_auth(username, "로그인 거부", "비활성 계정")
+            raise AuthError("비활성화된 계정입니다")
+        if not verify_password(password, r["pw_hash"], r["salt"]):
+            failed = r["failed_count"] + 1
+            locked = _ts(lock_until(now)) if failed >= MAX_FAILED else None
+            with self._lock:
+                self._conn.execute(
+                    "UPDATE users SET failed_count=?, locked_until=? WHERE username=?",
+                    (0 if locked else failed, locked, r["username"]),
+                )
+            self.log_auth(username, "로그인 실패", "비밀번호 불일치" + (" → 계정 잠금" if locked else f" ({failed}/{MAX_FAILED})"))
+            raise AuthError("아이디 또는 비밀번호가 올바르지 않습니다")
+        with self._lock:
+            self._conn.execute("UPDATE users SET failed_count=0, locked_until=NULL WHERE username=?", (r["username"],))
+        self.log_auth(r["username"], "로그인", "")
+        return self._row_to_user(r)
+
+    def update_user(self, username: str, *, role: Role | None = None, active: bool | None = None, by: str = "") -> None:
+        user = self.get_user(username)
+        if user is None:
+            raise AuthError("없는 사용자입니다")
+        new_role = role or user.role
+        new_active = user.active if active is None else active
+        if user.role is Role.ADMIN and (new_role is not Role.ADMIN or not new_active):
+            admins = self.query("SELECT COUNT(*) AS n FROM users WHERE role=? AND active=1", (Role.ADMIN.value,))[0]["n"]
+            if admins <= 1:
+                raise AuthError("마지막 활성 관리자는 역할을 바꾸거나 비활성화할 수 없습니다")
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET role=?, active=? WHERE username=?", (new_role.value, int(new_active), username)
+            )
+        self.log_auth(username, "계정 변경", f"역할 {new_role.value}, {'활성' if new_active else '비활성'}, 변경자 {by}")
+
+    def set_password(self, username: str, password: str, by: str = "") -> None:
+        validate_new_password(password)
+        pw_hash, salt = hash_password(password)
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE users SET pw_hash=?, salt=?, failed_count=0, locked_until=NULL WHERE username=?",
+                (pw_hash, salt, username),
+            )
+        if cur.rowcount == 0:
+            raise AuthError("없는 사용자입니다")
+        self.log_auth(username, "비밀번호 변경", f"변경자 {by}")
+
+    def unlock(self, username: str, by: str = "") -> None:
+        with self._lock:
+            self._conn.execute("UPDATE users SET failed_count=0, locked_until=NULL WHERE username=?", (username,))
+        self.log_auth(username, "잠금 해제", f"변경자 {by}")
 ```
 
 ### `stockbasic`
@@ -3502,7 +4153,8 @@ def test_arb_pnl_matches_positions(oms):
     pos, _ = oms.arb.enter(ArbDirection.BUY_ARB, 1)
     oms.step(3)
     # 이 계좌의 유일한 거래이므로 계좌 손익과 같아야 한다
-    assert oms.arb.pnl(pos) == pytest.approx(oms.daily_pnl())
+    assert oms.arb.pnl_net(pos) == pytest.approx(oms.daily_pnl())
+    assert oms.arb.fees(pos) > 0
 
 
 def test_arb_rejected_when_any_leg_fails_precheck(oms):
@@ -3577,10 +4229,483 @@ def test_pnl_history_recorded(oms):
     assert len(oms.pnl_history) == 6 and oms.pnl_history[-1][0] == 5
 ```
 
+### `tests/test_phase4.py`
+
+```python
+import pytest
+
+from rfl_oms import OMS, AlgoType, ArbDirection, MarketSim, RiskLimits, Side
+from rfl_oms.auth import ROLE_PERMS, AuthError, Perm, Role
+from rfl_oms.fees import FeeSchedule
+from rfl_oms.models import OrderType
+from rfl_oms.storage import Store
+
+BIG = 10**13
+
+
+@pytest.fixture
+def oms():
+    return OMS(market=MarketSim(seed=31))
+
+
+@pytest.fixture
+def store(tmp_path):
+    s = Store(tmp_path / "t.db")
+    yield s
+    s.close()
+
+
+def roomy(oms):
+    oms.limits = RiskLimits(
+        capital=BIG, max_order_qty=10**9, max_order_notional=BIG, max_position_notional=BIG, max_gross_exposure=BIG
+    )
+
+
+# ------------------------------ 거래비용 ------------------------------
+def test_fees_per_fill_and_net_pnl(oms):
+    buy = oms.submit("005930", Side.BUY, OrderType.MARKET, 100)
+    sell = oms.submit("005930", Side.SELL, OrderType.MARKET, 100)
+    f_buy, f_sell = oms.fills[0], oms.fills[1]
+    assert f_buy.fee == pytest.approx(100 * buy.avg_fill_price * 1.0 / 1e4)  # 수수료 1bp
+    assert f_sell.fee == pytest.approx(100 * sell.avg_fill_price * 16.0 / 1e4)  # 수수료 1bp + 매도세 15bp
+    gross = oms.realized_pnl()
+    assert oms.daily_pnl() == pytest.approx(gross - f_buy.fee - f_sell.fee)
+    assert oms.positions["005930"].fees == pytest.approx(f_buy.fee + f_sell.fee)
+
+
+def test_futures_fee_and_disable(oms):
+    o = oms.submit("K200F", Side.BUY, OrderType.MARKET, 1)
+    assert oms.fills[-1].fee == pytest.approx(o.avg_fill_price * 250_000 * 0.3 / 1e4)
+    oms.set_fees(FeeSchedule(enabled=False))
+    oms.submit("K200F", Side.SELL, OrderType.MARKET, 1)
+    assert oms.fills[-1].fee == 0
+    assert any(e.event == "수수료 변경" for e in oms.audit)
+
+
+def test_fees_count_toward_loss_limit():
+    oms = OMS(market=MarketSim(seed=1), limits=RiskLimits(max_daily_loss=100_000))
+    for _ in range(3):
+        oms.submit("005930", Side.BUY, OrderType.MARKET, 1_000)
+        oms.submit("005930", Side.SELL, OrderType.MARKET, 1_000)
+    assert oms.daily_pnl() < -100_000  # 왕복 비용 + 스프레드로 손실 한도 초과
+    blocked = oms.submit("005930", Side.BUY, OrderType.MARKET, 10)
+    assert "일일 손실" in blocked.reject_reason
+
+
+# ------------------------------ 헤지 증거금 상계 ------------------------------
+def test_hedge_credit_reduces_margin(oms):
+    roomy(oms)
+    pos, _ = oms.arb.enter(ArbDirection.SELL_ARB, 1)
+    mb = oms.margin_breakdown()
+    fut_margin = abs(oms.positions["K200F"].qty) * oms.market.mark("K200F") * 250_000 * 0.10
+    assert mb["헤지 상계"] == pytest.approx(min(fut_margin, mb["헤지 상계"] / 0.7 * 0.7))
+    assert 0 < mb["헤지 상계"] <= fut_margin * 0.7 + 1
+    assert mb["순증거금"] == pytest.approx(mb["상계 전"] - mb["헤지 상계"])
+    oms.limits.margin_offset_enabled = False
+    assert oms.margin_breakdown()["헤지 상계"] == 0
+
+
+def test_no_credit_for_same_direction(oms):
+    roomy(oms)
+    oms.submit("K200F", Side.BUY, OrderType.MARKET, 1)
+    oms.submit("005930", Side.BUY, OrderType.MARKET, 1_000)
+    assert oms.margin_breakdown()["헤지 상계"] == 0
+
+
+def test_working_order_that_breaks_hedge_removes_credit(oms):
+    roomy(oms)
+    oms.arb.enter(ArbDirection.SELL_ARB, 1)
+    with_credit = oms.exposure().hedge_credit
+    assert with_credit > 0
+    # 선물을 되사는 미체결 주문이 있으면 헤지가 깨질 수 있으므로 상계를 인정하지 않는다
+    bid = oms.market.quote("K200F").bid
+    oms.submit("K200F", Side.BUY, OrderType.LIMIT, 1, limit_price=round(bid - 1.0, 2))
+    assert oms.exposure().hedge_credit == 0
+
+
+def test_hedge_credit_frees_room_for_orders():
+    lim = dict(max_order_qty=10**9, max_order_notional=BIG, max_position_notional=BIG, max_gross_exposure=BIG)
+    a = OMS(market=MarketSim(seed=4), limits=RiskLimits(capital=200_000_000, **lim))
+    a.arb.enter(ArbDirection.SELL_ARB, 1)
+    b = OMS(market=MarketSim(seed=4), limits=RiskLimits(capital=200_000_000, margin_offset_enabled=False, **lim))
+    b.arb.enter(ArbDirection.SELL_ARB, 1)
+    assert a.exposure().margin < b.exposure().margin
+
+
+# ------------------------------ 행위자 기록 ------------------------------
+def test_actor_recorded_on_orders_algos_and_system_events(oms):
+    roomy(oms)
+    with oms.acting("kim"):
+        o = oms.submit("005930", Side.BUY, OrderType.MARKET, 10)
+        algo = oms.algos.start("000660", Side.BUY, 300, AlgoType.TWAP, duration=3)
+    oms.step(3)  # 틱 처리 중의 자식 주문은 알고를 시작한 사용자로 기록
+    with oms.acting("risk1"):
+        oms.set_kill_switch(True)
+        oms.set_kill_switch(False)
+    assert o.trader == "kim" and all(e.actor == "kim" for e in o.events)
+    assert all(oms.orders[i].trader == "kim" for i in algo.child_ids) and algo.child_ids
+    ks = [e for e in oms.audit if e.event == "킬 스위치"]
+    assert len(ks) == 2 and all(e.actor == "risk1" and e.order_id == "-" for e in ks)
+
+
+def test_set_limits_is_audited(oms):
+    with oms.acting("risk1"):
+        oms.set_limits(RiskLimits(max_order_qty=500))
+    ev = [e for e in oms.audit if e.event == "한도 변경"][-1]
+    assert "max_order_qty: 10000 → 500" in ev.detail and ev.actor == "risk1"
+
+
+# ------------------------------ 권한 ------------------------------
+def test_segregation_of_duties():
+    assert Perm.TRADE in ROLE_PERMS[Role.TRADER]
+    assert Perm.TRADE not in ROLE_PERMS[Role.RISK] and Perm.TRADE not in ROLE_PERMS[Role.ADMIN]
+    assert Perm.SET_LIMITS in ROLE_PERMS[Role.RISK] and Perm.SET_LIMITS not in ROLE_PERMS[Role.TRADER]
+    assert Perm.MANAGE_USERS in ROLE_PERMS[Role.ADMIN] and Perm.MANAGE_USERS not in ROLE_PERMS[Role.RISK]
+
+
+# ------------------------------ 사용자·로그인 ------------------------------
+def test_create_and_authenticate(store):
+    assert not store.has_users()
+    store.create_user("admin", "관리자", Role.ADMIN, "Secret123")
+    assert store.has_users()
+    u = store.authenticate("admin", "Secret123")
+    assert u.role is Role.ADMIN and u.can(Perm.MANAGE_USERS)
+    row = store.query("SELECT pw_hash, salt FROM users WHERE username='admin'")[0]
+    assert "Secret123" not in row["pw_hash"] and len(row["salt"]) == 32
+
+
+def test_password_policy_and_duplicates(store):
+    with pytest.raises(AuthError):
+        store.create_user("a", "A", Role.TRADER, "short1")
+    with pytest.raises(AuthError):
+        store.create_user("a", "A", Role.TRADER, "onlyletters")
+    with pytest.raises(AuthError):
+        store.create_user("bad name", "A", Role.TRADER, "Passw0rd!")
+    store.create_user("a", "A", Role.TRADER, "Passw0rd1")
+    with pytest.raises(AuthError):
+        store.create_user("a", "A2", Role.TRADER, "Passw0rd1")
+
+
+def test_lockout_after_failures(store):
+    store.create_user("t1", "트레이더", Role.TRADER, "Passw0rd1")
+    for _ in range(5):
+        with pytest.raises(AuthError):
+            store.authenticate("t1", "wrong-pass1")
+    with pytest.raises(AuthError, match="잠긴"):
+        store.authenticate("t1", "Passw0rd1")  # 맞는 비밀번호도 잠금 중에는 거부
+    store.unlock("t1", by="admin")
+    assert store.authenticate("t1", "Passw0rd1").username == "t1"
+    events = [r["event"] for r in store.query("SELECT event FROM auth_log WHERE username='t1'")]
+    assert events.count("로그인 실패") == 5 and "로그인 거부" in events and "잠금 해제" in events
+
+
+def test_deactivate_and_last_admin_protected(store):
+    store.create_user("admin", "관리자", Role.ADMIN, "Secret123")
+    store.create_user("t1", "트레이더", Role.TRADER, "Passw0rd1")
+    store.update_user("t1", active=False, by="admin")
+    with pytest.raises(AuthError, match="비활성"):
+        store.authenticate("t1", "Passw0rd1")
+    with pytest.raises(AuthError, match="마지막"):
+        store.update_user("admin", role=Role.TRADER)
+    store.create_user("admin2", "관리자2", Role.ADMIN, "Secret123")
+    store.update_user("admin", role=Role.RISK, by="admin2")
+    assert store.get_user("admin").role is Role.RISK
+
+
+def test_password_change(store):
+    store.create_user("t1", "트레이더", Role.TRADER, "Passw0rd1")
+    store.set_password("t1", "NewPass99", by="admin")
+    with pytest.raises(AuthError):
+        store.authenticate("t1", "Passw0rd1")
+    assert store.authenticate("t1", "NewPass99")
+
+
+# ------------------------------ 저장·복원 ------------------------------
+def test_roundtrip_restores_full_engine(store, oms):
+    roomy(oms)
+    with oms.acting("kim"):
+        oms.submit("005930", Side.BUY, OrderType.MARKET, 100)
+        q = oms.market.quote("000660")
+        resting = oms.submit("000660", Side.BUY, OrderType.LIMIT, 5, limit_price=q.bid - 5_000)
+        algo = oms.algos.start("005380", Side.BUY, 200, AlgoType.TWAP, duration=10)
+        oms.arb.enter(ArbDirection.SELL_ARB, 1)
+    oms.step(3)
+    store.save(oms)
+
+    restored = store.load()
+    assert restored is not None
+    assert restored.market.tick_no == 3
+    assert restored.orders[resting.order_id].status.is_open
+    assert restored.daily_pnl() == pytest.approx(oms.daily_pnl())
+    assert {s: p.qty for s, p in restored.positions.items()} == {s: p.qty for s, p in oms.positions.items()}
+    # 복원 후에도 알고가 이어서 동작한다
+    restored.step(7)
+    assert restored.algos.filled(restored.algos.algos[algo.algo_id]) == 200
+
+
+def test_ledger_tables_match_engine(store, oms):
+    with oms.acting("kim"):
+        oms.submit("005930", Side.BUY, OrderType.MARKET, 100)
+        oms.submit("005930", Side.SELL, OrderType.MARKET, 40)
+    store.save(oms)
+    oms.step(2)
+    with oms.acting("kim"):
+        oms.submit("GOLD", Side.BUY, OrderType.MARKET, 3)
+    store.save(oms)  # 두 번째 저장은 증분만 추가
+    assert store.query("SELECT COUNT(*) n FROM orders")[0]["n"] == len(oms.orders)
+    assert store.query("SELECT COUNT(*) n FROM fills")[0]["n"] == len(oms.fills)
+    assert store.query("SELECT COUNT(*) n FROM audit")[0]["n"] == len(oms.audit)
+    assert store.query("SELECT COUNT(*) n FROM alerts")[0]["n"] == len(oms.alerts)
+    fee_sum = store.query("SELECT SUM(fee) s FROM fills")[0]["s"]
+    assert fee_sum == pytest.approx(oms.total_fees())
+    pos = {r["symbol"]: r["qty"] for r in store.query("SELECT symbol, qty FROM positions")}
+    assert pos == {"005930": 60, "GOLD": 3}
+    assert {r["trader"] for r in store.query("SELECT trader FROM orders")} == {"kim"}
+
+
+def test_order_status_updates_are_upserted(store, oms):
+    q = oms.market.quote("005930")
+    o = oms.submit("005930", Side.BUY, OrderType.LIMIT, 10, limit_price=q.bid - 500)
+    store.save(oms)
+    oms.cancel(o.order_id)
+    store.save(oms)
+    row = store.query("SELECT status FROM orders WHERE order_id=?", (o.order_id,))[0]
+    assert row["status"] == "취소"
+
+
+def test_reset_keeps_users(store, oms):
+    store.create_user("admin", "관리자", Role.ADMIN, "Secret123")
+    oms.submit("005930", Side.BUY, OrderType.MARKET, 1)
+    store.save(oms)
+    store.reset_trading()
+    assert store.load() is None and store.has_users()
+    assert store.query("SELECT COUNT(*) n FROM orders")[0]["n"] == 0
+```
+
+### `tools/build_record.py`
+
+```python
+"""docs/RFL_OMS_전체기록.md 생성기.
+
+docs/_record_header.md(설명 부분) 뒤에 저장소가 추적하는 모든 파일을 원문 그대로 붙인다.
+실행: python tools/build_record.py
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+HEADER = ROOT / "docs" / "_record_header.md"
+OUT = ROOT / "docs" / "RFL_OMS_전체기록.md"
+LANG = {".py": "python", ".md": "markdown", ".txt": "text"}
+SKIP = {"docs/RFL_OMS_전체기록.md", "docs/_record_header.md"}  # 자기 자신과 설명 원본은 제외
+
+
+def tracked_files() -> list[str]:
+    out = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
+    return [f for f in out.decode("utf-8").split("\0") if f and f not in SKIP]
+
+
+def fence_for(text: str) -> str:
+    runs = [len(m) for m in re.findall(r"`+", text)] or [0]
+    return "`" * max(3, max(runs) + 1)
+
+
+def build() -> str:
+    parts = [HEADER.read_text(encoding="utf-8"), "\n### 수록 파일 목록\n"]
+    bodies = []
+    for f in tracked_files():
+        text = (ROOT / f).read_text(encoding="utf-8")
+        lines = text.count("\n") + (0 if text.endswith("\n") or not text else 1)
+        parts.append(f"- `{f}` ({lines}줄)")
+        suffix = Path(f).suffix
+        note = "\n(기존 파일 — 내용은 줄바꿈 1개뿐인 빈 파일입니다)\n" if not text.strip() else ""
+        fence = fence_for(text)
+        bodies.append(f"\n### `{f}`\n{note}\n{fence}{LANG.get(suffix, '')}\n{text.rstrip(chr(10))}\n{fence}\n")
+    parts.append("")
+    return "\n".join(parts) + "".join(bodies)
+
+
+def verify(doc: str) -> list[str]:
+    """문서에서 각 파일을 다시 추출해 원본과 비교한다."""
+    appendix = doc.split("## 9. 부록: 전체 소스코드", 1)[1]
+    bad = []
+    for f in tracked_files():
+        text = (ROOT / f).read_text(encoding="utf-8").rstrip("\n")
+        if not text.strip():
+            continue
+        m = re.search(r"\n### `" + re.escape(f) + r"`\n\n(`{3,})[a-z]*\n(.*?)\n\1\n", appendix, re.S)
+        if not m or m.group(2) != text:
+            bad.append(f)
+    return bad
+
+
+if __name__ == "__main__":
+    doc = build()
+    OUT.write_text(doc, encoding="utf-8")
+    bad = verify(doc)
+    print(f"{OUT.relative_to(ROOT)}: {doc.count(chr(10))}줄, 파일 {len(tracked_files())}개, 불일치 {len(bad)}개")
+    sys.exit(1 if bad else 0)
+```
+
 ### `views/__init__.py`
 
 ```python
 """RFL OMS Streamlit 화면 구성 요소."""
+```
+
+### `views/admin_view.py`
+
+```python
+"""관리 탭: 사용자 관리, 수수료 설정, 로그인 기록, 데이터베이스, 시스템 초기화."""
+
+from __future__ import annotations
+
+import pandas as pd
+import streamlit as st
+
+from rfl_oms import OMS
+from rfl_oms.auth import MIN_PASSWORD_LEN, ROLE_PERMS, AuthError, Perm, Role
+from rfl_oms.fees import FeeSchedule
+
+from .common import can, current_user
+from .runtime import runtime
+
+
+def users_section() -> None:
+    store = runtime().store
+    me = current_user()
+    rows = store.list_users()
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "아이디": r["username"],
+                    "이름": r["display_name"],
+                    "역할": r["role"],
+                    "상태": "활성" if r["active"] else "비활성",
+                    "잠금": "잠김" if r["locked_until"] else "",
+                    "생성": r["created_at"][:16].replace("T", " "),
+                }
+                for r in rows
+            ]
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**사용자 추가**")
+        with st.form("new_user", clear_on_submit=True):
+            username = st.text_input("아이디")
+            name = st.text_input("이름")
+            role = st.selectbox("역할", list(Role), format_func=lambda r: r.value)
+            pw = st.text_input(f"초기 비밀번호 ({MIN_PASSWORD_LEN}자 이상, 문자+숫자)", type="password")
+            if st.form_submit_button("추가", type="primary"):
+                try:
+                    store.create_user(username, name, role, pw, by=me.username)
+                    st.toast(f"{username} 추가")
+                    st.rerun()
+                except AuthError as e:
+                    st.error(str(e))
+    with c2:
+        st.markdown("**사용자 변경**")
+        names = [r["username"] for r in rows]
+        target = st.selectbox("대상", names, key="admin_target")
+        u = store.get_user(target)
+        if u:
+            with st.form("edit_user"):
+                role = st.selectbox("역할", list(Role), index=list(Role).index(u.role), format_func=lambda r: r.value)
+                active = st.checkbox("활성", value=u.active)
+                new_pw = st.text_input("비밀번호 재설정 (비우면 유지)", type="password")
+                if st.form_submit_button("저장"):
+                    try:
+                        if target == me.username and (role is not Role.ADMIN or not active):
+                            raise AuthError("자기 자신의 관리자 권한은 해제할 수 없습니다")
+                        store.update_user(target, role=role, active=active, by=me.username)
+                        if new_pw:
+                            store.set_password(target, new_pw, by=me.username)
+                        st.toast("저장했습니다")
+                        st.rerun()
+                    except AuthError as e:
+                        st.error(str(e))
+            if st.button("잠금 해제", key="unlock_btn"):
+                store.unlock(target, by=me.username)
+                st.toast(f"{target} 잠금 해제")
+                st.rerun()
+
+    with st.expander("역할별 권한"):
+        st.dataframe(
+            pd.DataFrame(
+                [{"권한": p.value, **{r.value: "✅" if p in ROLE_PERMS[r] else "" for r in Role}} for p in Perm]
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption("업무 분리: 주문은 트레이더만, 한도 변경은 리스크 관리자만, 사용자 관리는 관리자만 할 수 있습니다.")
+
+
+def fees_section(oms: OMS) -> None:
+    f = oms.fees
+    with st.form("fees"):
+        enabled = st.checkbox("거래비용 반영", value=f.enabled)
+        c = st.columns(4)
+        eq = c[0].number_input("주식 수수료(bp)", 0.0, 100.0, f.equity_commission_bps, 0.1)
+        tax = c[1].number_input("주식 매도세(bp)", 0.0, 100.0, f.equity_sell_tax_bps, 0.5, help="시뮬레이션 가정값입니다. 실제 세율로 조정하세요.")
+        gold = c[2].number_input("금 현물 수수료(bp)", 0.0, 100.0, f.gold_commission_bps, 0.1)
+        fut = c[3].number_input("선물 수수료(bp)", 0.0, 100.0, f.futures_commission_bps, 0.05)
+        if st.form_submit_button("수수료 저장"):
+            oms.set_fees(FeeSchedule(enabled, eq, tax, gold, fut))
+            st.success("저장했습니다 (이후 체결부터 적용)")
+
+
+def db_section(oms: OMS) -> None:
+    rt = runtime()
+    store = rt.store
+    counts = {t: store.query(f"SELECT COUNT(*) n FROM {t}")[0]["n"] for t in ("orders", "fills", "positions", "audit", "alerts", "users", "auth_log")}  # noqa: S608
+    st.caption(f"DB 파일: `{store.path}` · 시작 시 {'저장된 상태를 복원함' if rt.restored else '새로 시작함'}")
+    st.dataframe(pd.DataFrame([counts]), hide_index=True, width="stretch")
+
+
+def auth_log_section() -> None:
+    rows = runtime().store.query("SELECT ts, username, event, detail FROM auth_log ORDER BY id DESC LIMIT 300")
+    st.dataframe(
+        pd.DataFrame([dict(r) for r in rows]).rename(columns={"ts": "시각", "username": "아이디", "event": "이벤트", "detail": "내용"}),
+        hide_index=True,
+        width="stretch",
+    )
+
+
+def reset_section() -> None:
+    st.warning("모든 주문·체결·포지션·감사 로그·알고·바스켓·차익 기록을 지우고 새 시장으로 시작합니다. 사용자 계정과 로그인 기록은 유지됩니다.")
+    confirm = st.text_input("확인하려면 '초기화'를 입력하세요", key="reset_confirm")
+    if st.button("거래 데이터 초기화", type="primary", disabled=confirm != "초기화"):
+        rt = runtime()
+        rt.reset_trading()
+        rt.store.log_auth(current_user().username, "시스템 초기화", "거래 데이터 삭제")
+        st.success("초기화했습니다")
+        st.rerun()
+
+
+def admin_view(oms: OMS) -> None:
+    if can(Perm.MANAGE_USERS):
+        st.markdown("#### 사용자")
+        users_section()
+    if can(Perm.SET_FEES):
+        st.markdown("#### 거래비용")
+        fees_section(oms)
+    if can(Perm.MANAGE_USERS):
+        st.markdown("#### 데이터베이스")
+        db_section(oms)
+        with st.expander("로그인 기록"):
+            auth_log_section()
+    if can(Perm.RESET_SYSTEM):
+        with st.expander("시스템 초기화"):
+            reset_section()
 ```
 
 ### `views/algo_view.py`
@@ -3597,7 +4722,9 @@ import streamlit as st
 from rfl_oms import OMS, AlgoType, Side
 from rfl_oms.algo import ALGO_DESCRIPTIONS
 
-from .common import NUM, PCT, fmt_price, symbol_label
+from rfl_oms.auth import Perm
+
+from .common import NUM, PCT, can, can_manage, fmt_price, need, symbol_label
 
 
 def new_algo_form(oms: OMS) -> None:
@@ -3621,7 +4748,10 @@ def new_algo_form(oms: OMS) -> None:
             key=f"algo_px_{symbol}",
         )
         st.caption(" · ".join(f"**{k.value}** {v}" for k, v in ALGO_DESCRIPTIONS.items()))
-        if st.form_submit_button("알고 시작", type="primary", width="stretch"):
+        if st.form_submit_button(
+            "알고 시작", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+            help=None if can(Perm.TRADE) else need(Perm.TRADE),
+        ):
             algo = oms.algos.start(
                 symbol,
                 side,
@@ -3665,6 +4795,7 @@ def algos_frame(oms: OMS) -> pd.DataFrame:
                 "구간 VWAP 대비(bp)": round(vw, 1) if vw is not None else None,
                 "자식 주문": len(a.child_ids),
                 "바스켓": a.strategy_tag,
+                "실행자": a.actor,
                 "사유": a.halt_reason,
             }
         )
@@ -3675,13 +4806,14 @@ def algo_detail(oms: OMS, algo_id: str) -> None:
     ae = oms.algos
     a = ae.algos[algo_id]
     c = st.columns(4)
-    if c[0].button("일시정지", width="stretch", disabled=a.status.value != "실행중"):
+    mine = can(Perm.TRADE) and can_manage(a.actor)
+    if c[0].button("일시정지", width="stretch", disabled=a.status.value != "실행중" or not can_manage(a.actor)):
         ae.pause(algo_id)
         st.rerun()
-    if c[1].button("재개", width="stretch", disabled=a.status.value != "일시정지"):
+    if c[1].button("재개", width="stretch", disabled=a.status.value != "일시정지" or not mine):
         ae.resume(algo_id)
         st.rerun()
-    if c[2].button("취소", width="stretch", disabled=not a.status.is_active):
+    if c[2].button("취소", width="stretch", disabled=not a.status.is_active or not can_manage(a.actor)):
         ae.cancel(algo_id)
         st.rerun()
     info = f"제한가 **{fmt_price(oms, a.symbol, a.limit_price) if a.limit_price else '없음'}**"
@@ -3759,7 +4891,9 @@ import streamlit as st
 
 from rfl_oms import OMS, ArbDirection, ExecMode
 
-from .common import NUM, krw
+from rfl_oms.auth import Perm
+
+from .common import NUM, can, can_manage, current_user, krw, need
 
 
 def settings_panel(oms: OMS) -> None:
@@ -3841,9 +4975,12 @@ def positions_table(oms: OMS) -> None:
                 "진입 괴리(pt)": round(p.entry.mispricing, 3),
                 "청산 괴리(pt)": round(p.exit.mispricing, 3) if p.exit else None,
                 "손익(비용 전)": round(arb.pnl(p)),
+                "비용": round(arb.fees(p)),
+                "순손익": round(arb.pnl_net(p)),
                 "선물 명목": round(fut),
                 "현물 명목": round(stock),
                 "헤지 잔차": round(fut + stock),
+                "진입자": p.owner,
                 "메모": p.note,
             }
         )
@@ -3851,9 +4988,9 @@ def positions_table(oms: OMS) -> None:
         pd.DataFrame(rows),
         hide_index=True,
         width="stretch",
-        column_config={k: NUM for k in ["손익(비용 전)", "선물 명목", "현물 명목", "헤지 잔차"]},
+        column_config={k: NUM for k in ["손익(비용 전)", "비용", "순손익", "선물 명목", "현물 명목", "헤지 잔차"]},
     )
-    open_ids = [p.arb_id for p in arb.open_positions()]
+    open_ids = [p.arb_id for p in arb.open_positions() if can_manage(p.owner.removesuffix("(자동)"))]
     if open_ids:
         c = st.columns([2, 1, 1])
         sel = c[0].selectbox("청산할 포지션", open_ids, label_visibility="collapsed")
@@ -3914,26 +5051,133 @@ def arb_view(oms: OMS) -> None:
     s = arb.settings
     c = st.columns([1, 1.2, 1.2, 1.4])
     s.contracts = int(c[0].number_input("계약 수", 1, 100, s.contracts))
+    trade_ok = can(Perm.TRADE)
+    tip = None if trade_ok else need(Perm.TRADE)
     hot_sell = snap.sell_edge >= s.entry_edge_pts
     hot_buy = snap.buy_edge >= s.entry_edge_pts
     c[1].write("")
     if c[1].button("매도차익 진입" + (" 🔥" if hot_sell else ""), width="stretch", type="primary" if hot_sell else "secondary",
-                   help="선물 매도 + 현물 바스켓 매수"):
+                   help=tip or "선물 매도 + 현물 바스켓 매수", disabled=not trade_ok):
         pos, problems = arb.enter(ArbDirection.SELL_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[2].write("")
     if c[2].button("매수차익 진입" + (" 🔥" if hot_buy else ""), width="stretch", type="primary" if hot_buy else "secondary",
-                   help="선물 매수 + 현물 바스켓 매도(대차 매도 가정)"):
+                   help=tip or "선물 매수 + 현물 바스켓 매도(대차 매도 가정)", disabled=not trade_ok):
         pos, problems = arb.enter(ArbDirection.BUY_ARB)
         (st.success(f"{pos.arb_id} 진입") if pos else st.error("진입 거부: " + "; ".join(problems[:3])))
     c[3].write("")
-    s.auto = c[3].toggle("자동 차익 (진입·청산)", value=s.auto, help="시장이 진행될 때 기준을 넘으면 자동 진입, 괴리가 수렴하면 자동 청산")
+    auto = c[3].toggle(
+        "자동 차익 (진입·청산)", value=s.auto, disabled=not trade_ok,
+        help=tip or "시장이 진행될 때 기준을 넘으면 자동 진입, 괴리가 수렴하면 자동 청산. 자동 주문은 켠 사용자 이름으로 기록됩니다",
+    )
+    if trade_ok and auto != s.auto:
+        s.auto = auto
+        s.auto_owner = current_user().username
+        oms.system_event("자동 차익", "켜짐" if auto else "꺼짐")
+    if s.auto:
+        c[3].caption(f"자동 실행자: {s.auto_owner}")
 
     st.markdown("#### 차익 포지션")
     positions_table(oms)
     with st.expander("지수 구성 · 선물 1계약 복제 바스켓"):
         constituents_table(oms)
     st.caption("손익은 거래비용을 빼기 전 값입니다. 매수차익의 현물 매도는 대차(공매도)가 가능하다고 가정합니다.")
+```
+
+### `views/auth_view.py`
+
+```python
+"""로그인, 첫 관리자 생성, 내 비밀번호 변경."""
+
+from __future__ import annotations
+
+import streamlit as st
+
+from rfl_oms.auth import MIN_PASSWORD_LEN, AuthError, Role
+
+from .runtime import runtime
+
+
+def _setup_admin() -> None:
+    st.title("RFL OMS 초기 설정")
+    st.info("등록된 사용자가 없습니다. 첫 관리자 계정을 만드세요. 기본 계정이나 기본 비밀번호는 없습니다.")
+    with st.form("setup_admin"):
+        username = st.text_input("관리자 아이디", placeholder="예: admin")
+        name = st.text_input("이름")
+        pw = st.text_input(f"비밀번호 ({MIN_PASSWORD_LEN}자 이상, 문자와 숫자 포함)", type="password")
+        pw2 = st.text_input("비밀번호 확인", type="password")
+        if st.form_submit_button("관리자 계정 만들기", type="primary"):
+            if pw != pw2:
+                st.error("비밀번호 확인이 일치하지 않습니다")
+                return
+            try:
+                user = runtime().store.create_user(username, name, Role.ADMIN, pw)
+            except AuthError as e:
+                st.error(str(e))
+                return
+            st.session_state.username = user.username
+            st.rerun()
+
+
+def _login() -> None:
+    st.title("RFL OMS 로그인")
+    st.caption("주문관리 · 사전 리스크 점검 — 시세와 체결은 모두 시뮬레이션입니다.")
+    with st.form("login"):
+        username = st.text_input("아이디")
+        pw = st.text_input("비밀번호", type="password")
+        if st.form_submit_button("로그인", type="primary"):
+            try:
+                user = runtime().store.authenticate(username, pw)
+            except AuthError as e:
+                st.error(str(e))
+                return
+            st.session_state.username = user.username
+            st.rerun()
+
+
+def require_login():
+    """로그인한 User를 돌려준다. 아니면 로그인·설정 화면을 그리고 실행을 멈춘다."""
+    store = runtime().store
+    if not store.has_users():
+        _setup_admin()
+        st.stop()
+    username = st.session_state.get("username")
+    user = store.get_user(username) if username else None
+    if user is None or not user.active:
+        if user is not None:
+            st.warning("계정이 비활성화되어 로그아웃되었습니다.")
+        st.session_state.pop("username", None)
+        st.session_state.pop("user", None)
+        _login()
+        st.stop()
+    st.session_state.user = user
+    return user
+
+
+def account_sidebar(user) -> None:
+    st.sidebar.markdown(f"**{user.display_name}** · {user.role.value}")
+    st.sidebar.caption(f"아이디: {user.username}")
+    c1, c2 = st.sidebar.columns(2)
+    if c1.button("로그아웃", width="stretch"):
+        runtime().store.log_auth(user.username, "로그아웃")
+        st.session_state.pop("username", None)
+        st.session_state.pop("user", None)
+        st.rerun()
+    with c2.popover("비밀번호", width="stretch"):
+        with st.form("own_pw"):
+            cur = st.text_input("현재 비밀번호", type="password")
+            new = st.text_input("새 비밀번호", type="password")
+            new2 = st.text_input("새 비밀번호 확인", type="password")
+            if st.form_submit_button("변경"):
+                store = runtime().store
+                try:
+                    store.authenticate(user.username, cur)
+                    if new != new2:
+                        raise AuthError("새 비밀번호 확인이 일치하지 않습니다")
+                    store.set_password(user.username, new, by=user.username)
+                    st.success("비밀번호를 변경했습니다")
+                except AuthError as e:
+                    st.error(str(e))
 ```
 
 ### `views/basket_view.py`
@@ -3951,7 +5195,9 @@ import streamlit as st
 from rfl_oms import OMS, ExecMode, ExecParams
 from rfl_oms.basket import SIDE_ALIASES, normalize_symbol, sample_template
 
-from .common import NUM, PCT, krw, symbol_label
+from rfl_oms.auth import Perm
+
+from .common import NUM, PCT, can, can_manage, krw, need, symbol_label
 
 COLUMNS = ["종목코드", "구분", "수량", "비중(%)"]
 
@@ -4079,7 +5325,10 @@ def build_section(oms: OMS) -> None:
     if mode is ExecMode.MARKET:
         params.auto_retry = c[2].checkbox("잔량 자동 재전송", value=True, help="유동성 부족으로 남은 수량을 다음 틱에 최대 3회 재전송")
     c[4].write("")
-    if c[4].button("원클릭 실행", type="primary", width="stretch"):
+    if c[4].button(
+        "원클릭 실행", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+        help=None if can(Perm.TRADE) else need(Perm.TRADE),
+    ):
         b = bm.execute(name, lines, params)
         st.session_state.basket_sel = b.basket_id
         s = bm.summary(b)
@@ -4125,13 +5374,18 @@ def monitor_section(oms: OMS) -> None:
             "평가손익": NUM,
         },
     )
+    st.caption(f"실행자: {b.actor or '-'}")
+    mine = can(Perm.TRADE) and can_manage(b.actor)  # 재실행·정정은 실행한 트레이더만
     c = st.columns(3)
-    if c[0].button("미체결 전체 취소", width="stretch", key=f"bc_{bid}"):
+    if c[0].button("미체결 전체 취소", width="stretch", key=f"bc_{bid}", disabled=not can_manage(b.actor)):
         st.success(f"{bm.cancel(bid)}건 취소")
-    if c[1].button("잔량 재실행", width="stretch", key=f"br_{bid}", help="거부·취소·미체결로 남은 수량을 같은 방식으로 다시 보냅니다"):
+    if c[1].button(
+        "잔량 재실행", width="stretch", key=f"br_{bid}", disabled=not mine,
+        help="거부·취소·미체결로 남은 수량을 같은 방식으로 다시 보냅니다 (바스켓을 실행한 트레이더만)",
+    ):
         st.success(f"{bm.retry(bid)}종목 재전송")
     limit_mode = b.params.mode in (ExecMode.AGGRESSIVE, ExecMode.PASSIVE)
-    if c[2].button("현재 호가로 정정", width="stretch", key=f"bp_{bid}", disabled=not limit_mode):
+    if c[2].button("현재 호가로 정정", width="stretch", key=f"bp_{bid}", disabled=not (limit_mode and mine)):
         st.success(f"{bm.reprice(bid)}건 정정")
 
 
@@ -4168,12 +5422,45 @@ def fmt_price(oms: OMS, symbol: str, price: float | None) -> str:
 
 
 def krw(v: float) -> str:
-    """지표용 축약 표기: 1억 이상은 '억' 단위."""
-    return f"{v / 1e8:,.4f}억" if abs(v) >= 1e8 else f"{v:,.0f}"
+    """지표용 축약 표기: 1억 이상은 '억', 1만 이상은 '만' 단위."""
+    if abs(v) >= 1e8:
+        return f"{v / 1e8:,.4f}억"
+    if abs(v) >= 1e5:
+        return f"{v / 1e4:,.1f}만"
+    return f"{v:,.0f}"
 
 
 def symbol_label(oms: OMS, symbol: str) -> str:
     return f"{symbol} · {oms.instruments[symbol].name}"
+
+
+# ============================== 사용자·권한 ==============================
+def current_user():
+    """로그인한 사용자 (app.py가 매 실행마다 DB에서 다시 읽어 넣는다)."""
+    return st.session_state.get("user")
+
+
+def can(perm) -> bool:
+    u = current_user()
+    return bool(u and u.can(perm))
+
+
+def can_manage(owner: str) -> bool:
+    """정정·취소 권한: 리스크 관리자는 모든 것, 트레이더는 자기 것만."""
+    from rfl_oms.auth import Perm
+
+    u = current_user()
+    if u is None:
+        return False
+    return u.can(Perm.CANCEL_ANY) or (u.can(Perm.TRADE) and owner == u.username)
+
+
+def need(perm) -> str:
+    """권한이 없을 때 버튼 도움말로 쓸 문구."""
+    from rfl_oms.auth import ROLE_PERMS
+
+    roles = ", ".join(r.value for r, ps in ROLE_PERMS.items() if perm in ps)
+    return f"'{perm.value}' 권한이 필요합니다 ({roles})"
 ```
 
 ### `views/risk_view.py`
@@ -4217,6 +5504,7 @@ def limits_table(oms: OMS) -> None:
                 ("일일 손실 한도", f"{lim.max_daily_loss:,.0f}"),
                 ("경고 기준", f"{lim.warn_ratio:.0%}"),
                 ("거래 제한 종목", ", ".join(sorted(lim.restricted_symbols)) or "없음"),
+                ("헤지 증거금 상계", f"{'사용' if lim.margin_offset_enabled else '미사용'} · 감면율 {lim.margin_offset_pct:.0f}%"),
             ],
             columns=["항목", "값"],
         ),
@@ -4266,6 +5554,14 @@ def risk_view(oms: OMS) -> None:
     m[3].metric("주가 방향 순노출", krw(beta), help="주식 + 지수선물 순명목 (차익 포지션은 서로 상쇄)")
     loss_room = oms.limits.max_daily_loss + min(oms.daily_pnl(), 0)
     m[4].metric("남은 손실 여력", krw(loss_room))
+    mb = oms.margin_breakdown()
+    exp = oms.exposure()
+    m2 = st.columns(5)
+    m2[0].metric("증거금 (상계 전)", krw(mb["상계 전"]))
+    m2[1].metric("헤지 상계", krw(mb["헤지 상계"]), help="지수선물과 구성종목이 반대 방향일 때 헤지된 선물 증거금 감면")
+    m2[2].metric("순증거금", krw(mb["순증거금"]))
+    m2[3].metric("미체결 포함 순증거금", krw(exp.margin), help="미체결이 헤지를 깨는 경우까지 고려한 보수적 상계")
+    m2[4].metric("누적 수수료·세금", krw(oms.total_fees()))
     if var99.historical and var99.historical > loss_room:
         st.warning("1일 VaR 99%가 남은 손실 여력보다 큽니다. 포지션 축소를 검토하세요.", icon="⚠️")
 
@@ -4306,4 +5602,58 @@ def risk_view(oms: OMS) -> None:
     with c2:
         st.markdown("#### 적용 중인 한도")
         limits_table(oms)
+```
+
+### `views/runtime.py`
+
+```python
+"""공유 런타임: 모든 브라우저 세션이 하나의 엔진과 DB를 함께 쓴다."""
+
+from __future__ import annotations
+
+import os
+import threading
+import time
+from contextlib import contextmanager
+
+import streamlit as st
+
+from rfl_oms import OMS, MarketSim
+from rfl_oms.storage import Store
+
+DEFAULT_DB = os.environ.get("RFL_OMS_DB", "data/rfl_oms.db")
+
+
+class Runtime:
+    def __init__(self, db_path: str = DEFAULT_DB):
+        self.store = Store(db_path)
+        self.lock = threading.RLock()  # 여러 세션의 동시 수정을 직렬화
+        restored = self.store.load()
+        self.restored = restored is not None
+        self.oms = restored or OMS(market=MarketSim(seed=None))
+        self.last_auto_step = time.time()
+
+    def reset_trading(self) -> None:
+        with self.lock:
+            self.store.reset_trading()
+            self.oms = OMS(market=MarketSim(seed=None))
+            self.store.save(self.oms)
+
+
+@st.cache_resource
+def runtime() -> Runtime:
+    return Runtime()
+
+
+@contextmanager
+def engine(actor: str):
+    """잠금 → 행위자 지정 → 작업 → 저장. 화면의 모든 엔진 접근은 이 안에서 한다."""
+    rt = runtime()
+    with rt.lock:
+        try:
+            with rt.oms.acting(actor):
+                yield rt.oms
+        finally:
+            # st.rerun()도 예외로 문맥을 빠져나오므로, 메모리의 변경을 항상 저장한다
+            rt.store.save(rt.oms)
 ```

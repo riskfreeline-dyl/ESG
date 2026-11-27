@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 from datetime import datetime
 
 from .algo import AlgoEngine
 from .arbitrage import ArbEngine
 from .basket import BasketManager
+from .fees import FeeSchedule
 from .market import MarketSim
 from .models import (
     Alert,
@@ -38,7 +40,10 @@ class OMS:
     ):
         self.market = market or MarketSim()
         self.limits = limits or RiskLimits()
+        self.fees = FeeSchedule()
         self.account = account
+        self.actor = ""  # 현재 행위자 (acting() 문맥으로 지정)
+        self._dirty_orders: set[str] = set()  # 저장소에 아직 반영하지 않은 주문
         self.orders: dict[str, Order] = {}
         self.fills: list[Fill] = []
         self.positions: dict[str, Position] = {s: Position(s) for s in self.market.instruments}
@@ -74,10 +79,49 @@ class OMS:
         return (self.market.mark(symbol) - pos.avg_price) * pos.qty * inst.multiplier
 
     def realized_pnl(self) -> float:
+        """실현손익 (비용 차감 전)."""
         return sum(p.realized_pnl for p in self.positions.values())
 
+    def total_fees(self) -> float:
+        return sum(p.fees for p in self.positions.values())
+
     def daily_pnl(self) -> float:
-        return self.realized_pnl() + sum(self.unrealized_pnl(s) for s in self.positions)
+        """순손익 = 실현 + 미실현 − 수수료·세금. 손실 한도와 평가자산의 기준."""
+        return self.realized_pnl() + sum(self.unrealized_pnl(s) for s in self.positions) - self.total_fees()
+
+    # ================= 행위자·시스템 이벤트 =================
+    @contextmanager
+    def acting(self, actor: str):
+        """이 문맥 안에서 생긴 주문·이벤트에 행위자를 기록한다."""
+        prev, self.actor = self.actor, actor
+        try:
+            yield self
+        finally:
+            self.actor = prev
+
+    def system_event(self, event: str, detail: str = "") -> None:
+        self.audit.append(OrderEvent(datetime.now(), "-", event, detail, self.actor))
+
+    def set_limits(self, limits: RiskLimits) -> None:
+        old, self.limits = self.limits, limits
+        changes = [
+            f"{k}: {getattr(old, k)} → {getattr(limits, k)}"
+            for k in limits.__dataclass_fields__
+            if getattr(old, k) != getattr(limits, k)
+        ]
+        if changes:
+            self.system_event("한도 변경", "; ".join(changes))
+        self._evaluate_alerts()
+
+    def set_fees(self, fees: FeeSchedule) -> None:
+        old, self.fees = self.fees, fees
+        changes = [
+            f"{k}: {getattr(old, k)} → {getattr(fees, k)}"
+            for k in fees.__dataclass_fields__
+            if getattr(old, k) != getattr(fees, k)
+        ]
+        if changes:
+            self.system_event("수수료 변경", "; ".join(changes))
 
     def equity(self) -> float:
         return self.limits.capital + self.daily_pnl()
@@ -106,14 +150,39 @@ class OMS:
             qty[s], notional[s] = worst, n
             gross += n
             margin += n * inst.margin_rate
-        return Exposure(qty, notional, gross, margin)
+        # 헤지 상계는 보수적으로: 현재 포지션, 매수 전량 체결, 매도 전량 체결 중 가장 작은 상계만 인정
+        pos_now = {s: p.qty for s, p in self.positions.items()}
+        all_buys = {s: pos_now[s] + buys[s] for s in pos_now}
+        all_sells = {s: pos_now[s] - sells[s] for s in pos_now}
+        credit = min(self.hedge_credit(pos_now), self.hedge_credit(all_buys), self.hedge_credit(all_sells))
+        return Exposure(qty, notional, gross, margin - credit, margin, credit)
+
+    def hedge_credit(self, signed_qty: dict[str, int]) -> float:
+        """지수선물과 구성종목 순노출이 반대 방향이면, 헤지된 금액만큼 선물 증거금을 감면한다."""
+        idx = self.market.index_def
+        if idx is None or not self.limits.margin_offset_enabled:
+            return 0.0
+        fsym = idx.futures_symbol
+        finst = self.instruments[fsym]
+        fut = signed_qty.get(fsym, 0) * self.market.mark(fsym) * finst.multiplier
+        stock = sum(signed_qty.get(s, 0) * self.market.mark(s) for s in idx.constituents)
+        if fut * stock >= 0:
+            return 0.0
+        hedged = min(abs(fut), abs(stock))
+        return hedged * finst.margin_rate * self.limits.margin_offset_pct / 100
+
+    def margin_breakdown(self) -> dict[str, float]:
+        """체결된 포지션 기준 증거금: 상계 전, 상계액, 순증거금."""
+        gross = sum(
+            abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier * self.instruments[s].margin_rate
+            for s, p in self.positions.items()
+        )
+        credit = self.hedge_credit({s: p.qty for s, p in self.positions.items()})
+        return {"상계 전": gross, "헤지 상계": credit, "순증거금": gross - credit}
 
     def margin_used(self) -> float:
-        """체결된 포지션 기준 증거금."""
-        total = 0.0
-        for s, inst in self.instruments.items():
-            total += abs(self.positions[s].qty) * self.market.mark(s) * inst.multiplier * inst.margin_rate
-        return total
+        """체결된 포지션 기준 순증거금 (헤지 상계 반영)."""
+        return self.margin_breakdown()["순증거금"]
 
     def utilization(self) -> list[dict]:
         """한도별 사용률 (알림과 대시보드 공용)."""
@@ -141,9 +210,10 @@ class OMS:
 
     # ================= 주문 =================
     def _log(self, order: Order, event: str, detail: str = "") -> None:
-        ev = OrderEvent(datetime.now(), order.order_id, event, detail)
+        ev = OrderEvent(datetime.now(), order.order_id, event, detail, self.actor)
         order.events.append(ev)
         self.audit.append(ev)
+        self._dirty_orders.add(order.order_id)
 
     def _alert(self, level: AlertLevel, category: str, message: str) -> None:
         self.alerts.append(Alert(datetime.now(), level, category, message))
@@ -174,6 +244,7 @@ class OMS:
             tif=TimeInForce.IOC if order_type is OrderType.MARKET else tif,
             created_at=datetime.now(),
             strategy_tag=strategy_tag,
+            trader=self.actor,
         )
 
     def _enrich(self, order: Order) -> None:
@@ -306,6 +377,7 @@ class OMS:
         if on == self.kill_switch:
             return
         self.kill_switch = on
+        self.system_event("킬 스위치", "켜짐 (거래 중지)" if on else "꺼짐 (거래 재개)")
         if on:
             a = self.algos.cancel_all("킬 스위치")
             n = self.cancel_all("킬 스위치")
@@ -327,11 +399,15 @@ class OMS:
     def _fill(self, order: Order, qty: int, price: float) -> None:
         inst = self.instruments[order.symbol]
         order.apply_fill(qty, price)
-        realized = self.positions[order.symbol].apply_fill(order.side, qty, price, inst.multiplier)
-        fill = Fill(order.order_id, order.symbol, order.side, qty, price, datetime.now())
+        pos = self.positions[order.symbol]
+        realized = pos.apply_fill(order.side, qty, price, inst.multiplier)
+        fee = self.fees.fee(inst, order.side, qty, price)
+        pos.fees += fee
+        fill = Fill(order.order_id, order.symbol, order.side, qty, price, datetime.now(), fee)
         self.fills.append(fill)
         label = "전량체결" if order.status is OrderStatus.FILLED else "부분체결"
         extra = f", 실현손익 {realized:,.0f}" if realized else ""
+        extra += f", 비용 {fee:,.0f}" if fee else ""
         self._log(order, label, f"{qty:,}@{self._px(order.symbol, price)} (누적 {order.filled_qty:,}/{order.qty:,}){extra}")
 
     def _expire_if_ioc(self, order: Order) -> None:
@@ -352,7 +428,7 @@ class OMS:
             self._record_pnl()
 
     def _record_pnl(self) -> None:
-        realized = self.realized_pnl()
+        realized = self.realized_pnl() - self.total_fees()  # 비용 차감 후 실현
         unrealized = sum(self.unrealized_pnl(s) for s in self.positions)
         gross = sum(
             abs(p.qty) * self.market.mark(s) * self.instruments[s].multiplier for s, p in self.positions.items()

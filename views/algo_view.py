@@ -9,7 +9,9 @@ import streamlit as st
 from rfl_oms import OMS, AlgoType, Side
 from rfl_oms.algo import ALGO_DESCRIPTIONS
 
-from .common import NUM, PCT, fmt_price, symbol_label
+from rfl_oms.auth import Perm
+
+from .common import NUM, PCT, can, can_manage, fmt_price, need, symbol_label
 
 
 def new_algo_form(oms: OMS) -> None:
@@ -33,7 +35,10 @@ def new_algo_form(oms: OMS) -> None:
             key=f"algo_px_{symbol}",
         )
         st.caption(" · ".join(f"**{k.value}** {v}" for k, v in ALGO_DESCRIPTIONS.items()))
-        if st.form_submit_button("알고 시작", type="primary", width="stretch"):
+        if st.form_submit_button(
+            "알고 시작", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+            help=None if can(Perm.TRADE) else need(Perm.TRADE),
+        ):
             algo = oms.algos.start(
                 symbol,
                 side,
@@ -77,6 +82,7 @@ def algos_frame(oms: OMS) -> pd.DataFrame:
                 "구간 VWAP 대비(bp)": round(vw, 1) if vw is not None else None,
                 "자식 주문": len(a.child_ids),
                 "바스켓": a.strategy_tag,
+                "실행자": a.actor,
                 "사유": a.halt_reason,
             }
         )
@@ -87,13 +93,14 @@ def algo_detail(oms: OMS, algo_id: str) -> None:
     ae = oms.algos
     a = ae.algos[algo_id]
     c = st.columns(4)
-    if c[0].button("일시정지", width="stretch", disabled=a.status.value != "실행중"):
+    mine = can(Perm.TRADE) and can_manage(a.actor)
+    if c[0].button("일시정지", width="stretch", disabled=a.status.value != "실행중" or not can_manage(a.actor)):
         ae.pause(algo_id)
         st.rerun()
-    if c[1].button("재개", width="stretch", disabled=a.status.value != "일시정지"):
+    if c[1].button("재개", width="stretch", disabled=a.status.value != "일시정지" or not mine):
         ae.resume(algo_id)
         st.rerun()
-    if c[2].button("취소", width="stretch", disabled=not a.status.is_active):
+    if c[2].button("취소", width="stretch", disabled=not a.status.is_active or not can_manage(a.actor)):
         ae.cancel(algo_id)
         st.rerun()
     info = f"제한가 **{fmt_price(oms, a.symbol, a.limit_price) if a.limit_price else '없음'}**"

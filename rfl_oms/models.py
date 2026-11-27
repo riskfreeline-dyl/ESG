@@ -74,9 +74,10 @@ class Instrument:
 @dataclass
 class OrderEvent:
     ts: datetime
-    order_id: str
+    order_id: str  # 시스템 이벤트(한도 변경, 킬 스위치 등)는 "-"
     event: str
     detail: str = ""
+    actor: str = ""  # 행위자 (로그인 사용자 또는 시스템)
 
 
 @dataclass
@@ -87,6 +88,7 @@ class Fill:
     qty: int
     price: float
     ts: datetime
+    fee: float = 0.0  # 수수료 + 세금 (원)
 
 
 @dataclass
@@ -108,6 +110,7 @@ class Order:
     est_margin: float = 0.0
     reject_reason: str = ""
     strategy_tag: str = ""
+    trader: str = ""  # 주문을 낸 사용자
     events: list[OrderEvent] = field(default_factory=list)
 
     @property
@@ -130,7 +133,8 @@ class Position:
     symbol: str
     qty: int = 0
     avg_price: float = 0.0
-    realized_pnl: float = 0.0
+    realized_pnl: float = 0.0  # 비용 차감 전
+    fees: float = 0.0  # 누적 수수료 + 세금
 
     def apply_fill(self, side: Side, qty: int, price: float, multiplier: float) -> float:
         """평균단가 방식으로 체결을 반영하고, 이번 체결로 실현된 손익을 돌려준다."""

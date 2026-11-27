@@ -10,7 +10,9 @@ import streamlit as st
 from rfl_oms import OMS, ExecMode, ExecParams
 from rfl_oms.basket import SIDE_ALIASES, normalize_symbol, sample_template
 
-from .common import NUM, PCT, krw, symbol_label
+from rfl_oms.auth import Perm
+
+from .common import NUM, PCT, can, can_manage, krw, need, symbol_label
 
 COLUMNS = ["종목코드", "구분", "수량", "비중(%)"]
 
@@ -138,7 +140,10 @@ def build_section(oms: OMS) -> None:
     if mode is ExecMode.MARKET:
         params.auto_retry = c[2].checkbox("잔량 자동 재전송", value=True, help="유동성 부족으로 남은 수량을 다음 틱에 최대 3회 재전송")
     c[4].write("")
-    if c[4].button("원클릭 실행", type="primary", width="stretch"):
+    if c[4].button(
+        "원클릭 실행", type="primary", width="stretch", disabled=not can(Perm.TRADE),
+        help=None if can(Perm.TRADE) else need(Perm.TRADE),
+    ):
         b = bm.execute(name, lines, params)
         st.session_state.basket_sel = b.basket_id
         s = bm.summary(b)
@@ -184,13 +189,18 @@ def monitor_section(oms: OMS) -> None:
             "평가손익": NUM,
         },
     )
+    st.caption(f"실행자: {b.actor or '-'}")
+    mine = can(Perm.TRADE) and can_manage(b.actor)  # 재실행·정정은 실행한 트레이더만
     c = st.columns(3)
-    if c[0].button("미체결 전체 취소", width="stretch", key=f"bc_{bid}"):
+    if c[0].button("미체결 전체 취소", width="stretch", key=f"bc_{bid}", disabled=not can_manage(b.actor)):
         st.success(f"{bm.cancel(bid)}건 취소")
-    if c[1].button("잔량 재실행", width="stretch", key=f"br_{bid}", help="거부·취소·미체결로 남은 수량을 같은 방식으로 다시 보냅니다"):
+    if c[1].button(
+        "잔량 재실행", width="stretch", key=f"br_{bid}", disabled=not mine,
+        help="거부·취소·미체결로 남은 수량을 같은 방식으로 다시 보냅니다 (바스켓을 실행한 트레이더만)",
+    ):
         st.success(f"{bm.retry(bid)}종목 재전송")
     limit_mode = b.params.mode in (ExecMode.AGGRESSIVE, ExecMode.PASSIVE)
-    if c[2].button("현재 호가로 정정", width="stretch", key=f"bp_{bid}", disabled=not limit_mode):
+    if c[2].button("현재 호가로 정정", width="stretch", key=f"bp_{bid}", disabled=not (limit_mode and mine)):
         st.success(f"{bm.reprice(bid)}건 정정")
 
 

@@ -59,6 +59,7 @@ class Basket:
     params: ExecParams
     created_at: datetime
     canceled: bool = False
+    actor: str = ""  # 바스켓을 실행한 사용자
 
 
 SIDE_ALIASES = {
@@ -178,7 +179,9 @@ class BasketManager:
     # ================= 실행 =================
     def execute(self, name: str, lines: list[BasketLine], params: ExecParams) -> Basket:
         self._seq += 1
-        basket = Basket(f"B{self._seq:04d}", name or f"바스켓 {self._seq}", lines, params, datetime.now())
+        basket = Basket(
+            f"B{self._seq:04d}", name or f"바스켓 {self._seq}", lines, params, datetime.now(), actor=self.oms.actor
+        )
         self.baskets[basket.basket_id] = basket
         for ln in lines:
             self._send(basket, ln, ln.qty)
@@ -365,7 +368,8 @@ class BasketManager:
                 rest = ln.qty - filled - self.line_working(ln)
                 if rest > 0:
                     ln.retries += 1
-                    self._send(b, ln, rest)
+                    with self.oms.acting(b.actor):
+                        self._send(b, ln, rest)
                     if ln.error:
                         self.oms._alert(
                             AlertLevel.WARNING, "바스켓 재전송 거부", f"{b.basket_id} {ln.symbol} — {ln.error}"
