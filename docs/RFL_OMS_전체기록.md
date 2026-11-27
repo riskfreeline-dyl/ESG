@@ -265,7 +265,7 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 ### 수록 파일 목록
 
 - `.gitignore` (8줄)
-- `README.md` (108줄)
+- `README.md` (109줄)
 - `app.py` (565줄)
 - `requirements.txt` (8줄)
 - `rfl_oms/__init__.py` (27줄)
@@ -321,8 +321,9 @@ data/
 ## 실행
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
+./run.sh                 # macOS / Linux (가상환경 생성 + 설치 + 실행)
+run_windows.bat          # Windows (더블클릭)
+# 또는 직접: pip install -r requirements.txt && streamlit run app.py
 ```
 
 - 첫 실행 시 **관리자 계정을 직접 만듭니다** (기본 계정·기본 비밀번호 없음). 이후 관리 탭에서 트레이더·리스크 관리자 계정을 추가하세요.

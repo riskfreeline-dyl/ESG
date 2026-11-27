@@ -6,8 +6,9 @@
 ## 실행
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
+./run.sh                 # macOS / Linux (가상환경 생성 + 설치 + 실행)
+run_windows.bat          # Windows (더블클릭)
+# 또는 직접: pip install -r requirements.txt && streamlit run app.py
 ```
 
 - 첫 실행 시 **관리자 계정을 직접 만듭니다** (기본 계정·기본 비밀번호 없음). 이후 관리 탭에서 트레이더·리스크 관리자 계정을 추가하세요.
