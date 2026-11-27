@@ -276,8 +276,7 @@ python tools/build_record.py  # 이 기록 문서 다시 만들기
 
 ### 수록 파일 목록
 
-- `.gitignore` (9줄)
-- `.netlify/state.json` (3줄)
+- `.gitignore` (10줄)
 - `README.md` (118줄)
 - `app.py` (565줄)
 - `netlify.toml` (8줄)
@@ -326,14 +325,7 @@ data/
 *.db-wal
 *.db-shm
 web/
-```
-
-### `.netlify/state.json`
-
-```
-{
-  "siteId": "4d837020-690e-4a49-819b-7d02c2920245"
-}
+.netlify/
 ```
 
 ### `README.md`
