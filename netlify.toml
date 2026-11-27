@@ -1,0 +1,8 @@
+[build]
+  publish = "web"
+  command = "python3 tools/build_web.py"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    Cache-Control = "no-cache"
