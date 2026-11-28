@@ -37,7 +37,7 @@ body{background:var(--night);color:var(--ivory);font-family:var(--body);overflow
 .views::-webkit-scrollbar{display:none}
 button,.btn{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:var(--glass);border-radius:0;text-decoration:none}
 button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
-.views button{flex:none;padding:7px 12px;font-size:.78rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.views button,.views .btn{flex:none;padding:7px 12px;font-size:.78rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .views button[aria-pressed="true"]{background:var(--gold);color:#1a1204;border-color:var(--gold-hi);font-weight:700}
 .spacer{flex:1;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;gap:14px}
 .toast{pointer-events:none;text-align:center;font-family:var(--display);font-weight:900;font-size:clamp(1.4rem,6vw,3rem);letter-spacing:.06em;color:var(--gold-hi);
@@ -69,6 +69,7 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
 .chip{flex:1;padding:8px 0;font-size:.78rem;font-variant-numeric:tabular-nums}
 .chip[aria-pressed="true"]{background:var(--emerald);border-color:var(--gold-hi);color:var(--gold-hi);font-weight:700}
 #clear{padding:8px 12px;font-size:.78rem}
+#spin{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:92px;height:92px;border-radius:50%;z-index:3;pointer-events:auto;box-shadow:0 0 0 3px rgba(7,5,12,.7),0 0 26px rgba(230,200,120,.7);padding:0!important;letter-spacing:.1em!important}
 #spin,.cta{flex:1 1 130px;padding:9px 18px;font-family:var(--display);font-weight:900;letter-spacing:.18em;font-size:1rem;color:#1a1204;
   background:linear-gradient(180deg,var(--gold-hi),var(--gold) 50%,#a87722);border-color:var(--gold-hi);text-align:center}
 #spin:disabled{filter:grayscale(.7) brightness(.6);cursor:default}
@@ -95,6 +96,17 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
 .gcard h3{margin:0;font-family:var(--display);font-size:1.6rem;color:var(--gold-hi)}
 .gcard p{margin:0;line-height:1.6;font-size:.9rem}
 .gcard .cta{flex:none;display:block}
+.bubble{pointer-events:auto;max-width:min(30em,100%);background:var(--glass);border:1px solid var(--gold);padding:12px 16px;text-align:center;display:flex;flex-direction:column;gap:6px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(0,0,0,.6);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+.bubble b{font-size:1.25rem;color:var(--gold-hi);font-weight:700;line-height:1.35}
+.bubble small{font-size:.8rem;color:var(--mute)}
+.bubble .row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+.bubble .row button{padding:8px 14px;font-size:.85rem}
+.gmenu{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;width:100%;max-width:980px;padding:16px;align-self:center;max-height:100%;overflow:auto}
+.gmenu button{padding:18px 14px;display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0}
+.gmenu button b{font-family:var(--display);font-size:1.15rem;color:var(--gold-hi)}
+.gmenu button span{font-size:.8rem;color:var(--ivory)}
+.gmenu button i{font-style:normal;font-size:.74rem;color:var(--mute);line-height:1.5}
 @media (max-width:520px){.brand p{font-size:.58rem;letter-spacing:.1em}.rail{padding:8px}.bet b{font-size:1.05rem}}
 @media (max-height:520px){.note,.hint{display:none}#fwd{width:56px;height:56px}}
 @media (prefers-reduced-motion:reduce){.toast,#enter{animation:none}}
@@ -121,10 +133,14 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
     <button data-go="slot">슬롯</button>
     <button data-go="bar">바</button>
     <button data-go="cage">칩 교환소</button>
+    <button id="v-menu">게임 메뉴판</button>
+    <button data-go="entrance">카지노 입구</button>
+    <a class="btn" id="v-map" target="_blank" rel="noopener">선내 지도</a>
     <button id="v-sound" aria-pressed="true">사운드</button>
   </nav>
   <div class="spacer">
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <div id="bubble" class="bubble" role="status" aria-live="polite" hidden></div>
     <button id="enter" hidden aria-label="카지노로 입장">
       <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="square"><path d="M8 30 24 14l16 16"/><path d="M8 42 24 26l16 16" opacity=".5"/></svg>
       입장
@@ -135,19 +151,20 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
     <p class="hint">바닥을 눌러 이동 · 드래그로 둘러보기 · 「앉기」 표시가 뜬 빈 의자를 누르면 착석</p>
   </div>
   <section class="rail" id="rail" aria-label="빅휠 베팅" hidden>
-    <h2>RFL GRAND WHEEL <span id="stake">베팅 0</span><button id="wleave">휠에서 물러나기</button></h2>
+    <h2>RFL GRAND WHEEL <span id="stake">베팅 0</span><span>SPIN 버튼은 휠 옆에 있습니다</span><button id="wleave">휠에서 물러나기</button></h2>
     <div class="bets" id="bets"></div>
     <div class="ctl">
       <div class="chips" id="chips"></div>
       <button id="clear">베팅 취소</button>
-      <button id="spin">SPIN</button>
     </div>
     <p class="note">모든 게임은 가상 칩만 사용합니다. 실제 돈을 걸거나 칩을 현금·상품으로 바꿀 수 없습니다.</p>
   </section>
 </div>
 
+<button id="spin" hidden>SPIN</button>
+
 <div id="game" hidden>
-  <div class="gbar"><strong id="gname"></strong><span id="gsub"></span><a class="btn" id="gopen" target="_blank" rel="noopener">새 탭에서 열기</a><button id="gleave">자리에서 일어나기</button></div>
+  <div class="gbar"><strong id="gname"></strong><span id="gsub"></span><button id="gmenu">게임 메뉴판</button><button id="gentr">카지노 입구</button><a class="btn" id="gmap" target="_blank" rel="noopener">선내 지도</a><a class="btn" id="gopen" target="_blank" rel="noopener">새 탭에서 열기</a><button id="gleave">자리에서 일어나기</button></div>
   <div id="gbody"></div>
 </div>
 
@@ -180,6 +197,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- RFL games (rfl-cruise-casino) ---------- */
 const GAME_BASE='https://rfl-cruise-casino.netlify.app';
+const MAP_URL='https://rfl-cruise-tour.netlify.app/decks/';
 const GAMES={
   roulette:{name:'Royal Roulette',ko:'로열 룰렛',path:'/roulette',desc:'마호가니와 금으로 만든 휠, 실제처럼 굴러가는 볼. 스트레이트 35:1.'},
   holdem:{name:"Royal Hold'em",ko:'로열 홀덤',path:'/holdem',desc:'딜러와 1:1 텍사스 홀덤. 체크·콜·레이즈·올인.'},
@@ -502,8 +520,8 @@ diamond.add(glow(0x9fdcff,6,.4));
 const NP=1700;let nP=0;
 const pX=new Float32Array(NP),pZ=new Float32Array(NP),pY=new Float32Array(NP),pYaw=new Float32Array(NP),pS=new Float32Array(NP),pPh=new Float32Array(NP),
       pGT=new Float32Array(NP),pGD=new Float32Array(NP),pFlag=new Uint8Array(NP),pG=new Uint8Array(NP),pF=new Uint8Array(NP),pB=new Uint8Array(NP),pBow=new Int16Array(NP).fill(-1);
-// people.webp: 12 x 6 cells of photoreal cut-outs; each character has a front and a back cell (lobby staff: upright + bowing)
-const AT={cols:12,rows:6,h:1.93,file:'people.webp'};
+// people.webp: 16 x 7 cells of photoreal cut-outs; each character has a front and a back cell (lobby staff: upright + bowing)
+const AT={cols:16,rows:7,h:1.93,file:'people.webp'};
 const CHR={guardA:[0,17,1],host:[2,2,3],mgrA:[4,23,5],guardD:[6,17,7],dealerM:[8,9],dealerF:[10,11],waiterM:[12,13],waiterF:[14,15],security:[16,17],cashier:[18,19],bartender:[20,21],manager:[22,23]};
 const GUEST_M=[24,28,32,36,40,44,48,52,56,60],GUEST_F=[26,30,34,38,42,46,50,54,58,62],WALK_M=[64,68],WALK_F=[66,70];
 const aPos=new T.InstancedBufferAttribute(new Float32Array(NP*3),3),aInfo=new T.InstancedBufferAttribute(new Float32Array(NP*4),4),aAnim=new T.InstancedBufferAttribute(new Float32Array(NP*2),2);
@@ -790,6 +808,7 @@ for(let k=0;k<430;k++)addWalker({});
     for(let k=0;k<n&&nP<TARGET;k++){const a=k/n*TAU+rnd()*.8,px=x+Math.cos(a)*.62,pz=z+Math.sin(a)*.62;grp.people.push(addP(px,pz,faceTo(px,pz,x,z),{glass:rnd()<.6}));}
   }
 })();
+const ACT=[];for(let k=0;k<4;k++){const i=addP(0,0,0,{});pY[i]=-60;pFlag[i]=8;sync(i);ACT.push(i);}
 finishPeople();
 
 [bShaft,bGoldCyl,bGoldBox,bWarmCyl,bLacq,bWood,bWoodCyl,bGoldSph,bVelvetCyl,bLacqCyl,bBal,bArch,bRim,bCard,bLayout]
@@ -909,7 +928,7 @@ const V=(x,y,z)=>new T.Vector3(x,y,z);
 // the cinema tour is a stroll at eye level along the aisles
 const tourPos=new T.CatmullRomCurve3([[3.5,36],[3.5,18],[9,18],[23,18],[23,2],[34,2],[34,18],[34,34],[23,34],[9,34],[9,2],[3.5,2],[3.5,-13],[-3.5,-13],[-9,-13],[-9,2],[-23,2],[-23,18],[-34,18],[-34,34],[-23,34],[-9,34],[-3.5,36]].map(q=>V(q[0],EYE,q[1])),true,'catmullrom',.35);
 let tourT=0;const tP=V(3.5,EYE,36),tT=V(3.5,EYE,18);
-const DEST={wheel:[0,WZ+17.5,PI],roulette:[16,18,PI],blackjack:[16,33.2,PI],holdem:[-16,33.2,PI],baccarat:[-9,-6,-PI/2],slot:[-23,10,-PI/2],bar:[34.5,5,PI/2],cage:[33.5,32.5,PI/2]};
+const DEST={wheel:[0,WZ+17.5,PI],roulette:[16,18,PI],blackjack:[16,33.2,PI],holdem:[-16,33.2,PI],baccarat:[-9,-6,-PI/2],slot:[-23,10,-PI/2],bar:[34.5,5,PI/2],cage:[33.5,32.5,PI/2],entrance:[0,37.5,PI]};
 function blocked(x,z){
   if(z>41.3){if(z<43.8)return Math.abs(x)>4.1||doorOpen<.8;return Math.abs(x)>14.8||z>60.8;}
   if(z<-40.6||x<-44.7||x>44.7)return true;
@@ -922,7 +941,7 @@ const wrap=a=>{while(a>PI)a-=TAU;while(a<-PI)a+=TAU;return a;};
 function tween(to,d,done,lin){tw={f:{x:cam.x,y:cam.y,z:cam.z,yaw:cam.yaw,pitch:cam.pitch},t:to,u:0,d,done,lin:!!lin};goTo=null;}
 function setMode(m){mode=m;
   $('views').hidden=(m==='gate'||m==='lobby'||m==='enter');
-  $('enter').hidden=m!=='lobby';$('walk').hidden=m!=='walk';$('rail').hidden=m!=='wheel';
+  $('enter').hidden=m!=='lobby';$('walk').hidden=m!=='walk';$('rail').hidden=m!=='wheel';$('spin').hidden=m!=='wheel';
   $('v-walk').setAttribute('aria-pressed',m==='walk'?'true':'false');$('v-tour').setAttribute('aria-pressed',m==='tour'?'true':'false');
 }
 function camFromTour(){cam.x=tP.x;cam.y=tP.y;cam.z=tP.z;cam.yaw=Math.atan2(tT.x-tP.x,tT.z-tP.z);cam.pitch=0;}
@@ -959,7 +978,7 @@ function standUp(){const h=curSeat;$('game').hidden=true;$('gbody').innerHTML=''
 function joinWheel(h){setMode('fly');tween({x:h.sx,y:EYE,z:h.sz,yaw:PI,pitch:.4},Math.min(2.4,.6+Math.hypot(h.sx-cam.x,h.sz-cam.z)/7),()=>{setMode('wheel');paint();say('RFL GRAND WHEEL','숫자 구역에 칩을 올리고 SPIN',2600);});}
 function openGame(k){
   const G=GAMES[k],body=$('gbody');$('gname').textContent=G.name;$('gsub').textContent=G.ko;body.innerHTML='';
-  const play=G.path?G:GAMES[G.alt],url=GAME_BASE+play.path;$('gopen').href=url;
+  const play=G.path?G:GAMES[G.alt],url=GAME_BASE+play.path;$('gopen').href=url;$('gopen').hidden=false;
   if(G.path&&CAN_EMBED){const f=document.createElement('iframe');f.src=url;f.title=G.name;f.allow='autoplay; fullscreen';body.appendChild(f);if(Au.c)Au.master.gain.setTargetAtTime(Au.on?.18:0,Au.c.currentTime,.4);}
   else{const c=document.createElement('div');c.className='gcard';
     const h=document.createElement('h3');h.textContent=G.name;const p=document.createElement('p');p.textContent=G.desc;
@@ -970,6 +989,19 @@ function openGame(k){
   $('game').hidden=false;
 }
 $('gleave').addEventListener('click',standUp);
+$('gmap').href=$('v-map').href=MAP_URL;
+function showMenu(){ // pick any game from anywhere
+  const body=$('gbody');body.innerHTML='';$('gname').textContent='게임 메뉴판';$('gsub').textContent='원하는 게임을 고르세요';$('gopen').hidden=true;
+  const g=document.createElement('div');g.className='gmenu';
+  const card=(name,ko,desc,fn)=>{const b=document.createElement('button');const t=document.createElement('b');t.textContent=name;const k=document.createElement('span');k.textContent=ko;const d=document.createElement('i');d.textContent=desc;b.appendChild(t);b.appendChild(k);b.appendChild(d);b.addEventListener('click',fn);g.appendChild(b);};
+  ['roulette','holdem','blackjack','slot'].forEach(k=>card(GAMES[k].name,GAMES[k].ko,GAMES[k].desc,()=>openGame(k)));
+  card('RFL Grand Wheel','그랜드 빅휠','홀 정면의 대형 휠 앞으로 걸어가 직접 베팅하고 돌립니다. 크라운 40배.',()=>{leaveOverlay();flyDest('wheel');});
+  body.appendChild(g);$('game').hidden=false;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?.5:0,Au.c.currentTime,.3);
+}
+function leaveOverlay(){$('game').hidden=true;$('gbody').innerHTML='';curSeat=null;tw=null;cam.y=EYE;cam.pitch=0;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?1:0,Au.c.currentTime,.3);setMode('walk');}
+$('gmenu').addEventListener('click',showMenu);
+$('gentr').addEventListener('click',()=>{leaveOverlay();flyDest('entrance');});
+$('v-menu').addEventListener('click',()=>{if(mode!=='walk'&&mode!=='wheel')return;if(mode==='wheel'&&!(spinning&&spinS&&!spinS.npc)){refund();paint();}setMode('seat');showMenu();});
 
 /* ---------- input ---------- */
 const ptrs=new Map();let downT=0,moved=0,pinch=0;
@@ -1027,9 +1059,9 @@ function refund(){for(const k in bets)bal+=bets[k];bets={};}
 $('clear').addEventListener('click',()=>{if(spinning)return;refund();paint();});
 $('wleave').addEventListener('click',()=>{if(mode!=='wheel')return;if(!(spinning&&spinS&&!spinS.npc))refund();paint();setMode('walk');cam.pitch=0;});
 function startSpin(npc){
-  const k=Math.floor(R()*NSEG),turns=4+Math.floor(R()*3);
+  const k=Math.floor(R()*NSEG),turns=5+Math.floor(R()*3);
   let target=(k+(R()-.5)*.7)*SEG;target+=Math.ceil((ang-target)/TAU)*TAU+turns*TAU;
-  spinS={a0:ang,a1:target,u:0,d:reduced?4:9.5,npc};spinning=true;paint();
+  spinS={a0:ang,a1:target,u:0,d:10.5+R()*2.5,npc};spinning=true;paint();
 }
 $('spin').addEventListener('click',()=>{
   if(spinning)return;let tot=0;for(const k in bets)tot+=bets[k];
@@ -1080,6 +1112,89 @@ function life(dt){
   jackFlash=Math.max(0,jackFlash-dt);jackGlow.material.opacity=jackFlash>0?(.35+.35*Math.sin(time*22))*Math.min(1,jackFlash):0;
 }
 
+/* ---------- encounters while walking: a brush, a glance, a drink offered ---------- */
+const ENC=[
+ {t:'glance',c:90,say:'Good evening!',lang:'en-GB',ko:'좋은 저녁이에요'},
+ {t:'bump',c:88,say:'Oh, sorry!',lang:'en-US',ko:'앗, 죄송합니다'},
+ {t:'group',c:[24,26,36,58],say:'혹시 한국 분이세요?',lang:'ko-KR'},
+ {t:'waiter',c:108,say:'음료 한 잔 하시겠어요?'},
+ {t:'glance',c:72,say:'مساء الخير',lang:'ar-SA',ko:'좋은 저녁입니다 (아랍어)'},
+ {t:'glance',c:38,say:'こんばんは',lang:'ja-JP',ko:'안녕하세요 (일본어)'},
+ {t:'bump',c:94,say:'Oh, excusez-moi !',lang:'fr-FR',ko:'실례합니다 (프랑스어)'},
+ {t:'glance',c:76,say:'สวัสดีค่ะ',lang:'th-TH',ko:'안녕하세요 (태국어)'},
+ {t:'waiter',c:110,say:'칵테일 한 잔 어떠세요?'},
+ {t:'glance',c:106,say:'Bonsoir, bonne chance !',lang:'fr-FR',ko:'좋은 저녁입니다, 행운을 빌어요'},
+ {t:'glance',c:80,say:'Selamat malam',lang:'ms-MY',ko:'좋은 저녁입니다 (말레이어)'},
+ {t:'bump',c:84,say:'¡Perdóname!',lang:'es-ES',ko:'죄송합니다 (스페인어)'},
+ {t:'glance',c:92,say:'Hi there!',lang:'en-US',ko:'안녕하세요'},
+ {t:'glance',c:102,say:'你好',lang:'zh-CN',ko:'안녕하세요 (중국어)'},
+ {t:'waiter',c:108,say:'샴페인 한 잔 드릴까요?'},
+ {t:'glance',c:104,say:'Good evening!',lang:'en-US',ko:'좋은 저녁이에요'},
+ {t:'bump',c:74,say:'あっ、すみません',lang:'ja-JP',ko:'앗, 죄송합니다 (일본어)'},
+ {t:'glance',c:98,say:'Buonasera!',lang:'it-IT',ko:'좋은 저녁이에요 (이탈리아어)'},
+ {t:'glance',c:78,say:'สวัสดีครับ',lang:'th-TH',ko:'안녕하세요 (태국어)'},
+ {t:'glance',c:86,say:'¡Hola! Buenas noches',lang:'es-MX',ko:'안녕하세요, 좋은 밤이에요 (스페인어)'},
+ {t:'waiter',c:110,say:'시원한 음료가 준비되어 있습니다. 한 잔 하시겠어요?'},
+ {t:'glance',c:96,say:'Guten Abend!',lang:'de-DE',ko:'좋은 저녁이에요 (독일어)'},
+ {t:'bump',c:100,say:'哎呀，不好意思',lang:'zh-CN',ko:'어머, 죄송합니다 (중국어)'},
+ {t:'glance',c:82,say:'Hello, good evening!',lang:'en-SG',ko:'안녕하세요 (싱가포르)'},
+ {t:'glance',c:40,say:'Hey, good luck tonight!',lang:'en-US',ko:'오늘 밤 행운을 빌어요'},
+ {t:'glance',c:60,say:'晚上好',lang:'zh-CN',ko:'좋은 저녁입니다 (중국어)'},
+ {t:'waiter',c:108,say:'오늘의 시그니처 칵테일입니다. 드셔 보시겠어요?'},
+ {t:'glance',c:32,say:'Evening!',lang:'en-GB',ko:'좋은 저녁입니다'},
+ {t:'glance',c:50,say:'Bonsoir !',lang:'fr-FR',ko:'좋은 저녁이에요 (프랑스어)'}];
+const bubble=$('bubble');let bubT=0,encI=0,encT=5+R()*3,enc=null,movingNow=false,kick=null,camRoll=0;
+function speak(txt,lang){try{if(!Au.on||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(txt);u.lang=lang||'ko-KR';u.volume=.95;speechSynthesis.speak(u);}catch(e){}}
+function showBubble(main,sub,btns,onPick,ms){bubble.innerHTML='';const b=document.createElement('b');b.textContent=main;bubble.appendChild(b);
+  if(sub){const sm=document.createElement('small');sm.textContent=sub;bubble.appendChild(sm);}
+  if(btns){const row=document.createElement('div');row.className='row';btns.forEach((t,i)=>{const bt=document.createElement('button');bt.textContent=t;bt.addEventListener('click',()=>onPick(i));row.appendChild(bt);});bubble.appendChild(row);}
+  bubble.hidden=false;clearTimeout(bubT);if(!btns)bubT=setTimeout(()=>{bubble.hidden=true;},ms||3000);}
+function aheadSpot(){ // somewhere clear in front of the visitor
+  for(const dist of [7.5,5.5]){for(const da of [0,.4,-.4,.8,-.8,1.2,-1.2,1.7,-1.7,2.4,-2.4]){const a=cam.yaw+da,x=cam.x+Math.sin(a)*dist,z=cam.z+Math.cos(a)*dist;
+    if(!blocked(x,z)&&!blocked((x+cam.x)/2,(z+cam.z)/2)&&z<40.5)return [x,z];}}
+  return null;}
+function startEnc(){
+  const e=ENC[encI%ENC.length],sd=R()<.5?-1:1,spawn=aheadSpot();
+  if(!spawn){encT=1.5;return;}
+  encI++;const cells=e.t==='group'?e.c:[e.c],ids=ACT.slice(0,cells.length);
+  ids.forEach((i,k)=>{pF[i]=cells[k];pB[i]=cells[k]+1;pBow[i]=-1;pX[i]=spawn[0];pZ[i]=spawn[1];pY[i]=0;});
+  enc={e,ids,sd,ph:'approach',t:0,hx:0,hz:-1,off:[[0,0],[.75,.15],[-.7,.3],[.2,.9]]};
+}
+function endEnc(){enc.ids.forEach(i=>{pY[i]=-60;sync(i);});enc=null;encT=8+R()*7;}
+function encReply(e,pick){
+  if(e.t==='waiter'){if(pick<2){showBubble('네, 여기 있습니다. 즐거운 시간 보내십시오.',pick===0?'샴페인 한 잔을 받았습니다':'칵테일 한 잔을 받았습니다');speak('네, 여기 있습니다. 즐거운 시간 보내십시오.');if(Au.c&&Au.on){tone('fx',2450,Au.c.currentTime,.5,'sine',.12);tone('fx',3100,Au.c.currentTime+.05,.6,'sine',.09);}}
+    else{showBubble('네, 필요하시면 언제든 불러 주십시오.');speak('네, 필요하시면 언제든 불러 주십시오.');}}
+  else{if(pick===0){showBubble('어머, 반가워요! 오늘 행운 가득하세요!','한국에서 온 일행');speak('어머, 반가워요! 오늘 행운 가득하세요!');}
+    else{showBubble('Oh, sorry! Have a lovely evening!','실례했어요, 좋은 저녁 보내세요');speak('Oh, sorry! Have a lovely evening!','en-US');}}
+  if(enc){enc.ph='leave';enc.t=0;}
+}
+function encUpdate(dt){
+  if(kick){kick.t-=dt;const u=Math.max(0,kick.t/.45);camRoll=Math.sin(u*PI)*.045*kick.s;if(mode==='walk')tryMove(cam.x+kick.x*dt*.9,cam.z+kick.z*dt*.9);if(kick.t<=0){kick=null;camRoll=0;}}
+  if(!enc){if(mode==='walk'&&movingNow&&cam.z<40){encT-=dt;if(encT<=0)startEnc();}return;}
+  const e=enc.e,L=enc.ids[0],fx=Math.sin(cam.yaw),fz=Math.cos(cam.yaw),rx=-fz,rz=fx;enc.t+=dt;
+  let dx=cam.x-pX[L],dz=cam.z-pZ[L],d=Math.hypot(dx,dz),sp=0;
+  if(enc.ph==='approach'){
+    const lat=e.t==='bump'?.3:e.t==='glance'?1.05:0,tx=cam.x+rx*enc.sd*lat-pX[L],tz=cam.z+rz*enc.sd*lat-pZ[L],td=Math.hypot(tx,tz)||1;enc.hx=tx/td;enc.hz=tz/td;sp=1.3;
+    if(e.t==='bump'&&d<1.25){enc.ph='pass';enc.t=0;kick={t:.45,s:-enc.sd,x:-rx*enc.sd,z:-rz*enc.sd};
+      if(Au.c&&Au.on){tone('fx',92,Au.c.currentTime,.16,'sine',.5);nz('fx',Au.c.currentTime,.09,420,.8,.25,.004);}
+      showBubble(e.say,e.ko);speak(e.say,e.lang);}
+    else if(e.t==='glance'&&d<2.4){enc.ph='pass';enc.t=0;showBubble(e.say,e.ko,null,null,2600);speak(e.say,e.lang);}
+    else if((e.t==='waiter'||e.t==='group')&&d<(e.t==='group'?2.3:1.75)){enc.ph='talk';enc.t=0;goTo=null;speak(e.say,e.lang);
+      if(e.t==='waiter')showBubble(e.say,'연미복 차림의 승무원이 쟁반을 내밉니다',['샴페인','칵테일','괜찮습니다'],k=>encReply(e,k));
+      else showBubble(e.say,'한국인 일행이 먼저 말을 걸어옵니다',['네, 한국 사람이에요','Sorry?'],k=>encReply(e,k));}
+    else if(enc.t>1.2&&((fx*-dx+fz*-dz)/(d||1)<.15&&d>3.2||enc.t>5)){ // the visitor turned away: come round in front again
+      const sp2=aheadSpot();if(!sp2||(enc.n=(enc.n||0)+1)>6){endEnc();return;}pX[L]=sp2[0];pZ[L]=sp2[1];enc.t=0;}
+  }else if(enc.ph==='talk'){enc.hx=dx/(d||1);enc.hz=dz/(d||1);
+    if(enc.t>10){bubble.hidden=true;enc.ph='leave';enc.t=0;}else if(d>6){enc.ph='leave';enc.t=0;clearTimeout(bubT);bubT=setTimeout(()=>{bubble.hidden=true;},5000);}
+  }else if(enc.ph==='leave'){if(enc.t<.05){const a=Math.atan2(enc.hx,enc.hz)+enc.sd*2.2;enc.hx=Math.sin(a);enc.hz=Math.cos(a);}sp=1.25;if(enc.t>7||d>11){endEnc();return;}
+  }else{sp=1.3;if(enc.t>7||d>11){endEnc();return;}}
+  const yaw=Math.atan2(enc.hx,enc.hz),c=Math.cos(yaw),sn=Math.sin(yaw);
+  pX[L]+=enc.hx*sp*dt;pZ[L]+=enc.hz*sp*dt;
+  enc.ids.forEach((i,k)=>{const o=enc.off[k];if(k){pX[i]=pX[L]+o[0]*c-o[1]*sn;pZ[i]=pZ[L]-o[0]*sn-o[1]*c;}
+    pYaw[i]=enc.ph==='talk'?Math.atan2(cam.x-pX[i],cam.z-pZ[i]):yaw;if(sp)pPh[i]+=dt*6.5;else pPh[i]=PI/2;sync(i);});
+  aPos.needsUpdate=aInfo.needsUpdate=aAnim.needsUpdate=true;
+}
+
 /* ---------- loop ---------- */
 const clock=new T.Clock(),bc=new T.Color();let frame=0,slow=0,fpsT=0,fpsN=0;
 const ease=u=>u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;
@@ -1126,11 +1241,17 @@ function tick(){
     if(keys.arrowleft)cam.yaw+=dt*1.8;if(keys.arrowright)cam.yaw-=dt*1.8;
     if(kf||ks){goTo=null;mx=fx*kf-fz*ks;mz=fz*kf+fx*ks;}
     else if(goTo){const dx=goTo.x-cam.x,dz=goTo.z-cam.z,d=Math.hypot(dx,dz);if(d<.35)goTo=null;else{mx=dx/d;mz=dz/d;if(!ptrs.size)cam.yaw+=wrap(Math.atan2(dx,dz)-cam.yaw)*Math.min(1,dt*1.6);}}
+    movingNow=!!(mx||mz);
     if(mx||mz){const sp=4.2*dt;if(!tryMove(cam.x+mx*sp,cam.z+mz*sp)){stuck+=dt;if(stuck>.5)goTo=null;}else stuck=0;}
     cam.y+=(EYE+((mx||mz)?Math.sin(time*9)*.035:0)-cam.y)*Math.min(1,dt*8);
   }
   if(mode==='tour'){tourT=(tourT+dt/150)%1;const k=1-Math.exp(-dt*1.6);tP.lerp(tourPos.getPointAt(tourT),k);tT.lerp(tourPos.getPointAt((tourT+.022)%1),k);tP.y=EYE+Math.sin(time*7)*.025;tT.y=EYE+.05;camera.position.copy(tP);camera.lookAt(tT);}
-  else{camera.position.set(cam.x,cam.y,cam.z);camera.rotation.set(cam.pitch,cam.yaw+PI,0);}
+  else{camera.position.set(cam.x,cam.y,cam.z);camera.rotation.set(cam.pitch,cam.yaw+PI,camRoll);}
+  encUpdate(dt);
+  if(mode==='wheel'&&frame%2===0){ // the SPIN button rides on the wheel's rim
+    v3.set(WR*.74,WY-WR*.74,WZ+.6).project(camera);const sb=$('spin'),rt=$('rail').getBoundingClientRect(),W2=innerWidth,H2=innerHeight;
+    let sx=(v3.x*.5+.5)*W2,sy=(-v3.y*.5+.5)*H2;if(v3.z>1){sx=W2/2;sy=H2/2;}
+    sb.style.left=Math.max(56,Math.min(W2-56,sx))+'px';sb.style.top=Math.max(120,Math.min(rt.top-54,sy))+'px';}
   // seat / join markers near the visitor
   if(frame%4===0)for(const h of hotspots){const d=Math.hypot(h.x-cam.x,h.z-cam.z);h.s.visible=mode==='walk'&&d<(h.type==='seat'?17:26);if(h.s.visible){const k=Math.max(.22,Math.min(1.25,d/9));h.s.scale.set(1.5*k,1.17*k,1);h.s.position.y=h.y-(1-Math.min(1,k))*.5+Math.sin(time*3+h.x)*.06;}}
   if(composer)composer.render(dt);else renderer.render(scene,camera);
@@ -1138,7 +1259,7 @@ function tick(){
 }
 tick();
 if(window.claude&&window.claude.hot&&window.claude.hot.snapshot){try{window.claude.hot.snapshot(()=>({bal}));}catch(e){}}
-window.__rfl={people:()=>nP,mode:()=>mode,cam,hotspots,sitAt,joinWheel,audio:Au};
+window.__rfl={enc:()=>enc?[enc.e.t,enc.ph,+enc.t.toFixed(1),enc.n||0]:['-',+encT.toFixed(1),encI,movingNow],people:()=>nP,mode:()=>mode,cam,hotspots,sitAt,joinWheel,audio:Au};
 }
 
 function boot(){const go=()=>{try{(window.claude&&window.claude.hot&&window.claude.hot.ready)?window.claude.hot.ready(start):start((window.claude&&window.claude.hot&&window.claude.hot.data)||{});}
