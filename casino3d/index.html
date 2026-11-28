@@ -48,7 +48,11 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
   font-weight:700;letter-spacing:.2em;font-size:.9rem;color:var(--gold-hi);animation:beckon 1.4s ease-in-out infinite;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 #enter svg{width:54px;height:54px}
 @keyframes beckon{0%,100%{transform:translateY(0);box-shadow:0 0 0 rgba(230,200,120,0)}50%{transform:translateY(-8px);box-shadow:0 0 34px rgba(230,200,120,.55)}}
-.walk{display:flex;flex-direction:column;align-items:center;gap:6px;align-self:center}
+.walk{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 12px;align-self:center}
+.walk .hint{flex-basis:100%}
+#guide{display:flex;align-items:center;gap:8px;padding:12px 18px;border:2px solid var(--gold);font-weight:700;font-size:.9rem;color:var(--gold-hi);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#guide svg{width:26px;height:26px}
+#guide[aria-pressed="true"]{background:var(--gold);color:#1a1204}
 #fwd{width:74px;height:74px;border-radius:50%;border:2px solid var(--gold);display:grid;place-items:center;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
 #fwd svg{width:34px;height:34px}
 #fwd:active{background:var(--gold);color:#1a1204}
@@ -124,7 +128,7 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
   </header>
   <nav class="views" id="views" aria-label="이동" hidden>
     <button id="v-walk" aria-pressed="true">걸어서 구경</button>
-    <button id="v-tour" aria-pressed="false">시네마 투어</button>
+    <button id="v-tour" aria-pressed="false">안내자 따라가기</button>
     <button data-go="wheel">빅휠</button>
     <button data-go="roulette">룰렛</button>
     <button data-go="blackjack">블랙잭</button>
@@ -148,7 +152,8 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
   </div>
   <div class="walk" id="walk" hidden>
     <button id="fwd" aria-label="앞으로 걷기 (누르고 있기)"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square"><path d="M8 32 24 16l16 16"/></svg></button>
-    <p class="hint">바닥을 눌러 이동 · 드래그로 둘러보기 · 「앉기」 표시가 뜬 빈 의자를 누르면 착석</p>
+    <button id="guide" aria-pressed="false"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" aria-hidden="true"><path d="M10 30 24 16l14 14"/><path d="M10 42 24 28l14 14" opacity=".5"/></svg><span id="guidetxt">안내자 따라가기</span></button>
+    <p class="hint" id="hint">안내자 따라가기를 누르면 부딪히지 않는 길로 천천히 안내합니다 · 드래그로 둘러보기 · 「앉기」 표시를 누르면 착석</p>
   </div>
   <section class="rail" id="rail" aria-label="빅휠 베팅" hidden>
     <h2>RFL GRAND WHEEL <span id="stake">베팅 0</span><span>SPIN 버튼은 휠 옆에 있습니다</span><button id="wleave">휠에서 물러나기</button></h2>
@@ -808,6 +813,7 @@ for(let k=0;k<430;k++)addWalker({});
     for(let k=0;k<n&&nP<TARGET;k++){const a=k/n*TAU+rnd()*.8,px=x+Math.cos(a)*.62,pz=z+Math.sin(a)*.62;grp.people.push(addP(px,pz,faceTo(px,pz,x,z),{glass:rnd()<.6}));}
   }
 })();
+const GUIDE=addP(0,0,0,{role:'cashier',fem:true});pY[GUIDE]=-60;pFlag[GUIDE]=8;sync(GUIDE);
 const ACT=[];for(let k=0;k<4;k++){const i=addP(0,0,0,{});pY[i]=-60;pFlag[i]=8;sync(i);ACT.push(i);}
 finishPeople();
 
@@ -868,53 +874,54 @@ if(!composer)pUni.uLin.value=0;
    SOUND — everything is synthesised; nearby games get louder
    ===================================================================== */
 const Au={c:null,on:true};
+const VOL=.62;
 function auInit(){
   if(Au.c)return;let c;try{c=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
-  Au.c=c;Au.master=c.createGain();Au.master.gain.value=.55;Au.door=c.createBiquadFilter();Au.door.type='lowpass';Au.door.frequency.value=380;
-  Au.master.connect(Au.door);Au.door.connect(c.destination);
-  const nb=c.createBuffer(1,c.sampleRate*3,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=R()*2-1;Au.nb=nb;
-  Au.babble=[380,760,1350,2300].map((f,i)=>{const s=c.createBufferSource();s.buffer=nb;s.loop=true;s.playbackRate.value=.8+i*.13;
-    const b=c.createBiquadFilter();b.type='bandpass';b.frequency.value=f;b.Q.value=1.5;const g=c.createGain();g.gain.value=0;s.connect(b);b.connect(g);g.connect(Au.master);s.start();return g;});
+  Au.c=c;Au.master=c.createGain();Au.master.gain.value=.38;Au.door=c.createBiquadFilter();Au.door.type='lowpass';Au.door.frequency.value=380;
+  const soft=c.createBiquadFilter();soft.type='lowpass';soft.frequency.value=5200;soft.Q.value=.3;   // takes the metallic edge off everything
+  Au.master.connect(Au.door);Au.door.connect(soft);soft.connect(c.destination);
+  const nb=c.createBuffer(1,c.sampleRate*3,c.sampleRate),d=nb.getChannelData(0);let last=0;for(let i=0;i<d.length;i++){last=(last+.03*(R()*2-1))/1.03;d[i]=last*7;}Au.nb=nb;   // brown noise: a room murmur, no hiss
+  Au.babble=[260,520].map((f,i)=>{const s=c.createBufferSource();s.buffer=nb;s.loop=true;s.playbackRate.value=.9+i*.2;
+    const b=c.createBiquadFilter();b.type='lowpass';b.frequency.value=f;b.Q.value=.4;const g=c.createGain();g.gain.value=0;s.connect(b);b.connect(g);g.connect(Au.master);s.start();return g;});
   Au.bus={};['music','slot','fx'].forEach(k=>{const g=c.createGain();g.connect(Au.master);Au.bus[k]=g;});
-  Au.bus.music.gain.value=.5;Au.bus.slot.gain.value=.1;Au.beatT=c.currentTime+.2;Au.beat=0;Au.slotT=c.currentTime+.3;Au.babT=0;Au.rlT=c.currentTime+1;
+  Au.bus.music.gain.value=.4;Au.bus.slot.gain.value=.1;Au.beatT=c.currentTime+.2;Au.beat=0;Au.slotT=c.currentTime+.3;Au.babT=0;Au.rlT=c.currentTime+1;
 }
-function tone(bus,f,t,d,type,vol,f2){const c=Au.c,o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(Au.bus[bus]);o.start(t);o.stop(t+d+.03);}
-function nz(bus,t,d,f,q,vol,att,type){const c=Au.c,s=c.createBufferSource();s.buffer=Au.nb;const b=c.createBiquadFilter();b.type=type||'bandpass';b.frequency.value=f;b.Q.value=q;const g=c.createGain();
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),t+(att||.01));g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(b);b.connect(g);g.connect(Au.bus[bus]);s.start(t,R()*2,d+.1);}
+function tone(bus,f,t,d,type,vol,f2){const c=Au.c,o=c.createOscillator(),g=c.createGain();o.type=type==='triangle'?'triangle':'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(Au.bus[bus]);o.start(t);o.stop(t+d+.03);}
+function nz(bus,t,d,f,q,vol,att){const c=Au.c,s=c.createBufferSource();s.buffer=Au.nb;const b=c.createBiquadFilter();b.type='lowpass';b.frequency.value=Math.min(f,900);b.Q.value=.5;const g=c.createGain();
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),t+(att||.05));g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(b);b.connect(g);g.connect(Au.bus[bus]);s.start(t,R()*2,d+.1);}
 const mhz=m=>440*Math.pow(2,(m-69)/12);
-const CH=[{b:[38,41,45,44],n:[53,57,60,64],m:[74,77,81,84,72]},{b:[43,47,50,49],n:[53,59,64,57],m:[74,79,83,77,81]},{b:[36,40,43,45],n:[52,55,59,62],m:[76,79,84,72,81]},{b:[45,49,52,39],n:[49,55,58,64],m:[73,76,79,81,85]}];
+const CH=[{b:[38,41,45,44],n:[53,57,60,64],m:[74,77,81,72]},{b:[43,47,50,49],n:[53,59,64,57],m:[74,79,77,71]},{b:[36,40,43,45],n:[52,55,59,62],m:[76,79,72,74]},{b:[45,49,52,39],n:[49,55,58,64],m:[73,76,79,69]}];
 const prox=(x,z,r)=>{const dx=x-cam.x,dz=z-cam.z;return 1/(1+(dx*dx+dz*dz)/(r*r));};
 const mpick=a=>a[R()*a.length|0];
+const SLOTN=[523,587,659,784,880,1047,1175,1319];   // slot-machine chimes: a bright major pentatonic, never shrill
+function coins(t,v,n){for(let k=0;k<n;k++)tone('slot',1568+R()*520,t+k*.075+R()*.02,.09,'sine',.045*v);}
 function auTick(dt){
-  const c=Au.c;if(!c||!Au.on||c.state!=='running')return;const now=c.currentTime,bd=60/104;
+  const c=Au.c;if(!c||!Au.on||c.state!=='running')return;const now=c.currentTime,bd=60/92;
   if(Au.beatT<now-.5){Au.beatT=now+.05;Au.slotT=now+.05;Au.rlT=now+.05;}
-  while(Au.beatT<now+.25){const t=Au.beatT,b=Au.beat%4,ch=CH[(Au.beat/4|0)%4];
-    tone('music',mhz(ch.b[b]),t,.42,'triangle',.2);
-    if(b===0)ch.n.forEach((m,i)=>{tone('music',mhz(m),t+i*.012,2.1,'sine',.04);tone('music',mhz(m),t+i*.012,.5,'triangle',.035);});
-    if(b===2&&R()<.7)ch.n.forEach(m=>tone('music',mhz(m),t+bd*.66,.3,'triangle',.03));
-    nz('music',t,.07,7500,1,b%2?.05:.025,.004,'highpass');nz('music',t+bd*.66,.05,8000,1,.02,.004,'highpass');
-    if(R()<.55)tone('music',mhz(mpick(ch.m)),t+(R()<.5?0:bd*.66),.34,'triangle',.06);
-    if(R()<.3)tone('music',mhz(mpick(ch.m)+12),t+bd*.33,.2,'sine',.03);
+  while(Au.beatT<now+.25){const t=Au.beatT,b=Au.beat%4,ch=CH[(Au.beat/4|0)%4];   // soft lounge trio
+    tone('music',mhz(ch.b[b]),t,.5,'sine',.13);
+    if(b===0)ch.n.forEach((m,i)=>tone('music',mhz(m),t+i*.02,2.3,'sine',.03));
+    if(R()<.4)tone('music',mhz(mpick(ch.m)),t+(R()<.5?0:bd*.66),.5,'sine',.035);
     Au.beat++;Au.beatT+=bd;}
-  // crowd babble
-  Au.babT-=dt;if(Au.babT<=0){Au.babT=.11;Au.babble.forEach((g,i)=>g.gain.setTargetAtTime([.16,.2,.13,.06][i]*(.35+R()*.9),now,.07));}
-  // slot machines: louder near any bank
+  Au.babT-=dt;if(Au.babT<=0){Au.babT=.25;Au.babble.forEach((g,i)=>g.gain.setTargetAtTime([.2,.11][i]*(.6+R()*.5),now,.2));}
+  // slot machines: reels chiming, now and then a payout of coins; louder as you come near a bank
   let sp=0;for(const zn of slotZones)sp=Math.max(sp,prox(zn.x,zn.z,8));
-  Au.bus.slot.gain.setTargetAtTime(.06+sp*.5,now,.25);
-  while(Au.slotT<now+.2){const t=Au.slotT,base=mpick([1047,1175,1319,1568,1760,2093]),n=2+(R()*4|0);
-    for(let k=0;k<n;k++)tone('slot',base*[1,1.25,1.5,2,2.5][k%5],t+k*.07,.1,k%2?'square':'triangle',.06);
-    if(R()<.25)nz('slot',t,.25,5200,4,.05,.01);Au.slotT+=.14+R()*.42;}
-  // roulette ball rattle
+  Au.bus.slot.gain.setTargetAtTime(.05+sp*.4,now,.3);
+  while(Au.slotT<now+.2){const t=Au.slotT,st=R()*SLOTN.length|0,n=3+(R()*3|0),up=R()<.7?1:-1;
+    for(let k=0;k<n;k++)tone('slot',SLOTN[(st+k*up+16)%8],t+k*.09,.16,'triangle',.05);
+    if(R()<.16)coins(t+.4,1,6+(R()*8|0));
+    Au.slotT+=.35+R()*.8;}
+  // roulette: the ball's soft wooden clatter near a table
   let rp=0;for(const r of rouletteXY)rp=Math.max(rp,prox(r.x,r.z,6));
-  while(Au.rlT<now+.2){if(rp>.08)nz('fx',Au.rlT,.03,3200+R()*1500,6,.16*rp,.003);if(R()<.2)tone('fx',2400+R()*900,Au.rlT+.02,.03,'triangle',.02);Au.rlT+=.06+R()*.14;}
+  while(Au.rlT<now+.2){if(rp>.1&&R()<.6)tone('fx',760+R()*160,Au.rlT,.035,'sine',.07*rp,560);Au.rlT+=.09+R()*.2;}
 }
-function cheerAt(x,z,big){if(!Au.c||!Au.on)return;const v=(big?.7:.45)*(.12+prox(x,z,11)),t=Au.c.currentTime;
-  nz('fx',t,2.3,1100,.7,v,.18);nz('fx',t+.1,1.9,2200,.9,v*.6,.25);for(let k=0;k<4;k++)tone('fx',480+R()*320,t+R()*.6,.45,'sine',v*.22,820+R()*500);}
-function jackpotAt(x,z){if(!Au.c||!Au.on)return;const v=.1+prox(x,z,10),t=Au.c.currentTime;
-  for(let k=0;k<24;k++)tone('fx',[1568,2093,2637,3136][k%4],t+k*.085,.26,'sine',.11*v);
-  for(let k=0;k<34;k++)tone('fx',3000+R()*3200,t+.3+R()*2.6,.05,'triangle',.05*v);}
-function click(f,vol){if(Au.c&&Au.on)tone('fx',f,Au.c.currentTime,.035,'square',vol);}
+function cheerAt(x,z,big){if(!Au.c||!Au.on)return;const v=(big?.5:.32)*(.1+prox(x,z,11)),t=Au.c.currentTime;
+  nz('fx',t,2.2,700,.5,v,.3);for(let k=0;k<3;k++)tone('fx',380+R()*200,t+R()*.5,.5,'sine',v*.12,560+R()*240);}
+function jackpotAt(x,z){if(!Au.c||!Au.on)return;const v=.12+prox(x,z,10),t=Au.c.currentTime;   // jackpot: rising bell run, then coins pouring
+  [784,988,1175,1319,1568,1319,1568,1760,1568,1760,2093].forEach((f,k)=>{tone('slot',f,t+k*.11,.3,'sine',.09*v);tone('slot',f*2,t+k*.11,.18,'sine',.02*v);});
+  coins(t+1.2,v,22);}
+function click(f,vol){if(Au.c&&Au.on)tone('fx',Math.min(f,900),Au.c.currentTime,.05,'sine',vol);}
 function greet(){try{if(!Au.on||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance('어서 오십시오. 알 에프 엘 크루즈 카지노에 오신 것을 환영합니다.');u.lang='ko-KR';u.rate=1;u.volume=.9;speechSynthesis.speak(u);}catch(e){}}
 
 /* =====================================================================
@@ -927,7 +934,7 @@ const keys={};
 const V=(x,y,z)=>new T.Vector3(x,y,z);
 // the cinema tour is a stroll at eye level along the aisles
 const tourPos=new T.CatmullRomCurve3([[3.5,36],[3.5,18],[9,18],[23,18],[23,2],[34,2],[34,18],[34,34],[23,34],[9,34],[9,2],[3.5,2],[3.5,-13],[-3.5,-13],[-9,-13],[-9,2],[-23,2],[-23,18],[-34,18],[-34,34],[-23,34],[-9,34],[-3.5,36]].map(q=>V(q[0],EYE,q[1])),true,'catmullrom',.35);
-let tourT=0;const tP=V(3.5,EYE,36),tT=V(3.5,EYE,18);
+const TOURLEN=tourPos.getLength();let tourT=0;const tP=V(3.5,EYE,36),tT=V(3.5,EYE,18);
 const DEST={wheel:[0,WZ+17.5,PI],roulette:[16,18,PI],blackjack:[16,33.2,PI],holdem:[-16,33.2,PI],baccarat:[-9,-6,-PI/2],slot:[-23,10,-PI/2],bar:[34.5,5,PI/2],cage:[33.5,32.5,PI/2],entrance:[0,37.5,PI]};
 function blocked(x,z){
   if(z>41.3){if(z<43.8)return Math.abs(x)>4.1||doorOpen<.8;return Math.abs(x)>14.8||z>60.8;}
@@ -936,12 +943,15 @@ function blocked(x,z){
   for(const o of obst){const dx=x-o.x,dz=z-o.z;if(dx*dx+dz*dz<o.r*o.r)return true;}
   return false;
 }
-function tryMove(nx,nz){if(!blocked(nx,nz)){cam.x=nx;cam.z=nz;return true;}if(!blocked(nx,cam.z)){cam.x=nx;return true;}if(!blocked(cam.x,nz)){cam.z=nz;return true;}return false;}
+function tryMove(nx,nz){if(!blocked(nx,nz)){cam.x=nx;cam.z=nz;return true;}
+  const dx=nx-cam.x,dz=nz-cam.z; // slide round whatever is in the way
+  for(const a of [.6,-.6,1.2,-1.2,1.7,-1.7]){const c=Math.cos(a),sn=Math.sin(a),x=cam.x+dx*c-dz*sn,z=cam.z+dx*sn+dz*c;if(!blocked(x,z)){cam.x=x;cam.z=z;return true;}}
+  return false;}
 const wrap=a=>{while(a>PI)a-=TAU;while(a<-PI)a+=TAU;return a;};
 function tween(to,d,done,lin){tw={f:{x:cam.x,y:cam.y,z:cam.z,yaw:cam.yaw,pitch:cam.pitch},t:to,u:0,d,done,lin:!!lin};goTo=null;}
 function setMode(m){mode=m;
   $('views').hidden=(m==='gate'||m==='lobby'||m==='enter');
-  $('enter').hidden=m!=='lobby';$('walk').hidden=m!=='walk';$('rail').hidden=m!=='wheel';$('spin').hidden=m!=='wheel';
+  $('enter').hidden=m!=='lobby';$('walk').hidden=!(m==='walk'||m==='tour');$('fwd').hidden=m==='tour';$('guide').setAttribute('aria-pressed',m==='tour'?'true':'false');$('guidetxt').textContent=m==='tour'?'안내 멈추기':'안내자 따라가기';$('rail').hidden=m!=='wheel';$('spin').hidden=m!=='wheel';
   $('v-walk').setAttribute('aria-pressed',m==='walk'?'true':'false');$('v-tour').setAttribute('aria-pressed',m==='tour'?'true':'false');
 }
 function camFromTour(){cam.x=tP.x;cam.y=tP.y;cam.z=tP.z;cam.yaw=Math.atan2(tT.x-tP.x,tT.z-tP.z);cam.pitch=0;}
@@ -955,7 +965,7 @@ function walkPath(pts,endYaw,done){ // always on foot, at eye level
   let i=0;const next=()=>{
     if(i>=pts.length){tween({x:cam.x,y:EYE,z:cam.z,yaw:endYaw,pitch:0},.6,done);return;}
     const q=pts[i++],d=Math.hypot(q.x-cam.x,q.z-cam.z);if(d<.4){next();return;}
-    tween({x:q.x,y:EYE,z:q.z,yaw:Math.atan2(q.x-cam.x,q.z-cam.z),pitch:0},Math.max(.3,d/8.5),next,true);};
+    tween({x:q.x,y:EYE,z:q.z,yaw:Math.atan2(q.x-cam.x,q.z-cam.z),pitch:0},Math.max(.4,d/2.9),next,true);};
   next();}
 function flyDest(k){const d=DEST[k];if(!d||mode==='gate'||mode==='lobby'||mode==='enter'||mode==='seat')return;
   if(mode==='tour'){camFromTour();cam.y=EYE;}if(mode==='wheel'&&!(spinning&&spinS&&!spinS.npc)){refund();paint();}
@@ -963,7 +973,7 @@ function flyDest(k){const d=DEST[k];if(!d||mode==='gate'||mode==='lobby'||mode==
 function enterCasino(){
   if(mode!=='lobby')return;setMode('enter');doorTarget=1;greet();
   lobbyStaff.forEach((i,k)=>setTimeout(()=>gesture(i,4,3.4),500+k*260));
-  if(Au.c){const t=Au.c.currentTime;Au.door.frequency.setValueAtTime(380,t+1);Au.door.frequency.exponentialRampToValueAtTime(18000,t+5.5);Au.master.gain.setTargetAtTime(Au.on?1:0,t+1.5,1.4);}
+  if(Au.c){const t=Au.c.currentTime;Au.door.frequency.setValueAtTime(380,t+1);Au.door.frequency.exponentialRampToValueAtTime(18000,t+5.5);Au.master.gain.setTargetAtTime(Au.on?VOL:0,t+1.5,1.4);}
   say('어서 오십시오','RFL 크루즈 카지노에 오신 것을 환영합니다',4200);
   tween({x:0,y:EYE,z:47.5,yaw:PI,pitch:0},3.2,()=>{
     tween({x:0,y:EYE,z:30,yaw:PI,pitch:.04},6.5,()=>{setMode('walk');say('GRAND CASINO DECK','오른쪽에 칩 교환소·보관소·바, 정면이 메인 플로어입니다',5200);});});
@@ -973,7 +983,7 @@ function sitAt(h){
   tween({x:h.sx,y:EYE,z:h.sz,yaw:h.yaw,pitch:0},Math.min(2.4,.5+Math.hypot(h.sx-cam.x,h.sz-cam.z)/7),()=>{
     tween({x:h.x,y:1.52,z:h.z,yaw:h.yaw,pitch:-.3},1.1,()=>openGame(h.game));});
 }
-function standUp(){const h=curSeat;$('game').hidden=true;$('gbody').innerHTML='';if(Au.c)Au.master.gain.setTargetAtTime(Au.on?1:0,Au.c.currentTime,.3);
+function standUp(){const h=curSeat;$('game').hidden=true;$('gbody').innerHTML='';if(Au.c)Au.master.gain.setTargetAtTime(Au.on?VOL:0,Au.c.currentTime,.3);
   if(!h){setMode('walk');return;}curSeat=null;tween({x:h.sx,y:EYE,z:h.sz,yaw:h.yaw,pitch:0},.9,()=>setMode('walk'));}
 function joinWheel(h){setMode('fly');tween({x:h.sx,y:EYE,z:h.sz,yaw:PI,pitch:.4},Math.min(2.4,.6+Math.hypot(h.sx-cam.x,h.sz-cam.z)/7),()=>{setMode('wheel');paint();say('RFL GRAND WHEEL','숫자 구역에 칩을 올리고 SPIN',2600);});}
 function openGame(k){
@@ -998,7 +1008,7 @@ function showMenu(){ // pick any game from anywhere
   card('RFL Grand Wheel','그랜드 빅휠','홀 정면의 대형 휠 앞으로 걸어가 직접 베팅하고 돌립니다. 크라운 40배.',()=>{leaveOverlay();flyDest('wheel');});
   body.appendChild(g);$('game').hidden=false;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?.5:0,Au.c.currentTime,.3);
 }
-function leaveOverlay(){$('game').hidden=true;$('gbody').innerHTML='';curSeat=null;tw=null;cam.y=EYE;cam.pitch=0;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?1:0,Au.c.currentTime,.3);setMode('walk');}
+function leaveOverlay(){$('game').hidden=true;$('gbody').innerHTML='';curSeat=null;tw=null;cam.y=EYE;cam.pitch=0;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?VOL:0,Au.c.currentTime,.3);setMode('walk');}
 $('gmenu').addEventListener('click',showMenu);
 $('gentr').addEventListener('click',()=>{leaveOverlay();flyDest('entrance');});
 $('v-menu').addEventListener('click',()=>{if(mode!=='walk'&&mode!=='wheel')return;if(mode==='wheel'&&!(spinning&&spinS&&!spinS.npc)){refund();paint();}setMode('seat');showMenu();});
@@ -1012,16 +1022,16 @@ canvas.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)re
   else if(ptrs.size===2){const a=[...ptrs.values()],d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);if(pinch){camera.fov=Math.max(28,Math.min(75,camera.fov*pinch/d));camera.updateProjectionMatrix();}pinch=d;}});
 function tap(cx,cy){
   const rect=canvas.getBoundingClientRect();
-  if(mode==='tour'){exitTour();return;}
-  if(mode!=='walk')return;
+  if(mode!=='walk'&&mode!=='tour')return;
   let best=null,bd=52;
   for(const h of hotspots){if(!h.s.visible)continue;v3.copy(h.s.position).project(camera);if(v3.z>1)continue;
     const sx=(v3.x*.5+.5)*rect.width+rect.left,sy=(-v3.y*.5+.5)*rect.height+rect.top,d=Math.hypot(sx-cx,sy-cy);if(d<bd){bd=d;best=h;}}
-  if(best){click(1200,.05);
+  if(best){click(700,.05);if(mode==='tour'){camFromTour();cam.y=EYE;}
     if(best.type==='seat')sitAt(best);else if(best.type==='wheel')joinWheel(best);
-    else if(best.type==='cage'){bal+=50000;save();paint();say('칩 교환소','플레이 칩 50,000을 받았습니다',2400);if(Au.c&&Au.on)for(let k=0;k<6;k++)tone('fx',2600+k*220,Au.c.currentTime+k*.05,.05,'triangle',.06);}
+    else if(best.type==='cage'){bal+=50000;save();paint();say('칩 교환소','플레이 칩 50,000을 받았습니다',2400);if(Au.c&&Au.on)coins(Au.c.currentTime,1,8);}
     else say('RFL BAR · LOUNGE','연미복 차림의 직원들이 플로어로 음료를 나르고 있습니다',3000);
     return;}
+  if(mode==='tour'){exitTour();return;}
   ndc.set((cx-rect.left)/rect.width*2-1,-((cy-rect.top)/rect.height)*2+1);ray.setFromCamera(ndc,camera);const o=ray.ray.origin,d=ray.ray.direction;
   if(d.y<-.02){const t=Math.min(40,-o.y/d.y);goTo={x:o.x+d.x*t,z:o.z+d.z*t};stuck=0;}
 }
@@ -1075,7 +1085,7 @@ function settle(){
   if(s.pay>=10){winFlash=4;confetti();}
   if(!npc){const stake=bets[s.k]||0;let tot=0;for(const k in bets)tot+=bets[k];
     if(stake){const win=stake*(s.pay+1);bal+=win;say(name+'  ·  '+s.pay+'배 당첨','+'+fmt(win-tot)+' 칩 (지급 '+fmt(win)+')',4200);confetti();winFlash=4;
-      if(Au.c&&Au.on)[523,659,784,1047,1319].forEach((f,i)=>tone('fx',f,Au.c.currentTime+i*.11,.35,'triangle',.12));}
+      if(Au.c&&Au.on)[523,659,784,1047,1319].forEach((f,i)=>tone('fx',f,Au.c.currentTime+i*.11,.4,'sine',.1));}
     else say(name,'이번 판은 아쉽게 놓쳤습니다',2600);
     bets={};if(bal<100){bal=100000;setTimeout(()=>say('하우스 리필','플레이 칩 100,000을 다시 드립니다'),2800);}save();}
   else if(mode==='wheel')say(name,'다른 손님의 판이 끝났습니다. 이제 베팅하세요',2200);
@@ -1085,10 +1095,11 @@ function settle(){
 /* ---------- nav ---------- */
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>flyDest(b.dataset.go)));
 $('v-walk').addEventListener('click',()=>{if(mode==='tour')exitTour();});
-$('v-tour').addEventListener('click',()=>{if(mode==='tour'){exitTour();return;}if(mode!=='walk')return;tP.set(cam.x,EYE,cam.z);tT.set(cam.x+Math.sin(cam.yaw)*10,EYE,cam.z+Math.cos(cam.yaw)*10);{let bd=1e9;for(let k=0;k<240;k++){const q=tourPos.getPointAt(k/240),d=Math.hypot(q.x-cam.x,q.z-cam.z);if(d<bd){bd=d;tourT=k/240;}}}setMode('tour');say('시네마 투어','눈높이로 플로어를 한 바퀴 돕니다. 화면을 누르면 멈춥니다',2800);});
+$('v-tour').addEventListener('click',()=>{if(mode==='tour'){exitTour();return;}if(mode!=='walk')return;tP.set(cam.x,EYE,cam.z);tT.set(cam.x+Math.sin(cam.yaw)*10,EYE,cam.z+Math.cos(cam.yaw)*10);{let bd=1e9;for(let k=0;k<240;k++){const q=tourPos.getPointAt(k/240),d=Math.hypot(q.x-cam.x,q.z-cam.z);if(d<bd){bd=d;tourT=k/240;}}}setMode('tour');showBubble('이쪽으로 모시겠습니다. 천천히 따라오세요.','안내원이 앞장섭니다. 화면을 누르면 멈춥니다',null,null,4200);speak('이쪽으로 모시겠습니다. 천천히 따라오세요.');});
 $('v-sound').addEventListener('click',e=>{Au.on=!Au.on;if(Au.on&&!Au.c){auInit();if(Au.c&&mode!=='lobby')Au.door.frequency.value=18000;}
-  if(Au.c){if(Au.on)Au.c.resume();Au.master.gain.setTargetAtTime(Au.on?(mode==='lobby'?.55:1):0,Au.c.currentTime,.1);}e.currentTarget.setAttribute('aria-pressed',Au.on?'true':'false');});
+  if(Au.c){if(Au.on)Au.c.resume();Au.master.gain.setTargetAtTime(Au.on?(mode==='lobby'?.38:VOL):0,Au.c.currentTime,.1);}e.currentTarget.setAttribute('aria-pressed',Au.on?'true':'false');});
 $('enter').addEventListener('click',enterCasino);
+$('guide').addEventListener('click',()=>$('v-tour').click());
 function begin(sound){Au.on=sound;if(sound)auInit();if(Au.c)Au.c.resume();$('v-sound').setAttribute('aria-pressed',sound?'true':'false');$('gate').classList.add('gone');setMode('lobby');
   say('RFL CRUISE CASINO','화살표를 눌러 입장하세요',3600);}
 $('g-sound').addEventListener('click',()=>begin(true));$('g-mute').addEventListener('click',()=>begin(false));
@@ -1162,7 +1173,7 @@ function startEnc(){
 }
 function endEnc(){enc.ids.forEach(i=>{pY[i]=-60;sync(i);});enc=null;encT=8+R()*7;}
 function encReply(e,pick){
-  if(e.t==='waiter'){if(pick<2){showBubble('네, 여기 있습니다. 즐거운 시간 보내십시오.',pick===0?'샴페인 한 잔을 받았습니다':'칵테일 한 잔을 받았습니다');speak('네, 여기 있습니다. 즐거운 시간 보내십시오.');if(Au.c&&Au.on){tone('fx',2450,Au.c.currentTime,.5,'sine',.12);tone('fx',3100,Au.c.currentTime+.05,.6,'sine',.09);}}
+  if(e.t==='waiter'){if(pick<2){showBubble('네, 여기 있습니다. 즐거운 시간 보내십시오.',pick===0?'샴페인 한 잔을 받았습니다':'칵테일 한 잔을 받았습니다');speak('네, 여기 있습니다. 즐거운 시간 보내십시오.');if(Au.c&&Au.on){tone('fx',1568,Au.c.currentTime,.5,'sine',.08);tone('fx',2093,Au.c.currentTime+.05,.6,'sine',.05);}}
     else{showBubble('네, 필요하시면 언제든 불러 주십시오.');speak('네, 필요하시면 언제든 불러 주십시오.');}}
   else{if(pick===0){showBubble('어머, 반가워요! 오늘 행운 가득하세요!','한국에서 온 일행');speak('어머, 반가워요! 오늘 행운 가득하세요!');}
     else{showBubble('Oh, sorry! Have a lovely evening!','실례했어요, 좋은 저녁 보내세요');speak('Oh, sorry! Have a lovely evening!','en-US');}}
@@ -1170,13 +1181,13 @@ function encReply(e,pick){
 }
 function encUpdate(dt){
   if(kick){kick.t-=dt;const u=Math.max(0,kick.t/.45);camRoll=Math.sin(u*PI)*.045*kick.s;if(mode==='walk')tryMove(cam.x+kick.x*dt*.9,cam.z+kick.z*dt*.9);if(kick.t<=0){kick=null;camRoll=0;}}
-  if(!enc){if(mode==='walk'&&movingNow&&cam.z<40){encT-=dt;if(encT<=0)startEnc();}return;}
+  if(!enc){if((mode==='walk'||mode==='tour')&&movingNow&&cam.z<40){encT-=dt;if(encT<=0)startEnc();}return;}
   const e=enc.e,L=enc.ids[0],fx=Math.sin(cam.yaw),fz=Math.cos(cam.yaw),rx=-fz,rz=fx;enc.t+=dt;
   let dx=cam.x-pX[L],dz=cam.z-pZ[L],d=Math.hypot(dx,dz),sp=0;
   if(enc.ph==='approach'){
     const lat=e.t==='bump'?.3:e.t==='glance'?1.05:0,tx=cam.x+rx*enc.sd*lat-pX[L],tz=cam.z+rz*enc.sd*lat-pZ[L],td=Math.hypot(tx,tz)||1;enc.hx=tx/td;enc.hz=tz/td;sp=1.3;
     if(e.t==='bump'&&d<1.25){enc.ph='pass';enc.t=0;kick={t:.45,s:-enc.sd,x:-rx*enc.sd,z:-rz*enc.sd};
-      if(Au.c&&Au.on){tone('fx',92,Au.c.currentTime,.16,'sine',.5);nz('fx',Au.c.currentTime,.09,420,.8,.25,.004);}
+      if(Au.c&&Au.on){tone('fx',92,Au.c.currentTime,.16,'sine',.4);}
       showBubble(e.say,e.ko);speak(e.say,e.lang);}
     else if(e.t==='glance'&&d<2.4){enc.ph='pass';enc.t=0;showBubble(e.say,e.ko,null,null,2600);speak(e.say,e.lang);}
     else if((e.t==='waiter'||e.t==='group')&&d<(e.t==='group'?2.3:1.75)){enc.ph='talk';enc.t=0;goTo=null;speak(e.say,e.lang);
@@ -1209,7 +1220,7 @@ function tick(){
   // wheel — other guests keep it turning when the visitor is not playing
   if(!spinning&&mode!=='gate'){npcSpinT-=dt;let hasBet=false;for(const k in bets){hasBet=true;break;}if(npcSpinT<=0&&!(mode==='wheel'&&hasBet))startSpin(true);}
   if(spinS){spinS.u=Math.min(1,spinS.u+dt/spinS.d);ang=spinS.a0+(spinS.a1-spinS.a0)*(1-Math.pow(1-spinS.u,3.6));
-    const peg=Math.floor(ang/SEG+.5);if(peg!==lastPeg){lastPeg=peg;flap=.55;if(Au.c&&Au.on)tone('fx',1500+R()*200,Au.c.currentTime,.03,'square',.02+.14*prox(0,WZ+10,12));}
+    const peg=Math.floor(ang/SEG+.5);if(peg!==lastPeg){lastPeg=peg;flap=.55;if(Au.c&&Au.on)tone('fx',820+R()*60,Au.c.currentTime,.04,'triangle',.02+.1*prox(0,WZ+10,12));}
     if(spinS.u>=1)settle();}
   wheel.rotation.z=ang;flap=Math.max(0,flap-dt*5);pointer.rotation.z=-flap;burst.rotation.z=-time*.04;
   winFlash=Math.max(0,winFlash-dt);
@@ -1242,10 +1253,14 @@ function tick(){
     if(kf||ks){goTo=null;mx=fx*kf-fz*ks;mz=fz*kf+fx*ks;}
     else if(goTo){const dx=goTo.x-cam.x,dz=goTo.z-cam.z,d=Math.hypot(dx,dz);if(d<.35)goTo=null;else{mx=dx/d;mz=dz/d;if(!ptrs.size)cam.yaw+=wrap(Math.atan2(dx,dz)-cam.yaw)*Math.min(1,dt*1.6);}}
     movingNow=!!(mx||mz);
-    if(mx||mz){const sp=4.2*dt;if(!tryMove(cam.x+mx*sp,cam.z+mz*sp)){stuck+=dt;if(stuck>.5)goTo=null;}else stuck=0;}
+    if(mx||mz){const sp=1.7*dt;if(!tryMove(cam.x+mx*sp,cam.z+mz*sp)){stuck+=dt;if(stuck>.5)goTo=null;}else stuck=0;}
     cam.y+=(EYE+((mx||mz)?Math.sin(time*9)*.035:0)-cam.y)*Math.min(1,dt*8);
   }
-  if(mode==='tour'){tourT=(tourT+dt/150)%1;const k=1-Math.exp(-dt*1.6);tP.lerp(tourPos.getPointAt(tourT),k);tT.lerp(tourPos.getPointAt((tourT+.022)%1),k);tP.y=EYE+Math.sin(time*7)*.025;tT.y=EYE+.05;camera.position.copy(tP);camera.lookAt(tT);}
+  if(mode==='tour'){tourT=(tourT+dt*1.25/TOURLEN)%1;const k=1-Math.exp(-dt*1.6);tP.lerp(tourPos.getPointAt(tourT),k);tT.lerp(tourPos.getPointAt((tourT+.022)%1),k);tP.y=EYE+Math.sin(time*7)*.02;tT.y=EYE+.05;camera.position.copy(tP);camera.lookAt(tT);
+    cam.x=tP.x;cam.z=tP.z;cam.y=EYE;cam.yaw=Math.atan2(tT.x-tP.x,tT.z-tP.z);cam.pitch=0;movingNow=true;
+    const gp=tourPos.getPointAt((tourT+3.4/TOURLEN)%1),gq=tourPos.getPointAt((tourT+3.9/TOURLEN)%1);pX[GUIDE]=gp.x;pZ[GUIDE]=gp.z;pY[GUIDE]=0;pYaw[GUIDE]=Math.atan2(gq.x-gp.x,gq.z-gp.z);pPh[GUIDE]+=dt*6;sync(GUIDE);aPos.needsUpdate=aInfo.needsUpdate=aAnim.needsUpdate=true;}
+  else if(pY[GUIDE]>-1){pY[GUIDE]=-60;sync(GUIDE);}
+  if(mode!=='tour'&&mode!=='walk')movingNow=false;
   else{camera.position.set(cam.x,cam.y,cam.z);camera.rotation.set(cam.pitch,cam.yaw+PI,camRoll);}
   encUpdate(dt);
   if(mode==='wheel'&&frame%2===0){ // the SPIN button rides on the wheel's rim
@@ -1253,7 +1268,7 @@ function tick(){
     let sx=(v3.x*.5+.5)*W2,sy=(-v3.y*.5+.5)*H2;if(v3.z>1){sx=W2/2;sy=H2/2;}
     sb.style.left=Math.max(56,Math.min(W2-56,sx))+'px';sb.style.top=Math.max(120,Math.min(rt.top-54,sy))+'px';}
   // seat / join markers near the visitor
-  if(frame%4===0)for(const h of hotspots){const d=Math.hypot(h.x-cam.x,h.z-cam.z);h.s.visible=mode==='walk'&&d<(h.type==='seat'?17:26);if(h.s.visible){const k=Math.max(.22,Math.min(1.25,d/9));h.s.scale.set(1.5*k,1.17*k,1);h.s.position.y=h.y-(1-Math.min(1,k))*.5+Math.sin(time*3+h.x)*.06;}}
+  if(frame%4===0)for(const h of hotspots){const d=Math.hypot(h.x-cam.x,h.z-cam.z);h.s.visible=(mode==='walk'||mode==='tour')&&d<(h.type==='seat'?17:26);if(h.s.visible){const k=Math.max(.22,Math.min(1.25,d/9));h.s.scale.set(1.5*k,1.17*k,1);h.s.position.y=h.y-(1-Math.min(1,k))*.5+Math.sin(time*3+h.x)*.06;}}
   if(composer)composer.render(dt);else renderer.render(scene,camera);
   if(frame===3){$('gatemsg').textContent='입구에서 직원들이 기다리고 있습니다. 문 너머로 카지노 소리가 새어 나옵니다.';$('gaterow').hidden=false;$('gate').classList.remove('solid');}
 }
