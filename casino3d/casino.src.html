@@ -103,6 +103,17 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
 .gmenu button b{font-family:var(--display);font-size:1.15rem;color:var(--gold-hi)}
 .gmenu button span{font-size:.8rem;color:var(--ivory)}
 .gmenu button i{font-style:normal;font-size:.74rem;color:var(--mute);line-height:1.5}
+#age{position:fixed;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(7,5,12,.72);
+  padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+#age .gcard{background:var(--night);border-color:var(--gold);width:100%}
+#age strong{color:var(--gold-hi)}
+.dob{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.dob label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--mute);text-align:left;min-width:0}
+.dob input{font:inherit;font-size:1.1rem;padding:10px 8px;background:#120e1c;color:var(--ivory);border:1px solid var(--line);border-radius:0;width:100%;min-width:0;font-variant-numeric:tabular-nums;-webkit-user-select:text;user-select:text}
+.dob input:focus-visible{outline:2px solid var(--gold-hi);outline-offset:1px}
+#age .row{display:flex;flex-wrap:wrap;gap:8px}
+#age .row button{padding:11px 16px;font-size:.9rem}
+#agemsg{color:#ff9aa8;min-height:1.3em;font-size:.82rem}
 @media (max-width:520px){.brand p{font-size:.58rem;letter-spacing:.1em}.rail{padding:8px}.bet b{font-size:1.05rem}}
 @media (max-height:520px){.note,.hint{display:none}#fwd{width:56px;height:56px}}
 @media (prefers-reduced-motion:reduce){.toast,#enter{animation:none}}
@@ -163,6 +174,21 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
 <div id="game" hidden>
   <div class="gbar"><strong id="gname"></strong><span id="gsub"></span><button id="gmenu">게임 메뉴판</button><button id="gentr">카지노 입구</button><a class="btn" id="gmap" target="_blank" rel="noopener">선내 지도</a><a class="btn" id="gopen" target="_blank" rel="noopener">새 탭에서 열기</a><button id="gleave">자리에서 일어나기</button></div>
   <div id="gbody"></div>
+</div>
+
+<div id="age" hidden>
+  <form class="gcard" id="ageform" novalidate>
+    <h3>신분 확인</h3>
+    <p><strong>만 19세 미만은 카지노에 출입할 수 없습니다.</strong><br>입장 전에 생년월일을 입력해 주세요.</p>
+    <div class="dob">
+      <label>년<input id="dob-y" type="number" inputmode="numeric" min="1900" max="2100" placeholder="1990" autocomplete="bday-year"></label>
+      <label>월<input id="dob-m" type="number" inputmode="numeric" min="1" max="12" placeholder="1" autocomplete="bday-month"></label>
+      <label>일<input id="dob-d" type="number" inputmode="numeric" min="1" max="31" placeholder="1" autocomplete="bday-day"></label>
+    </div>
+    <p id="agemsg" class="note" role="alert"></p>
+    <div class="row"><button type="submit" class="cta">확인하고 입장</button><button type="button" id="agecancel">돌아가기</button></div>
+    <p class="note">입력한 생년월일은 나이 확인에만 쓰이며 저장하거나 전송하지 않습니다.</p>
+  </form>
 </div>
 
 <div id="gate" class="solid">
@@ -1090,10 +1116,21 @@ $('v-walk').addEventListener('click',()=>{if(mode==='tour')exitTour();});
 $('v-tour').addEventListener('click',()=>{if(mode==='tour'){exitTour();return;}if(mode!=='walk')return;tP.set(cam.x,EYE,cam.z);tT.set(cam.x+Math.sin(cam.yaw)*10,EYE,cam.z+Math.cos(cam.yaw)*10);{let bd=1e9;for(let k=0;k<240;k++){const q=tourPos.getPointAt(k/240),d=Math.hypot(q.x-cam.x,q.z-cam.z);if(d<bd){bd=d;tourT=k/240;}}}setMode('tour');showBubble('이쪽으로 모시겠습니다. 천천히 따라오세요.','안내원이 앞장섭니다. 화면을 누르면 멈춥니다',null,null,4200);speak('이쪽으로 모시겠습니다. 천천히 따라오세요.');});
 $('v-sound').addEventListener('click',e=>{Au.on=!Au.on;if(Au.on&&!Au.c){auInit();if(Au.c&&mode!=='lobby')Au.door.frequency.value=18000;}
   if(Au.c){if(Au.on)Au.c.resume();Au.master.gain.setTargetAtTime(Au.on?(mode==='lobby'?.38:VOL):0,Au.c.currentTime,.1);}e.currentTarget.setAttribute('aria-pressed',Au.on?'true':'false');});
-$('enter').addEventListener('click',enterCasino);
+let ageOK=false;
+function askAge(){if(mode!=='lobby')return;if(ageOK){enterCasino();return;}$('agemsg').textContent='';$('age').hidden=false;$('enter').hidden=true;
+  speak('만 19세 미만은 출입하실 수 없습니다. 생년월일을 확인하겠습니다.');gesture(lobbyStaff[3],3,2.5);setTimeout(()=>{try{$('dob-y').focus();}catch(e){}},50);}
+$('enter').addEventListener('click',askAge);
+$('agecancel').addEventListener('click',()=>{$('age').hidden=true;$('enter').hidden=mode!=='lobby';});
+$('ageform').addEventListener('submit',ev=>{ev.preventDefault();
+  const y=parseInt($('dob-y').value,10),m=parseInt($('dob-m').value,10),d=parseInt($('dob-d').value,10),msg=$('agemsg'),now=new Date();
+  const dt=new Date(y,m-1,d);
+  if(!(y>=1900)||!(m>=1&&m<=12)||!(d>=1&&d<=31)||dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d||dt>now){msg.textContent='생년월일을 정확히 입력해 주세요. 예: 1990년 1월 1일';return;}
+  let age=now.getFullYear()-y;if(now.getMonth()<m-1||(now.getMonth()===m-1&&now.getDate()<d))age--;
+  if(age<19){msg.textContent='만 '+age+'세입니다. 만 19세 미만은 입장하실 수 없습니다.';speak('죄송합니다. 만 19세 미만은 입장하실 수 없습니다.');return;}
+  ageOK=true;$('age').hidden=true;$('dob-y').value=$('dob-m').value=$('dob-d').value='';enterCasino();});
 $('guide').addEventListener('click',()=>$('v-tour').click());
 function begin(sound){Au.on=sound;if(sound)auInit();if(Au.c)Au.c.resume();$('v-sound').setAttribute('aria-pressed',sound?'true':'false');$('gate').classList.add('gone');setMode('lobby');
-  say('RFL CRUISE CASINO','화살표를 눌러 입장하세요',3600);}
+  say('RFL CRUISE CASINO','만 19세 미만 출입 금지 · 화살표를 눌러 입장하세요',4200);}
 $('g-sound').addEventListener('click',()=>begin(true));$('g-mute').addEventListener('click',()=>begin(false));
 paint();setMode('gate');
 
@@ -1146,7 +1183,7 @@ const ENC=[
  {t:'waiter',c:108,say:'오늘의 시그니처 칵테일입니다. 드셔 보시겠어요?'},
  {t:'glance',c:32,say:'Evening!',lang:'en-GB',ko:'좋은 저녁입니다'},
  {t:'glance',c:50,say:'Bonsoir !',lang:'fr-FR',ko:'좋은 저녁이에요 (프랑스어)'}];
-const bubble=$('bubble');let bubT=0,encI=0,encT=5+R()*3,enc=null,movingNow=false,kick=null,camRoll=0;
+const bubble=$('bubble');let bubT=0,encI=0,encT=3+R()*2,enc=null,movingNow=false,kick=null,camRoll=0;
 function speak(txt,lang){try{if(!Au.on||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(txt);u.lang=lang||'ko-KR';u.volume=.95;speechSynthesis.speak(u);}catch(e){}}
 function showBubble(main,sub,btns,onPick,ms){bubble.innerHTML='';const b=document.createElement('b');b.textContent=main;bubble.appendChild(b);
   if(sub){const sm=document.createElement('small');sm.textContent=sub;bubble.appendChild(sm);}
@@ -1163,7 +1200,7 @@ function startEnc(){
   ids.forEach((i,k)=>{pF[i]=cells[k];pB[i]=cells[k]+1;pBow[i]=-1;pX[i]=spawn[0];pZ[i]=spawn[1];pY[i]=0;});
   enc={e,ids,sd,ph:'approach',t:0,hx:0,hz:-1,off:[[0,0],[.75,.15],[-.7,.3],[.2,.9]]};
 }
-function endEnc(){enc.ids.forEach(i=>{pY[i]=-60;sync(i);});enc=null;encT=8+R()*7;}
+function endEnc(){const w=enc.gap===undefined?2:enc.gap;enc.ids.forEach(i=>{pY[i]=-60;sync(i);});enc=null;encT=Math.max(.2,w-2.6);} // the next guest sets off early enough to meet 5-10 s after this one
 function encReply(e,pick){
   if(e.t==='waiter'){if(pick<2){showBubble('네, 여기 있습니다. 즐거운 시간 보내십시오.',pick===0?'샴페인 한 잔을 받았습니다':'칵테일 한 잔을 받았습니다');speak('네, 여기 있습니다. 즐거운 시간 보내십시오.');if(Au.c&&Au.on){tone('fx',1568,Au.c.currentTime,.5,'sine',.08);tone('fx',2093,Au.c.currentTime+.05,.6,'sine',.05);}}
     else{showBubble('네, 필요하시면 언제든 불러 주십시오.');speak('네, 필요하시면 언제든 불러 주십시오.');}}
@@ -1174,23 +1211,23 @@ function encReply(e,pick){
 function encUpdate(dt){
   if(kick){kick.t-=dt;const u=Math.max(0,kick.t/.45);camRoll=Math.sin(u*PI)*.045*kick.s;if(mode==='walk')tryMove(cam.x+kick.x*dt*.9,cam.z+kick.z*dt*.9);if(kick.t<=0){kick=null;camRoll=0;}}
   if(!enc){if((mode==='walk'||mode==='tour')&&movingNow&&cam.z<40){encT-=dt;if(encT<=0)startEnc();}return;}
-  const e=enc.e,L=enc.ids[0],fx=Math.sin(cam.yaw),fz=Math.cos(cam.yaw),rx=-fz,rz=fx;enc.t+=dt;
+  const e=enc.e,L=enc.ids[0],fx=Math.sin(cam.yaw),fz=Math.cos(cam.yaw),rx=-fz,rz=fx;enc.t+=dt;if(enc.gap!==undefined&&enc.ph!=='talk')enc.gap-=dt;
   let dx=cam.x-pX[L],dz=cam.z-pZ[L],d=Math.hypot(dx,dz),sp=0;
   if(enc.ph==='approach'){
     const lat=e.t==='bump'?.3:e.t==='glance'?1.05:0,tx=cam.x+rx*enc.sd*lat-pX[L],tz=cam.z+rz*enc.sd*lat-pZ[L],td=Math.hypot(tx,tz)||1;enc.hx=tx/td;enc.hz=tz/td;sp=1.3;
-    if(e.t==='bump'&&d<1.25){enc.ph='pass';enc.t=0;kick={t:.45,s:-enc.sd,x:-rx*enc.sd,z:-rz*enc.sd};
+    if(e.t==='bump'&&d<1.25){enc.ph='pass';enc.t=0;enc.gap=5+R()*5;kick={t:.45,s:-enc.sd,x:-rx*enc.sd,z:-rz*enc.sd};
       if(Au.c&&Au.on){tone('fx',92,Au.c.currentTime,.16,'sine',.4);}
       showBubble(e.say,e.ko);speak(e.say,e.lang);}
-    else if(e.t==='glance'&&d<2.4){enc.ph='pass';enc.t=0;showBubble(e.say,e.ko,null,null,2600);speak(e.say,e.lang);}
-    else if((e.t==='waiter'||e.t==='group')&&d<(e.t==='group'?2.3:1.75)){enc.ph='talk';enc.t=0;goTo=null;speak(e.say,e.lang);
+    else if(e.t==='glance'&&d<2.4){enc.ph='pass';enc.t=0;enc.gap=5+R()*5;showBubble(e.say,e.ko,null,null,2600);speak(e.say,e.lang);}
+    else if((e.t==='waiter'||e.t==='group')&&d<(e.t==='group'?2.3:1.75)){enc.ph='talk';enc.t=0;enc.gap=5+R()*5;goTo=null;speak(e.say,e.lang);
       if(e.t==='waiter')showBubble(e.say,'연미복 차림의 승무원이 쟁반을 내밉니다',['샴페인','칵테일','괜찮습니다'],k=>encReply(e,k));
       else showBubble(e.say,'한국인 일행이 먼저 말을 걸어옵니다',['네, 한국 사람이에요','Sorry?'],k=>encReply(e,k));}
     else if(enc.t>1.2&&((fx*-dx+fz*-dz)/(d||1)<.15&&d>3.2||enc.t>5)){ // the visitor turned away: come round in front again
       const sp2=aheadSpot();if(!sp2||(enc.n=(enc.n||0)+1)>6){endEnc();return;}pX[L]=sp2[0];pZ[L]=sp2[1];enc.t=0;}
   }else if(enc.ph==='talk'){enc.hx=dx/(d||1);enc.hz=dz/(d||1);
     if(enc.t>10){bubble.hidden=true;enc.ph='leave';enc.t=0;}else if(d>6){enc.ph='leave';enc.t=0;clearTimeout(bubT);bubT=setTimeout(()=>{bubble.hidden=true;},5000);}
-  }else if(enc.ph==='leave'){if(enc.t<.05){const a=Math.atan2(enc.hx,enc.hz)+enc.sd*2.2;enc.hx=Math.sin(a);enc.hz=Math.cos(a);}sp=1.25;if(enc.t>7||d>11){endEnc();return;}
-  }else{sp=1.3;if(enc.t>7||d>11){endEnc();return;}}
+  }else if(enc.ph==='leave'){if(enc.t<.05){const a=Math.atan2(enc.hx,enc.hz)+enc.sd*2.2;enc.hx=Math.sin(a);enc.hz=Math.cos(a);}sp=1.25;if(enc.t>7||d>11||(enc.t>1.5&&d>4&&(fx*-dx+fz*-dz)/(d||1)<-.2)){endEnc();return;}
+  }else{sp=1.3;if(enc.t>7||d>11||(enc.t>1.2&&d>3.5&&(fx*-dx+fz*-dz)/(d||1)<-.2)){endEnc();return;}}
   const yaw=Math.atan2(enc.hx,enc.hz),c=Math.cos(yaw),sn=Math.sin(yaw);
   pX[L]+=enc.hx*sp*dt;pZ[L]+=enc.hz*sp*dt;
   enc.ids.forEach((i,k)=>{const o=enc.off[k];if(k){pX[i]=pX[L]+o[0]*c-o[1]*sn;pZ[i]=pZ[L]-o[0]*sn-o[1]*c;}
