@@ -742,9 +742,9 @@ const lobbyStaff=[addP(-5.7,44.2,0,{role:'security',fem:false}),addP(5.7,44.2,0,
 const wheelGroup={x:0,z:WZ+14,people:[]};groups.push(wheelGroup);
 for(let k=0;k<8;k++){const a=(-42+k*12)*PI/180;if(k===4)continue;const x=Math.sin(a)*14.1,z=WZ+Math.cos(a)*14.1;wheelGroup.people.push(addP(x,z,faceTo(x,z,0,WZ),{}));}
 wheelGroup.people.push(addP(-1.3,WZ+14.1,PI,{}));
-for(let k=0;k<21;k++){const a=(-62+k*6.2+(rnd()-.5)*3)*PI/180,r=15.3+rnd()*1.7;if(Math.abs(a)<.1)continue;const x=Math.sin(a)*r,z=WZ+Math.cos(a)*r;wheelGroup.people.push(addP(x,z,faceTo(x,z,0,WZ)+(rnd()-.5)*.3,{glass:rnd()<.55}));}
+for(let k=0;k<21;k++){const a=(-62+k*6.2+(rnd()-.5)*3)*PI/180,r=15.3+rnd()*1.3;if(Math.abs(a)<.22)continue;const x=Math.sin(a)*r,z=WZ+Math.cos(a)*r;wheelGroup.people.push(addP(x,z,faceTo(x,z,0,WZ)+(rnd()-.5)*.3,{glass:rnd()<.55}));}
 always.push(addP(4.6,WZ+5.2,.2,{role:'dealer',y:1.35,gest:5}));
-hotspots.push({type:'wheel',x:0,y:2.7,z:WZ+18.6,sx:0,sz:WZ+19.6,yaw:PI});
+hotspots.push({type:'wheel',x:0,y:2.7,z:WZ+17.2,sx:0,sz:WZ+17.5,yaw:PI});
 
 /* ---------- security on the floor, balcony guests ---------- */
 [[-37.8,-30],[-37.8,6],[37.8,-30],[9.5,-15.5],[-9.5,-15.5],[6.4,40],[-6.4,40],[37.6,12.6]].forEach(p=>addP(p[0],p[1],faceTo(p[0],p[1],0,p[1]<-10?p[1]:p[1]-8),{role:'security',fem:false}));
@@ -930,7 +930,7 @@ function sitAt(h){
 }
 function standUp(){const h=curSeat;$('game').hidden=true;$('gbody').innerHTML='';if(Au.c)Au.master.gain.setTargetAtTime(Au.on?1:0,Au.c.currentTime,.3);
   if(!h){setMode('walk');return;}curSeat=null;tween({x:h.sx,y:EYE,z:h.sz,yaw:h.yaw,pitch:0},.9,()=>setMode('walk'));}
-function joinWheel(h){setMode('fly');tween({x:h.sx,y:EYE,z:h.sz,yaw:PI,pitch:.36},Math.min(2.4,.6+Math.hypot(h.sx-cam.x,h.sz-cam.z)/7),()=>{setMode('wheel');paint();say('RFL GRAND WHEEL','숫자 구역에 칩을 올리고 SPIN',2600);});}
+function joinWheel(h){setMode('fly');tween({x:h.sx,y:EYE,z:h.sz,yaw:PI,pitch:.4},Math.min(2.4,.6+Math.hypot(h.sx-cam.x,h.sz-cam.z)/7),()=>{setMode('wheel');paint();say('RFL GRAND WHEEL','숫자 구역에 칩을 올리고 SPIN',2600);});}
 function openGame(k){
   const G=GAMES[k],body=$('gbody');$('gname').textContent=G.name;$('gsub').textContent=G.ko;body.innerHTML='';
   const play=G.path?G:GAMES[G.alt],url=GAME_BASE+play.path;$('gopen').href=url;
