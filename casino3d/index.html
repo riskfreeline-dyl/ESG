@@ -499,7 +499,7 @@ diamond.add(glow(0x9fdcff,6,.4));
 /* =====================================================================
    PEOPLE — instanced figures (about a thousand on the floor)
    ===================================================================== */
-const NP=1040;let nP=0;
+const NP=1700;let nP=0;
 const pX=new Float32Array(NP),pZ=new Float32Array(NP),pY=new Float32Array(NP),pYaw=new Float32Array(NP),pS=new Float32Array(NP),pPh=new Float32Array(NP),
       pGT=new Float32Array(NP),pGD=new Float32Array(NP),pFlag=new Uint8Array(NP),pG=new Uint8Array(NP),pF=new Uint8Array(NP),pB=new Uint8Array(NP),pBow=new Int16Array(NP).fill(-1);
 // people.webp: 12 x 6 cells of photoreal cut-outs; each character has a front and a back cell (lobby staff: upright + bowing)
@@ -729,7 +729,6 @@ const CX=40.9;
 
 /* ---------- lobby staff & arriving guests ---------- */
 const lobbyStaff=[addP(-5.7,44.2,0,{ch:'guardA',fem:false}),addP(5.7,44.2,0,{ch:'guardD',fem:false}),addP(-2.9,46.4,.25,{ch:'host',fem:true}),addP(2.9,46.4,-.25,{ch:'mgrA',fem:false})];
-[[-5.4,47.6],[-6.6,49.3],[-5.3,51],[-6.9,52.6],[-5.6,54.4]].forEach((p,k)=>addP(p[0],p[1],faceTo(p[0],p[1],-2,44)+(rnd()-.5)*.6,{fem:k%2===0}));
 
 /* ---------- the wheel's crowd ---------- */
 const wheelGroup={x:0,z:WZ+14,people:[]};groups.push(wheelGroup);
@@ -747,21 +746,46 @@ hotspots.push({type:'wheel',x:0,y:2.7,z:WZ+17.2,sx:0,sz:WZ+17.5,yaw:PI});
 const XS=[-34,-23,-9,-3.5,3.5,9,23,34], ZS=[-13,2,18,34,39.5], nodes=[];
 XS.forEach((x,xi)=>ZS.forEach((z,zi)=>{const n=[];if(xi>0)n.push((xi-1)*5+zi);if(xi<7)n.push((xi+1)*5+zi);if(zi>0)n.push(xi*5+zi-1);if(zi<4)n.push(xi*5+zi+1);nodes.push({x,z,n});}));
 const walkers=[],wA=new Int16Array(NP),wB=new Int16Array(NP),wU=new Float32Array(NP),wLen=new Float32Array(NP),wSp=new Float32Array(NP),wOx=new Float32Array(NP),wOz=new Float32Array(NP);
-function addWalker(o){const a=rnd()*nodes.length|0,b=pick(nodes[a].n);o.walk=1;const i=addP(nodes[a].x,nodes[a].z,0,o);if(i<0)return;
-  wA[i]=a;wB[i]=b;wU[i]=rnd();wLen[i]=Math.hypot(nodes[b].x-nodes[a].x,nodes[b].z-nodes[a].z);wSp[i]=.75+rnd()*.6;wOx[i]=(rnd()-.5)*2.2;wOz[i]=(rnd()-.5)*2.2;
+const HALLN=nodes.length;
+// the lobby has its own U-shaped path outside the ropes
+[[-11,46.2,[HALLN+1]],[-11,58,[HALLN,HALLN+2]],[11,58,[HALLN+1,HALLN+3]],[11,46.2,[HALLN+2]]].forEach(n=>nodes.push({x:n[0],z:n[1],n:n[2]}));
+function addWalker(o,lobby){const a=lobby?HALLN+(rnd()*4|0):rnd()*HALLN|0,b=pick(nodes[a].n);o.walk=1;const i=addP(nodes[a].x,nodes[a].z,0,o);if(i<0)return;
+  wA[i]=a;wB[i]=b;wU[i]=rnd();wLen[i]=Math.hypot(nodes[b].x-nodes[a].x,nodes[b].z-nodes[a].z);wSp[i]=.75+rnd()*.6;wOx[i]=(rnd()-.5)*(lobby?1.2:2.2);wOz[i]=(rnd()-.5)*(lobby?1.2:2.2);
   pYaw[i]=Math.atan2(nodes[b].x-nodes[a].x,nodes[b].z-nodes[a].z);walkers.push(i);}
 for(let k=0;k<14;k++)addWalker({role:'waiter',tray:1,fem:k%2===0});
 for(let k=0;k<5;k++)addWalker({role:'security',fem:false});
-for(let k=0;k<300;k++)addWalker({glass:rnd()<.2});
+for(let k=0;k<430;k++)addWalker({});
+
+/* ---------- the lobby: guests waiting to go in, staff standing and walking ---------- */
+(function(){
+  const placed=[];let made=0,guard=0;
+  while(made<26&&guard++<3000){const sd=rnd()<.5?-1:1,x=sd*(5.6+rnd()*8.4),z=44.9+rnd()*14.6;
+    if(Math.abs(Math.abs(x)-11)<1.25)continue;if(z>56.6&&z<59.3)continue;if(z<46.6&&Math.abs(x)<7.6)continue;
+    let ok=true;for(const q of placed)if(Math.hypot(x-q[0],z-q[1])<1.8){ok=false;break;}if(!ok)continue;placed.push([x,z]);
+    const n=1+(rnd()*3|0);for(let k=0;k<n;k++){const a=k/n*TAU+rnd(),px=x+(n>1?Math.cos(a)*.55:0),pz=z+(n>1?Math.sin(a)*.55:0);
+      addP(px,pz,n>1?faceTo(px,pz,x,z):faceTo(px,pz,0,43)+(rnd()-.5)*.5,{});made++;}}
+  [[-14.7,48.5],[14.7,48.5],[-14.7,55.5],[14.7,55.5]].forEach(q=>addP(q[0],q[1],faceTo(q[0],q[1],0,q[1]),{role:'security',fem:false}));
+  addP(-4.95,50.6,PI/2,{role:'host',fem:true});addP(4.95,50.6,-PI/2,{role:'host',fem:true});
+  addP(4.95,55.2,-PI/2+.5,{role:'manager',fem:false});addP(-4.95,55.2,PI/2-.5,{role:'cashier',fem:true});
+  addP(7.4,45.4,-.4,{role:'manager',fem:false});addP(-7.4,45.4,.4,{role:'security',fem:false});
+  for(let k=0;k<3;k++)addWalker({role:'waiter',fem:k===1},true);
+  addWalker({role:'security',fem:false},true);addWalker({role:'manager',fem:false},true);
+  for(let k=0;k<7;k++)addWalker({},true);
+})();
 
 /* ---------- chatting clusters fill the floor to ~1,000 ---------- */
 (function(){
-  const zones=[[-2.2,2.2,-10,37],[4.9,7.8,-11,38],[-7.8,-4.9,-11,38],[-43,-36.3,-36,38],[35.6,38.6,-36,-12],[-32,32,35.4,38.2],[14,22,-39,-16],[-22,-14,-39,-16],[10.2,21.8,-1,1],[-21.8,-10.2,-1,1],[10.2,21.8,19,20],[-21.8,-10.2,19,20],[24.2,33,-13,-11.5],[-33,-24.2,16.5,19.5],[24.2,33,17,19.3]];
-  const placed=[];let guard=0;const TARGET=1009;
-  while(nP<TARGET&&guard++<12000){const zn=pick(zones),x=zn[0]+rnd()*(zn[1]-zn[0]),z=zn[2]+rnd()*(zn[3]-zn[2]);
+  const zones=[[-2.2,2.2,-10,37],[4.9,7.8,-11,38],[-7.8,-4.9,-11,38],[-43,-36.3,-36,38],[35.6,38.6,-36,-12],[-32,32,35.4,38.2],[14,22,-39,-16],[-22,-14,-39,-16]];
+  for(let k=0;k<10;k++)zones.push([-43.5,38.8,-39.5,40.2]);   // anywhere on the open floor
+  const pits=[[16,26],[-16,26],[-16,-6],[16,-6],[28.5,-6],[-28.5,-6]];
+  const placed=[];let guard=0;const TARGET=1560;
+  while(nP<TARGET&&guard++<60000){const zn=pick(zones),x=zn[0]+rnd()*(zn[1]-zn[0]),z=zn[2]+rnd()*(zn[3]-zn[2]);
     if(Math.abs(x)<2.6&&Math.abs(z-8)<3.4)continue;if(Math.hypot(x,z-WZ)<18.5)continue;if(Math.abs(x)<4.6&&z>36.6)continue;if(Math.abs(x)<1.7&&z>24)continue;
-    let ok=true;for(const o of obst){if(Math.hypot(x-o.x,z-o.z)<o.r+1){ok=false;break;}}if(!ok)continue;
-    for(const p of placed){if(Math.hypot(x-p[0],z-p[1])<1.9){ok=false;break;}}if(!ok)continue;
+    if(x>35&&z>-11.5&&z<12)continue;
+    let ok=true;for(const q of pits){if(Math.abs(x-q[0])<5.3&&Math.abs(z-q[1])<6.9){ok=false;break;}}if(!ok)continue;
+    if(Math.abs(Math.abs(x)-16)<5.6&&Math.abs(z-10)<7.7)continue;
+    for(const o of obst){if(Math.hypot(x-o.x,z-o.z)<o.r+1.5){ok=false;break;}}if(!ok)continue;
+    for(const p of placed){if(Math.hypot(x-p[0],z-p[1])<1.75){ok=false;break;}}if(!ok)continue;
     placed.push([x,z]);const n=2+(rnd()*3|0),grp={x,z,people:[]};if(placed.length%4===0)groups.push(grp);
     for(let k=0;k<n&&nP<TARGET;k++){const a=k/n*TAU+rnd()*.8,px=x+Math.cos(a)*.62,pz=z+Math.sin(a)*.62;grp.people.push(addP(px,pz,faceTo(px,pz,x,z),{glass:rnd()<.6}));}
   }
@@ -878,7 +902,7 @@ function greet(){try{if(!Au.on||!('speechSynthesis' in window))return;const u=ne
    CAMERA + MODES
    ===================================================================== */
 let mode='gate';              // gate → lobby → enter → walk ⇄ tour / wheel / seat / fly
-const cam={x:0,y:EYE,z:59.5,yaw:PI,pitch:0};   // pitch > 0 looks up
+const cam={x:0,y:EYE,z:60.4,yaw:PI,pitch:0};   // pitch > 0 looks up
 let tw=null,goTo=null,fwd=false,stuck=0,curSeat=null;
 const keys={};
 const V=(x,y,z)=>new T.Vector3(x,y,z);
