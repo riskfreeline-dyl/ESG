@@ -24,8 +24,6 @@ body{background:var(--night);color:var(--ivory);font-family:var(--body);overflow
 .brand p{margin:6px 0 0;font-size:.68rem;letter-spacing:.2em;color:var(--mute);text-shadow:0 1px 6px #000}
 .purse{pointer-events:auto;text-align:right;background:var(--glass);border:1px solid var(--line);padding:8px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .purse span{display:block;font-size:.64rem;letter-spacing:.18em;color:var(--mute)}
-.purse #left{margin-top:4px;letter-spacing:.04em;color:var(--ivory);font-variant-numeric:tabular-nums}
-.purse #left.low{color:#ff9aa8;font-weight:700}
 .purse strong{font-family:var(--display);font-size:clamp(1rem,3vw,1.45rem);color:var(--gold-hi);font-variant-numeric:tabular-nums}
 .views{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0}
 .views::-webkit-scrollbar{display:none}
@@ -129,7 +127,7 @@ button:focus-visible,.btn:focus-visible{outline:2px solid var(--gold-hi);outline
       <h1>RFL Cruise Casino</h1>
       <p>RFL CRUISE · GRAND CASINO DECK</p>
     </div>
-    <div class="purse"><span>플레이 칩</span><strong id="bal">100,000</strong><span id="left" hidden></span></div>
+    <div class="purse"><span>플레이 칩</span><strong id="bal">100,000</strong></div>
   </header>
   <nav class="views" id="views" aria-label="이동" hidden>
     <button id="v-walk" aria-pressed="true">걸어서 구경</button>
@@ -1007,7 +1005,7 @@ function enterCasino(){
   if(Au.c){const t=Au.c.currentTime;Au.door.frequency.setValueAtTime(380,t+1);Au.door.frequency.exponentialRampToValueAtTime(18000,t+5.5);Au.master.gain.setTargetAtTime(Au.on?VOL:0,t+1.5,1.4);}
   say('어서 오십시오','RFL 크루즈 카지노에 오신 것을 환영합니다',4200);
   tween({x:0,y:EYE,z:47.5,yaw:PI,pitch:0},3.2,()=>{
-    tween({x:0,y:EYE,z:30,yaw:PI,pitch:.04},6.5,()=>{setMode('walk');say('GRAND CASINO DECK','이용 시간은 입장 후 60분입니다 · 오른쪽에 칩 교환소·보관소·바',5200);});});
+    tween({x:0,y:EYE,z:30,yaw:PI,pitch:.04},6.5,()=>{setMode('walk');say('GRAND CASINO DECK','오른쪽에 칩 교환소·보관소·바, 정면이 메인 플로어입니다',5200);});});
 }
 function sitAt(h){
   setMode('seat');curSeat=h;
@@ -1130,44 +1128,7 @@ $('v-tour').addEventListener('click',()=>{if(mode==='tour'){exitTour();return;}i
 $('v-sound').addEventListener('click',e=>{Au.on=!Au.on;if(Au.on&&!Au.c){auInit();if(Au.c&&mode!=='lobby')Au.door.frequency.value=18000;}
   if(Au.c){if(Au.on)Au.c.resume();Au.master.gain.setTargetAtTime(Au.on?(mode==='lobby'?.38:VOL):0,Au.c.currentTime,.1);}e.currentTarget.setAttribute('aria-pressed',Au.on?'true':'false');});
 let ageOK=false;
-/* ---------- visit time: 60 minutes per entry, one more hour after a 2-hour break (kept in this browser only) ---------- */
-const VISIT_MS=60*60e3,BREAK_MS=2*60*60e3,VKEY='rflcasino.visit';
-let visit={day:'',n:0,start:0,end:0},warned=0,ejecting=false,visitT=0;
-const kstDay=()=>new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
-function loadVisit(){try{const v=JSON.parse(localStorage.getItem(VKEY)||'null');if(v&&v.day)visit=v;}catch(e){}if(visit.day!==kstDay())visit={day:kstDay(),n:0,start:0,end:0};}
-function saveVisit(){try{localStorage.setItem(VKEY,JSON.stringify(visit));}catch(e){}}
-const mmss=ms=>{const t=Math.max(0,Math.ceil(ms/1000));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
-function admit(){ // may this visitor go in now?
-  loadVisit();const now=Date.now();
-  if(visit.start&&now<visit.start+VISIT_MS){warned=0;enterCasino();return;}                 // still inside the current hour
-  if(visit.start){visit.end=visit.start+VISIT_MS;visit.start=0;}
-  if(visit.n===0||(visit.n===1&&now>=visit.end+BREAK_MS)){visit.n++;visit.start=now;warned=0;saveVisit();enterCasino();return;}
-  saveVisit();
-  if(visit.n===1){const w=visit.end+BREAK_MS-now;say('재입장 대기 중','1시간 이용을 마치셨습니다. '+Math.ceil(w/60e3)+'분 뒤 1시간을 한 번 더 이용하실 수 있습니다',6000);speak('이용 시간을 마치셨습니다. 두 시간 휴식 후 한 번 더 이용하실 수 있습니다.');}
-  else{say('오늘 이용 종료','오늘 이용 가능한 2회를 모두 쓰셨습니다. 내일 다시 방문해 주세요',6000);speak('오늘 이용 시간을 모두 사용하셨습니다. 내일 다시 방문해 주십시오.');}
-}
-function eject(){ // time is up: staff walk the visitor back out to the lobby
-  if(ejecting||mode==='gate'||mode==='lobby')return;ejecting=true;
-  visit.end=Date.now();visit.start=0;saveVisit();
-  $('game').hidden=true;$('gbody').innerHTML='';curSeat=null;tw=null;guideAsk=null;bubble.hidden=true;refund();paint();
-  if(mode==='tour')camFromTour();cam.y=EYE;cam.pitch=0;if(Au.c)Au.master.gain.setTargetAtTime(Au.on?VOL:0,Au.c.currentTime,.3);
-  setMode('enter');$('views').hidden=true;
-  say('이용 시간 종료','1시간 이용을 마치셨습니다. 직원이 입구까지 안내해 드립니다',6000);speak('이용 시간이 종료되었습니다. 입구까지 안내해 드리겠습니다.');
-  const out=()=>tween({x:0,y:EYE,z:46.5,yaw:0,pitch:0},3.2,()=>{doorTarget=0;tween({x:0,y:EYE,z:59,yaw:0,pitch:0},5,()=>tween({x:0,y:EYE,z:60.2,yaw:PI,pitch:0},2.2,()=>{
-    ejecting=false;setMode('lobby');if(Au.c){Au.door.frequency.setTargetAtTime(380,Au.c.currentTime,.4);Au.master.gain.setTargetAtTime(Au.on?.38:0,Au.c.currentTime,.4);}
-    say(visit.n>=2?'오늘 이용 종료':'다음 입장은 2시간 뒤',visit.n>=2?'내일 다시 방문해 주세요':'2시간 휴식 후 1시간을 한 번 더 이용하실 수 있습니다',7000);}),true);},true);
-  if(cam.z>41)out();else{const pts=route(0,37.5);pts.push({x:0,z:37.5});walkPath(pts,0,out);}
-}
-function visitTick(dt){
-  visitT-=dt;if(visitT>0)return;visitT=.5;const el=$('left');
-  if(!visit.start||mode==='gate'||mode==='lobby'){el.hidden=true;return;}
-  const left=visit.start+VISIT_MS-Date.now();el.hidden=false;el.textContent='남은 시간 '+mmss(left);el.classList.toggle('low',left<5*60e3);
-  if(ejecting||mode==='enter')return;
-  if(left<=0){if(spinning&&spinS&&!spinS.npc)return;eject();return;}                           // let a spin in progress finish
-  if(left<10*60e3&&warned<1){warned=1;showBubble('이용 시간이 10분 남았습니다.','60분이 되면 입구로 안내해 드립니다',null,null,5000);speak('이용 시간이 10분 남았습니다.');}
-  else if(left<60e3&&warned<2){warned=2;showBubble('이용 시간이 1분 남았습니다.','진행 중인 판을 마무리해 주세요',null,null,5000);speak('이용 시간이 1분 남았습니다.');}
-}
-function askAge(){if(mode!=='lobby')return;if(ageOK){admit();return;}$('agemsg').textContent='';$('age').hidden=false;$('enter').hidden=true;
+function askAge(){if(mode!=='lobby')return;if(ageOK){enterCasino();return;}$('agemsg').textContent='';$('age').hidden=false;$('enter').hidden=true;
   speak('만 19세 미만은 출입하실 수 없습니다. 생년월일을 확인하겠습니다.');gesture(lobbyStaff[3],3,2.5);setTimeout(()=>{try{$('dob-y').focus();}catch(e){}},50);}
 $('enter').addEventListener('click',askAge);
 $('agecancel').addEventListener('click',()=>{$('age').hidden=true;$('enter').hidden=mode!=='lobby';});
@@ -1177,7 +1138,7 @@ $('ageform').addEventListener('submit',ev=>{ev.preventDefault();
   if(!(y>=1900)||!(m>=1&&m<=12)||!(d>=1&&d<=31)||dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d||dt>now){msg.textContent='생년월일을 정확히 입력해 주세요. 예: 1990년 1월 1일';return;}
   let age=now.getFullYear()-y;if(now.getMonth()<m-1||(now.getMonth()===m-1&&now.getDate()<d))age--;
   if(age<19){msg.textContent='만 '+age+'세입니다. 만 19세 미만은 입장하실 수 없습니다.';speak('죄송합니다. 만 19세 미만은 입장하실 수 없습니다.');return;}
-  ageOK=true;$('age').hidden=true;$('dob-y').value=$('dob-m').value=$('dob-d').value='';$('enter').hidden=mode!=='lobby';admit();});
+  ageOK=true;$('age').hidden=true;$('dob-y').value=$('dob-m').value=$('dob-d').value='';enterCasino();});
 $('guide').addEventListener('click',()=>$('v-tour').click());
 function begin(sound){Au.on=sound;if(sound)auInit();if(Au.c)Au.c.resume();$('v-sound').setAttribute('aria-pressed',sound?'true':'false');$('gate').classList.add('gone');setMode('lobby');
   say('RFL CRUISE CASINO','만 19세 미만 출입 금지 · 화살표를 눌러 입장하세요',4200);}
@@ -1296,7 +1257,7 @@ const ease=u=>u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;
 function tick(){
   requestAnimationFrame(tick);
   const dt=Math.min(clock.getDelta(),.1);time+=dt;frame++;
-  const gaming=!$('game').hidden;if(gaming&&frame%6){visitTick(dt);return;}
+  const gaming=!$('game').hidden;if(gaming&&frame%6)return;
   fpsT+=dt;fpsN++;if(fpsT>2){const fps=fpsN/fpsT;fpsT=0;fpsN=0;
     if(fps<24&&time>5&&!gaming){slow++;if(pr>1){pr=Math.max(1,pr-.4);resize();}else if(bloom&&bloom.enabled&&slow>1){bloom.enabled=false;}}}
   // doors
@@ -1350,7 +1311,7 @@ function tick(){
   else if(pY[GUIDE]>-1){pY[GUIDE]=-60;sync(GUIDE);}
   if(mode!=='tour'&&mode!=='walk')movingNow=false;
   else{camera.position.set(cam.x,cam.y,cam.z);camera.rotation.set(cam.pitch,cam.yaw+PI,camRoll);}
-  encUpdate(dt);stepAside();visitTick(dt);
+  encUpdate(dt);stepAside();
   if(mode==='wheel'&&frame%2===0){ // the SPIN button rides on the wheel's rim
     v3.set(WR*.74,WY-WR*.74,WZ+.6).project(camera);const sb=$('spin'),rt=$('rail').getBoundingClientRect(),W2=innerWidth,H2=innerHeight;
     let sx=(v3.x*.5+.5)*W2,sy=(-v3.y*.5+.5)*H2;if(v3.z>1){sx=W2/2;sy=H2/2;}
@@ -1362,7 +1323,7 @@ function tick(){
 }
 tick();
 if(window.claude&&window.claude.hot&&window.claude.hot.snapshot){try{window.claude.hot.snapshot(()=>({bal}));}catch(e){}}
-window.__rfl={visit:()=>visit,setLeft:sec=>{visit.start=Date.now()-VISIT_MS+sec*1000;saveVisit();warned=sec>60?0:1;visitT=0;},setBreakLeft:sec=>{visit.end=Date.now()-BREAK_MS+sec*1000;saveVisit();},near:()=>{let m=9;const A=aPos.array;for(let i=0;i<nP;i++){if(A[i*3+1]<-1||A[i*3+1]>2)continue;const d=Math.hypot(A[i*3]-cam.x,A[i*3+2]-cam.z);if(d<m)m=d;}return +m.toFixed(2);},enc:()=>enc?[enc.e.t,enc.ph,+enc.t.toFixed(1),enc.n||0]:['-',+encT.toFixed(1),encI,movingNow],people:()=>nP,mode:()=>mode,cam,hotspots,sitAt,joinWheel,audio:Au};
+window.__rfl={near:()=>{let m=9;const A=aPos.array;for(let i=0;i<nP;i++){if(A[i*3+1]<-1||A[i*3+1]>2)continue;const d=Math.hypot(A[i*3]-cam.x,A[i*3+2]-cam.z);if(d<m)m=d;}return +m.toFixed(2);},enc:()=>enc?[enc.e.t,enc.ph,+enc.t.toFixed(1),enc.n||0]:['-',+encT.toFixed(1),encI,movingNow],people:()=>nP,mode:()=>mode,cam,hotspots,sitAt,joinWheel,audio:Au};
 }
 
 function boot(){const go=()=>{try{(window.claude&&window.claude.hot&&window.claude.hot.ready)?window.claude.hot.ready(start):start((window.claude&&window.claude.hot&&window.claude.hot.data)||{});}
