@@ -493,80 +493,65 @@ diamond.add(glow(0x9fdcff,6,.4));
    ===================================================================== */
 const NP=1040;let nP=0;
 const pX=new Float32Array(NP),pZ=new Float32Array(NP),pY=new Float32Array(NP),pYaw=new Float32Array(NP),pS=new Float32Array(NP),pPh=new Float32Array(NP),
-      pAL=new Float32Array(NP),pAR=new Float32Array(NP),pGT=new Float32Array(NP),pGD=new Float32Array(NP),pFlag=new Uint8Array(NP),pG=new Uint8Array(NP),pTray=new Int16Array(NP).fill(-1);
-const pmat=new T.MeshLambertMaterial({color:0xffffff});
-function part(geo){const m=new T.InstancedMesh(geo,pmat,NP);m.frustumCulled=false;scene.add(m);return m;}
-const gLeg=new T.BoxGeometry(.14,.84,.16);gLeg.translate(0,-.42,0);
-const gTorso=new T.CylinderGeometry(.2,.16,.6,10);gTorso.scale(1.2,1,.72);
-const gSkirt=new T.CylinderGeometry(.17,.3,.62,10);gSkirt.scale(1,1,.85);gSkirt.translate(0,-.31,0);
-const gArm=new T.BoxGeometry(.095,.62,.11);gArm.translate(0,-.31,0);
-const gHead=new T.SphereGeometry(.115,10,8);gHead.scale(1,1.15,1);
-const gHair=new T.SphereGeometry(.127,10,6,0,TAU,0,PI*.56);
-const gFront=new T.BoxGeometry(.13,.36,.03);
-const gGlass=new T.CylinderGeometry(.032,.022,.11,6);
-const P={legL:part(gLeg),legR:part(gLeg),torso:part(gTorso),skirt:part(gSkirt),armL:part(gArm),armR:part(gArm),head:part(gHead),hair:part(gHair),front:part(gFront),glass:part(gGlass)};
-const PK=Object.keys(P);
-const trays=new T.InstancedMesh(new T.CylinderGeometry(.21,.21,.025,16),gold,24);trays.frustumCulled=false;trays.count=0;scene.add(trays);let nTray=0;
-function setM(m,i,x,y,z,c,s,p,sx,sy,sz){const a=m.instanceMatrix.array,o=i*16,cp=Math.cos(p),sp=Math.sin(p);
-  a[o]=c*sx;a[o+1]=0;a[o+2]=-s*sx;a[o+3]=0;a[o+4]=s*sp*sy;a[o+5]=cp*sy;a[o+6]=c*sp*sy;a[o+7]=0;a[o+8]=s*cp*sz;a[o+9]=-sp*sz;a[o+10]=c*cp*sz;a[o+11]=0;a[o+12]=x;a[o+13]=y;a[o+14]=z;a[o+15]=1;}
-function pose(i){
-  const s=pS[i],f=pFlag[i],sit=f&1,yaw=pYaw[i],c=Math.cos(yaw),sn=Math.sin(yaw),x=pX[i],z=pZ[i];
-  let hip=pY[i]+(sit?1.08:.86*s),lean=sit?.1:0,lL=0,lR=0,aL=pAL[i],aR=pAR[i];
-  if(f&8){const w=Math.sin(pPh[i]);lL=w*.5;lR=-w*.5;aL=-w*.4;if(!(f&4)&&pTray[i]<0)aR=w*.4;hip+=Math.abs(Math.cos(pPh[i]))*.025;}
-  if(sit){lL=lR=-.62;}
-  const g=pG[i];
+      pGT=new Float32Array(NP),pGD=new Float32Array(NP),pFlag=new Uint8Array(NP),pG=new Uint8Array(NP),pF=new Uint8Array(NP),pB=new Uint8Array(NP),pBow=new Int16Array(NP).fill(-1);
+// people.webp: 12 x 6 cells of photoreal cut-outs; each character has a front and a back cell (lobby staff: upright + bowing)
+const AT={cols:12,rows:6,h:1.93,file:'people.webp'};
+const CHR={guardA:[0,17,1],host:[2,2,3],mgrA:[4,23,5],guardD:[6,17,7],dealerM:[8,9],dealerF:[10,11],waiterM:[12,13],waiterF:[14,15],security:[16,17],cashier:[18,19],bartender:[20,21],manager:[22,23]};
+const GUEST_M=[24,28,32,36,40,44,48,52,56,60],GUEST_F=[26,30,34,38,42,46,50,54,58,62],WALK_M=[64,68],WALK_F=[66,70];
+const aPos=new T.InstancedBufferAttribute(new Float32Array(NP*3),3),aInfo=new T.InstancedBufferAttribute(new Float32Array(NP*4),4),aAnim=new T.InstancedBufferAttribute(new Float32Array(NP*2),2);
+[aPos,aInfo,aAnim].forEach(a=>a.setUsage(T.DynamicDrawUsage));
+const pUni={map:{value:null},uCam:{value:new T.Vector3()},uTime:{value:0},uGrid:{value:new T.Vector2(AT.cols,AT.rows)},uLin:{value:1},uTint:{value:new T.Color(.86,.8,.72)},uFogC:{value:new T.Color(0x070605)},uFogD:{value:.0048}};
+const pGeo=new T.InstancedBufferGeometry();
+(function(){const q=new T.PlaneGeometry(1,1);q.translate(0,.5,0);pGeo.index=q.index;pGeo.setAttribute('position',q.attributes.position);pGeo.setAttribute('uv',q.attributes.uv);
+  pGeo.setAttribute('aPos',aPos);pGeo.setAttribute('aInfo',aInfo);pGeo.setAttribute('aAnim',aAnim);})();
+const pMat=new T.ShaderMaterial({uniforms:pUni,side:T.DoubleSide,
+  vertexShader:`attribute vec3 aPos;attribute vec4 aInfo;attribute vec2 aAnim;uniform vec3 uCam;uniform vec2 uGrid;uniform float uTime;varying vec2 vUv;varying float vD;
+  void main(){vec3 b=aPos;b.y+=aAnim.x;vec2 toC=normalize(uCam.xz-b.xz+vec2(1e-4));vec2 rt=vec2(toC.y,-toC.x);
+    float sit=step(aInfo.x,0.),h=abs(aInfo.x),w=h*.375;float v0=sit*.455,vh=1.-v0;vec2 fc=vec2(sin(aInfo.w),cos(aInfo.w));float cell=dot(fc,toC)>=-.08?aInfo.y:aInfo.z;
+    float sway=aAnim.y+sin(uTime*.9+aPos.x*3.1+aPos.z*1.7)*.012;
+    vec3 p=b+vec3(rt.x,0.,rt.y)*(position.x*w+position.y*sway)+vec3(0.,position.y*h*vh,0.);
+    float c=mod(cell,uGrid.x),r=floor(cell/uGrid.x);vUv=vec2((c+uv.x)/uGrid.x,1.-(r+1.-(v0+uv.y*vh))/uGrid.y);
+    vec4 mv=viewMatrix*vec4(p,1.);vD=-mv.z;gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`uniform sampler2D map;uniform float uLin;uniform vec3 uTint;uniform vec3 uFogC;uniform float uFogD;varying vec2 vUv;varying float vD;
+  void main(){vec4 t=texture2D(map,vUv);if(t.a<.5)discard;vec3 c=mix(t.rgb,pow(t.rgb,vec3(2.2)),uLin)*uTint;
+    float f=1.-exp(-uFogD*uFogD*vD*vD);gl_FragColor=vec4(mix(c,uFogC,f),1.);}`});
+const peopleMesh=new T.Mesh(pGeo,pMat);peopleMesh.frustumCulled=false;peopleMesh.visible=false;scene.add(peopleMesh);
+// soft contact shadows under everyone
+const shGeo=new T.InstancedBufferGeometry();
+(function(){const q=new T.PlaneGeometry(1,1);q.rotateX(-PI/2);shGeo.index=q.index;shGeo.setAttribute('position',q.attributes.position);shGeo.setAttribute('uv',q.attributes.uv);shGeo.setAttribute('aPos',aPos);})();
+const shadowMesh=new T.Mesh(shGeo,new T.ShaderMaterial({transparent:true,depthWrite:false,
+  vertexShader:`attribute vec3 aPos;varying vec2 vUv;void main(){vUv=uv;vec3 p=aPos+vec3(position.x*.95,.07,position.z*.6);gl_Position=projectionMatrix*viewMatrix*vec4(p,1.);}`,
+  fragmentShader:`varying vec2 vUv;void main(){float d=length(vUv-.5)*2.;gl_FragColor=vec4(0.,0.,0.,.55*smoothstep(1.,.15,d));}`}));
+shadowMesh.frustumCulled=false;shadowMesh.visible=false;scene.add(shadowMesh);
+new T.TextureLoader().load(AT.file,t=>{t.anisotropy=8;t.minFilter=T.LinearMipmapLinearFilter;pUni.map.value=t;peopleMesh.visible=shadowMesh.visible=true;},undefined,()=>{console.warn('people atlas missing: '+AT.file);});
+function sync(i){
+  const f=pFlag[i],g=pG[i];let lift=(f&1)?1.02:0,sway=0,front=pF[i];
+  if(f&8){lift+=Math.abs(Math.cos(pPh[i]))*.03;sway=Math.sin(pPh[i])*.014;}
   if(g){const e=Math.min(1,Math.sin((1-pGT[i]/pGD[i])*PI)*2.2);
-    if(g===1){aR+=(-2.2-aR)*e;}
-    else if(g===2){const w=Math.sin(time*14+i);aL+=(-2.75+w*.25-aL)*e;aR+=(-2.75-w*.25-aR)*e;if(!sit)hip+=Math.abs(Math.sin(time*9+i))*.07*e;}
-    else if(g===3){aR+=(-1.05+Math.sin(time*7+i)*.35-aR)*e;}
-    else if(g===4){lean=.6*e;}
-    else if(g===5){const w=Math.sin(time*4+i);aR=-1.0+w*.45;aL=-1.0-w*.45;}
-  }
-  const cl=Math.cos(lean),sl=Math.sin(lean);
-  const hx=.09*s;
-  setM(P.legL,i,x-hx*c,hip,z+hx*sn,c,sn,lL,s,sit?s*.92:s,s);
-  setM(P.legR,i,x+hx*c,hip,z-hx*sn,c,sn,lR,s,sit?s*.92:s,s);
-  if(f&2)setM(P.skirt,i,x,hip+.03,z,c,sn,sit?-.5:0,s,s,s);else setM(P.skirt,i,x,-5,z,1,0,0,0,0,0);
-  // upper body leans about the hip
-  let oy=.3*s,lz=oy*sl;setM(P.torso,i,x+lz*sn,hip+oy*cl,z+lz*c,c,sn,lean,s,s,s);
-  oy=.33*s;let oz=.125*s,ly=oy*cl-oz*sl;lz=oy*sl+oz*cl;setM(P.front,i,x+lz*sn,hip+ly,z+lz*c,c,sn,lean,s,s,s);
-  oy=.77*s;oz=.01;ly=oy*cl-oz*sl;lz=oy*sl+oz*cl;const hxw=x+lz*sn,hyw=hip+ly,hzw=z+lz*c;
-  setM(P.head,i,hxw,hyw,hzw,c,sn,lean*.6,s,s,s);
-  if(f&16)setM(P.hair,i,hxw-.03*sn,hyw-.01,hzw-.03*c,c,sn,lean*.6-.25,s*1.08,s*1.75,s*1.12);else setM(P.hair,i,hxw-.008*sn,hyw+.02,hzw-.008*c,c,sn,lean*.6-.2,s,s,s);
-  oy=.56*s;ly=oy*cl;lz=oy*sl;const ax=.255*s,sy=hip+ly;
-  setM(P.armL,i,x-ax*c+lz*sn,sy,z+ax*sn+lz*c,c,sn,lean+aL,s,s,s);
-  const rx=x+ax*c+lz*sn,rz=z-ax*sn+lz*c,ap=lean+aR;
-  setM(P.armR,i,rx,sy,rz,c,sn,ap,s,s,s);
-  const hl=.66*s,hy=sy-hl*Math.cos(ap),hd=-hl*Math.sin(ap)+.03;
-  if(f&4)setM(P.glass,i,rx+hd*sn,hy+.03,rz+hd*c,c,sn,0,1,1,1);else setM(P.glass,i,x,-5,z,1,0,0,0,0,0);
-  if(pTray[i]>=0)setM(trays,pTray[i],rx+hd*sn,hy+.04,rz+hd*c,c,sn,0,1,1,1);
+    if(g===2)lift+=Math.abs(Math.sin(time*9+i))*.11*e;
+    else if(g===4){if(e>.35&&pBow[i]>=0)front=pBow[i];}
+    else sway+=Math.sin(time*3+i)*.02*e;}
+  let o=i*3;aPos.array[o]=pX[i];aPos.array[o+1]=pY[i];aPos.array[o+2]=pZ[i];
+  o=i*4;aInfo.array[o]=AT.h*pS[i]*((f&1)?-1:1);aInfo.array[o+1]=front;aInfo.array[o+2]=(g===4&&front!==pF[i])?front:pB[i];aInfo.array[o+3]=pYaw[i];
+  o=i*2;aAnim.array[o]=lift;aAnim.array[o+1]=sway;
 }
-const SKIN=[0xf1c9a5,0xe0ac82,0xc98e62,0xa9744f,0x7a4f32,0xf6d7bd,0xe8b890],HAIR=[0x15100c,0x2a1a10,0x4a2f1a,0x8a5a2a,0xc9a25a,0x777777,0x0a0a0a,0x7a2a1a,0x1a1410,0x100c0a];
-const SUIT=[0x14161c,0x1c2233,0x2a2a30,0x3a1420,0x0f2a26,0xe8e4da,0x4a3a2a,0x23304a,0x101014],DRESS=[0xb3122e,0x0e7a5a,0xe6c878,0x101014,0x2a4fd0,0xf2ead8,0xd94f8a,0x6a2a9a,0x1fc7c0,0xc0392b];
+const pose=sync;
 const col=new T.Color();
 function addP(x,z,yaw,o){
   if(nP>=NP)return -1;o=o||{};const i=nP++,role=o.role||'guest',fem=o.fem!==undefined?o.fem:rnd()<.47;
-  pX[i]=x;pZ[i]=z;pY[i]=o.y||0;pYaw[i]=yaw;pS[i]=(fem?.93:1)*(.95+rnd()*.1);pPh[i]=rnd()*TAU;
-  const skin=pick(SKIN),hair=pick(HAIR);let top,arm,leg,front,dress=false;
-  switch(role){
-    case 'dealer':top=0x5a0f1e;arm=0xf4f1ea;leg=0x0c0c10;front=0xf4f1ea;break;
-    case 'security':top=arm=leg=0x0b0b0e;front=0xdedad0;break;
-    case 'waiter':top=arm=leg=0x0b0b0e;front=0xffffff;break;
-    case 'manager':top=arm=leg=0x2a2c34;front=0xe6c878;break;
-    case 'host':top=arm=0xb3122e;leg=skin;front=0xe6c878;dress=true;break;
-    case 'cashier':top=0xc9a24a;arm=0xf4f1ea;leg=0x0c0c10;front=0xf4f1ea;break;
-    default:
-      if(fem&&rnd()<.68){dress=true;top=pick(DRESS);arm=rnd()<.6?skin:top;leg=skin;front=top;}
-      else{top=pick(SUIT);arm=top;leg=rnd()<.7?0x101014:top;front=rnd()<.75?0xf4f1ea:top;}
-  }
-  pFlag[i]=(o.sit?1:0)|(dress?2:0)|(o.glass?4:0)|(o.walk?8:0)|(fem?16:0);
-  pAL[i]=o.sit?-1.0:(o.armL||0);pAR[i]=o.sit?-1.0:(o.glass?-1.05:(o.armR||0));
-  if(o.tray&&nTray<24){pTray[i]=nTray++;pAR[i]=-1.4;}
-  if(o.gest){pG[i]=o.gest;pGD[i]=1;pGT[i]=.5;}
-  const set=(k,h)=>{col.setHex(h);P[k].setColorAt(i,col);};
-  set('legL',leg);set('legR',leg);set('torso',top);set('skirt',top);set('armL',arm);set('armR',arm);set('head',skin);set('hair',hair);set('front',front);set('glass',0xffe2a0);
-  pose(i);return i;
+  pX[i]=x;pZ[i]=z;pY[i]=o.y||0;pYaw[i]=yaw;pS[i]=.97+rnd()*.06;pPh[i]=rnd()*TAU;
+  let c;
+  if(o.ch)c=CHR[o.ch];
+  else if(role==='dealer')c=fem?CHR.dealerF:CHR.dealerM;
+  else if(role==='waiter')c=fem?CHR.waiterF:CHR.waiterM;
+  else if(role==='host')c=CHR.host;
+  else if(CHR[role])c=CHR[role];
+  else{const f=o.walk&&rnd()<.5?pick(fem?WALK_F:WALK_M):pick(fem?GUEST_F:GUEST_M);c=[f,f+1];}
+  pF[i]=c[0];pB[i]=c[1];pBow[i]=c.length>2?c[2]:-1;
+  pFlag[i]=(o.sit?1:0)|(o.walk?8:0)|(fem?16:0);
+  sync(i);return i;
 }
+function finishPeople(){pGeo.instanceCount=nP;shGeo.instanceCount=nP;aPos.needsUpdate=aInfo.needsUpdate=aAnim.needsUpdate=true;}
 const faceTo=(x,z,tx,tz)=>Math.atan2(tx-x,tz-z);
 const always=[];   // dealers, bartenders: animate every frame
 const groups=[];   // {x,z,people:[]} — a table's crowd, for cheers
@@ -594,7 +579,7 @@ function cardTable(Pt,game){
   at(bFelt[game],Pt,0,1.05,0);at(bRim,Pt,0,1.1,0);at(bGoldBox,Pt,0,1.05,.12,5.6,.2,.26);
   at(bWoodCyl,Pt,0,.5,-1,.55,1,.55);at(bGoldCyl,Pt,0,.05,-1,1.2,.1,1.2);
   const c=loc(Pt,0,-1.1),grp={x:c[0],z:c[1],people:[]};groups.push(grp);obst.push({x:c[0],z:c[1],r:2.9});
-  const d=loc(Pt,0,.62),di=addP(d[0],d[1],faceTo(d[0],d[1],c[0],c[1]),{role:'dealer',gest:5});always.push(di);
+  const d=loc(Pt,0,.62),di=addP(d[0],d[1],faceTo(d[0],d[1],c[0],c[1]),{role:'dealer'});always.push(di);
   const empty=2,skip=rnd()<.35?(rnd()<.5?0:4):-1;
   for(let k=0;k<5;k++){const a=(30+k*30)*PI/180,cx=Math.cos(a),cz=-Math.sin(a);
     stool(Pt,cx*3.5,cz*3.5);const sp=loc(Pt,cx*3.5,cz*3.5);
@@ -642,7 +627,7 @@ function rouletteTable(Pt){
   const grp={x:Pt.x,z:Pt.z,people:[]};groups.push(grp);
   for(let k=0;k<7;k++)stack(Pt,-.4+rnd()*2.8,-1.2+rnd()*2.4,1+(rnd()*6|0),(rnd()*6)|0);
   for(let k=0;k<6;k++)stack(Pt,2.9,-1.3+k*.5,12,k);
-  const dl=loc(Pt,-.4,-2.35),di=addP(dl[0],dl[1],faceTo(dl[0],dl[1],Pt.x,Pt.z),{role:'dealer',gest:5});always.push(di);
+  const dl=loc(Pt,-.4,-2.35),di=addP(dl[0],dl[1],faceTo(dl[0],dl[1],Pt.x,Pt.z),{role:'dealer'});always.push(di);
   [-2,-.6,.8,2.2].forEach((lx,k)=>{stool(Pt,lx,2.6);const sp=loc(Pt,lx,2.6),tc=loc(Pt,lx,0);
     if(k===2){const st=loc(Pt,lx,3.7);seatSpot('roulette',sp[0],sp[1],tc[0],tc[1],st[0],st[1]);return;}
     grp.people.push(addP(sp[0],sp[1],faceTo(sp[0],sp[1],tc[0],tc[1]),{sit:1}));});
@@ -722,7 +707,7 @@ const CX=40.9;
     const cs=['#0e7a5a','#7d0c22','#1c2f8f','#3a1c0c','#e8e4da','#101014','#c9a24a'];
     for(let r=0;r<3;r++){g.fillStyle='#1a0e06';g.fillRect(0,(r+1)*82-6,w,8);for(let x=8;x<w-10;x+=15+rnd()*8){const bh=38+rnd()*26,bw=9+rnd()*4;g.fillStyle=pick(cs);g.globalAlpha=.88;g.fillRect(x,(r+1)*82-6-bh,bw,bh);g.fillRect(x+bw/2-2,(r+1)*82-6-bh-10,4,10);}g.globalAlpha=1;}});
   signPlane(shelf,17,5,54.6,3.4,.5,-PI/2);mesh(box,warm,48,9.4,.5).scale.set(.3,.08,18);
-  [-4,2,6].forEach(z=>{const b=addP(52.6,z,-PI/2,{role:'waiter',gest:5});always.push(b);});
+  [-4,2,6].forEach(z=>{addP(52.6,z,-PI/2,{role:'bartender',fem:false});});
   for(let z=-6;z<=7;z+=2.6){bVelvetCyl.add(49.6,.98,z,0,.4,.16,.4);bGoldCyl.add(49.6,.5,z,0,.055,.9,.055);addP(49.6,z,PI/2,{sit:1,glass:true});}
   [[44,-6],[45.5,-1.5],[44,3],[45.8,8]].forEach(t=>{bGoldCyl.add(t[0],.55,t[1],0,.06,1.1,.06);bLacqCyl.add(t[0],1.12,t[1],0,.5,.05,.5);bGoldCyl.add(t[0],.03,t[1],0,.32,.06,.32);
     const n=3+(rnd()*2|0);for(let k=0;k<n;k++){const a=k/n*TAU+rnd(),x=t[0]+Math.cos(a)*.9,z=t[1]+Math.sin(a)*.9;addP(x,z,faceTo(x,z,t[0],t[1]),{glass:true});}});
@@ -735,7 +720,7 @@ const CX=40.9;
   const n=3+(rnd()*2|0);for(let k=0;k<n;k++){const a=k/n*TAU+rnd(),x=t[0]+Math.cos(a)*.95,z=t[1]+Math.sin(a)*.95;grp.people.push(addP(x,z,faceTo(x,z,t[0],t[1]),{glass:true}));}});
 
 /* ---------- lobby staff & arriving guests ---------- */
-const lobbyStaff=[addP(-5.7,44.2,0,{role:'security',fem:false}),addP(5.7,44.2,0,{role:'security',fem:false}),addP(-2.9,46.4,.25,{role:'host',fem:true}),addP(2.9,46.4,-.25,{role:'manager',fem:false})];
+const lobbyStaff=[addP(-5.7,44.2,0,{ch:'guardA',fem:false}),addP(5.7,44.2,0,{ch:'guardD',fem:false}),addP(-2.9,46.4,.25,{ch:'host',fem:true}),addP(2.9,46.4,-.25,{ch:'mgrA',fem:false})];
 [[-5.4,47.6],[-6.6,49.3],[-5.3,51],[-6.9,52.6],[-5.6,54.4]].forEach((p,k)=>addP(p[0],p[1],faceTo(p[0],p[1],-2,44)+(rnd()-.5)*.6,{fem:k%2===0}));
 
 /* ---------- the wheel's crowd ---------- */
@@ -743,7 +728,7 @@ const wheelGroup={x:0,z:WZ+14,people:[]};groups.push(wheelGroup);
 for(let k=0;k<8;k++){const a=(-42+k*12)*PI/180;if(k===4)continue;const x=Math.sin(a)*14.1,z=WZ+Math.cos(a)*14.1;wheelGroup.people.push(addP(x,z,faceTo(x,z,0,WZ),{}));}
 wheelGroup.people.push(addP(-1.3,WZ+14.1,PI,{}));
 for(let k=0;k<21;k++){const a=(-62+k*6.2+(rnd()-.5)*3)*PI/180,r=15.3+rnd()*1.3;if(Math.abs(a)<.22)continue;const x=Math.sin(a)*r,z=WZ+Math.cos(a)*r;wheelGroup.people.push(addP(x,z,faceTo(x,z,0,WZ)+(rnd()-.5)*.3,{glass:rnd()<.55}));}
-always.push(addP(4.6,WZ+5.2,.2,{role:'dealer',y:1.35,gest:5}));
+addP(4.6,WZ+5.2,.2,{role:'dealer',y:1.35});
 hotspots.push({type:'wheel',x:0,y:2.7,z:WZ+17.2,sx:0,sz:WZ+17.5,yaw:PI});
 
 /* ---------- security on the floor, balcony guests ---------- */
@@ -773,7 +758,7 @@ for(let k=0;k<300;k++)addWalker({glass:rnd()<.2});
     for(let k=0;k<n&&nP<TARGET;k++){const a=k/n*TAU+rnd()*.8,px=x+Math.cos(a)*.62,pz=z+Math.sin(a)*.62;grp.people.push(addP(px,pz,faceTo(px,pz,x,z),{glass:rnd()<.6}));}
   }
 })();
-PK.forEach(k=>{P[k].count=nP;P[k].instanceColor.needsUpdate=true;});trays.count=nTray;
+finishPeople();
 
 [bShaft,bGoldCyl,bGoldBox,bWarmCyl,bLacq,bWood,bWoodCyl,bGoldSph,bVelvetCyl,bLacqCyl,bBal,bArch,bRim,bCard,bLayout]
   .concat(Object.keys(bFelt).map(k=>bFelt[k]),bChip,bScreen,bTop,bNeon).forEach(b=>{if(b.l.length)b.build();});
@@ -826,6 +811,7 @@ function buildComposer(){
   composer.addPass(new T.ShaderPass(T.GammaCorrectionShader));
 }
 try{buildComposer();}catch(e){composer=null;renderer.outputEncoding=T.sRGBEncoding;}
+if(!composer)pUni.uLin.value=0;
 
 /* =====================================================================
    SOUND — everything is synthesised; nearby games get louder
@@ -1038,18 +1024,17 @@ paint();setMode('gate');
 
 /* ---------- ambient life ---------- */
 const active=[];let gestT=0,cheerT=7,jackT=11,jackFlash=0;
-function gesture(i,g,d){if(i<0||pFlag[i]&8||pG[i]===5)return;if(!pG[i])active.push(i);pG[i]=g;pGD[i]=d;pGT[i]=d;}
+function gesture(i,g,d){if(i<0||pFlag[i]&8)return;if(!pG[i])active.push(i);pG[i]=g;pGD[i]=d;pGT[i]=d;}
 function life(dt){
-  gestT-=dt;while(gestT<=0){gestT+=.022;const i=R()*nP|0;if(pG[i]||pFlag[i]&8)continue;gesture(i,(pFlag[i]&4)?1:(R()<.07?2:3),1.8+R()*1.6);}
+  gestT-=dt;while(gestT<=0){gestT+=.022;const i=R()*nP|0;if(pG[i]||pFlag[i]&8)continue;gesture(i,R()<.06?2:3,1.8+R()*1.6);}
   for(let k=active.length-1;k>=0;k--){const i=active[k];pGT[i]-=dt;if(pGT[i]<=0){pG[i]=0;active[k]=active[active.length-1];active.pop();}pose(i);}
-  for(const i of always)if(i>=0)pose(i);
   for(const i of walkers){
     let a=nodes[wA[i]],b=nodes[wB[i]];wU[i]+=wSp[i]*dt/wLen[i];
     if(wU[i]>=1){const prev=wA[i];wA[i]=wB[i];const nb=nodes[wA[i]].n;let nx=nb[R()*nb.length|0];if(nx===prev&&nb.length>1)nx=nb[(nb.indexOf(nx)+1)%nb.length];
       wB[i]=nx;wU[i]=0;a=nodes[wA[i]];b=nodes[nx];wLen[i]=Math.hypot(b.x-a.x,b.z-a.z);}
     const u=wU[i];pX[i]=a.x+(b.x-a.x)*u+wOx[i];pZ[i]=a.z+(b.z-a.z)*u+wOz[i];
     pYaw[i]+=wrap(Math.atan2(b.x-a.x,b.z-a.z)-pYaw[i])*Math.min(1,dt*5);pPh[i]+=dt*wSp[i]*5.2;pose(i);}
-  PK.forEach(k=>{P[k].instanceMatrix.needsUpdate=true;});trays.instanceMatrix.needsUpdate=true;
+  aPos.needsUpdate=aInfo.needsUpdate=aAnim.needsUpdate=true;pUni.uCam.value.copy(camera.position);pUni.uTime.value=time;
   cheerT-=dt;if(cheerT<=0){cheerT=5+R()*9;const g=groups[R()*groups.length|0];if(g!==wheelGroup){g.people.forEach(i=>gesture(i,2,2.2+R()));cheerAt(g.x,g.z,g.people.length>5);}}
   jackT-=dt;if(jackT<=0&&slotPlayers.length){jackT=13+R()*18;const sp=slotPlayers[R()*slotPlayers.length|0];gesture(sp.i,2,3.2);jackpotAt(sp.x,sp.z);jackGlow.position.set(sp.x,3.6,sp.z);jackFlash=3;}
   jackFlash=Math.max(0,jackFlash-dt);jackGlow.material.opacity=jackFlash>0?(.35+.35*Math.sin(time*22))*Math.min(1,jackFlash):0;
